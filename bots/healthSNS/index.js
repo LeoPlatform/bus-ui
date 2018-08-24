@@ -44,12 +44,16 @@ exports.handler = require("leo-sdk/wrappers/cron")(async (event, context, callba
 					if (err || !lastReport) {
 						lastReport = {};
 					}
+					let runs = lastReport.value && lastReport.value.runs ? lastReport.value.runs+1 : 1;
 					let lastSns = lastReport.value && lastReport.value.lastSNS ? lastReport.value.lastSNS : null;
 					let tempLastSNS = lastSns;
 					let oldList = lastReport.value && lastReport.value.botIds ? lastReport.value.botIds : {};
-					let tagsObj = (lastReport.value && lastReport.value.tags) || {};
+                    let oldSuccess = lastReport.value && lastReport.value.success ? lastReport.value.success : {};
+                    let tagsObj = (lastReport.value && lastReport.value.tags) || {};
 					let newReportBots = {};
-					let CONSECUTIVE_DEFAULT = 2;
+					let newSuccess = {};
+					let recovering = [];
+					let CONSECUTIVE_DEFAULT = 3;
                     let all_Topics = Object.assign({},tagsObj,{"___default": SNS_TOPIC});
                     let all_Messages = all_Topics;
                     _.mapKeys(all_Topics , (value, key) => {
@@ -70,12 +74,30 @@ exports.handler = require("leo-sdk/wrappers/cron")(async (event, context, callba
 						health: {}
 					}, k));
 
+                    Object.keys(statsNodes).map((id) => {
+                        if (id in oldSuccess && alarmed.indexOf(id) === -1) {
+                            newSuccess[id] = oldSuccess[id] + 1;
+                        }
+                        else if (alarmed.indexOf(id) === -1){
+                            newSuccess[id] = 1;
+                        } else {
+                        	newSuccess[id] = 0;
+						}
+                        if (newSuccess[id] != undefined && oldSuccess[id] != undefined && oldSuccess[id] < CONSECUTIVE_DEFAULT && alarmed.indexOf(id) === -1) {
+                        	alarmed.push(id);
+                        	recovering.push(id);
+						}
+					});
+
 					alarmed.forEach(k => {
                         let skipOnReport = false;
                         let node = statsNodes[k];
                         let tagsArray = (node.tags && node.tags.split(',')) || [];
                         let consecutive_errors = ((node.expect && node.expect.consecutive_errors) && (typeof node.expect.consecutive_errors === 'number')) ? node.expect.consecutive_errors : CONSECUTIVE_DEFAULT;
-                        let alarmKeys = Object.keys(node.alarms);
+                        let alarmKeys;
+                        if (recovering.indexOf(node.id) === -1 && node.alarms) {
+							alarmKeys = Object.keys(node.alarms);
+                        }
                         if (node.id in oldList) {
                             newReportBots[node.id] = oldList[node.id] + 1;
                         } else {
@@ -94,7 +116,16 @@ exports.handler = require("leo-sdk/wrappers/cron")(async (event, context, callba
                         }
 						_.mapKeys(all_Topics , (value, key) => {
                             if (!skipOnReport && (key === '___default' || tagsArray.indexOf(key) > -1)) {
-								if (newReportBots[node.id] > (consecutive_errors-1) && newReportBots[node.id] !== consecutive_errors) {
+                            	if (recovering.indexOf(node.id) !== -1) {
+                                    all_Messages[key].message += `\nBot Name -     ${node.name || 'N/A'}
+Bot Id -            ${node.id}\n`;
+                                    if (node.owner === 'leo') {
+                                        all_Messages[key].message += `Owner -          Leo Owned\n`
+                                    }
+
+                                    // display bot status
+									all_Messages[key].message += `Bot Status:      Recovering\n`;
+								} else if (newReportBots[node.id] > (consecutive_errors-1) && newReportBots[node.id] !== consecutive_errors) {
 										all_Messages[key].message += `\nBot Name -     ${node.name || 'N/A'}
 Bot Id -            ${node.id}\n`;
 										if (node.owner === 'leo') {
@@ -156,7 +187,7 @@ Bot Id -            ${node.id}\n`;
                     let count = 0;
                     async.forEachOf(all_Topics, (obj, key, callback) => {
                     	count++;
-                        if ((obj.finalMessage !== '') && (lastSns === ts.valueOf()) || (newBotOnList && obj.newAlarmed)) {
+                        if (runs > CONSECUTIVE_DEFAULT && ((obj.finalMessage !== '') && (lastSns === ts.valueOf()) || (newBotOnList && obj.newAlarmed))) {
                             let reportTitle = "Bot Health Report:\n";
                             let tagName = '';
                             if (key !== '___default') {
@@ -166,10 +197,8 @@ Bot Id -            ${node.id}\n`;
                             obj.finalMessage = dashboardClick + encodeURI(DOMAIN_URL) + '\n\n\n' + reportTitle + tagName + obj.finalMessage + "\n\n";
                             lastSns = ts.valueOf();
                             sentEmail = true;
-                            console.log(obj.arn)
 							if (Array.isArray(obj.arn) && obj.arn.length>0) {
                                 for (let i = 0; i < obj.arn.length; i++) {
-                                	console.log(key, obj.arn[i])
                                     sendSNS(obj.arn[i], obj.finalMessage, "Leo Health Report")
                                 }
 							}
@@ -177,23 +206,15 @@ Bot Id -            ${node.id}\n`;
                         callback()
                     });
 
-					if (sentEmail) {
-                        dynamodb.saveSetting(SETTINGS_SNS, {
-							lastSNS: lastSns,
-							botIds: newReportBots,
-							tags: tagsObj
-                        }, function() {
-                        	callback();
-						})
-					} else {
-                        dynamodb.saveSetting(SETTINGS_SNS, {
-							lastSNS: tempLastSNS,
-							botIds: newReportBots,
-							tags: tagsObj
-                        }, function() {
-                            callback();
-                        })
-					}
+ 					dynamodb.saveSetting(SETTINGS_SNS, {
+						lastSNS: sentEmail ? lastSns : tempLastSNS,
+						botIds: newReportBots,
+						success: newSuccess,
+						tags: tagsObj,
+                        runs: runs
+					}, function() {
+						callback();
+					})
                 });
 			});
         });
@@ -217,6 +238,7 @@ function getAlarmedBots(data, callback) {
 function getLatest(callback) {
 	dynamodb.getSetting(SETTINGS_SNS, function (err, data) {
 		if (err) {
+			console.log(err)
 			callback(err);
 		} else {
 			if (!data || !data.value || !data.value.table) {
