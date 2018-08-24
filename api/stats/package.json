@@ -1,0 +1,36 @@
+{
+	"name": "stats_api",
+	"version": "1.0.1",
+	"description": "This is a sample ApiGateway Description",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "leo-cli test ."
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": "GET:/api/stats_v2",
+			"name": "Leo_Botmon_api_stats",
+			"handler": "handler",
+			"role": null,
+			"memory": 384,
+			"timeout": 10,
+			"env": {
+				"Resources": {
+					"LeoStats": "${LeoStats}"
+				}
+			},
+			"build": {
+				"include": [
+					"../../node_modules/later"
+				]
+			}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

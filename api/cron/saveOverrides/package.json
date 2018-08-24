@@ -1,0 +1,29 @@
+{
+	"name": "Leo_cron_save_overrides",
+	"version": "1.0.0",
+	"description": "Leo_cron Save Overrides",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "mocha --recursive"
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"POST:/api/cron/saveOverrides"
+			],
+			"name": "Leo_Botmon_api_setting_saveOverrides",
+			"handler": "handler",
+			"memory": 256,
+			"timeout": 10,
+			"secure": false,
+			"build": {}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

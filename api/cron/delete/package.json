@@ -1,0 +1,32 @@
+{
+	"name": "cron_delete_api",
+	"version": "1.0.0",
+	"description": "Cron Delete Api",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "mocha --recursive"
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"POST:/api/cron/delete/{id}",
+				"DELETE:/api/cron/delete/{id}",
+				"POST:/api/bot/delete/{id}",
+				"DELETE:/api/bot/delete/{id}"
+			],
+			"name": "Leo_Botmon_api_cron_delete",
+			"handler": "handler",
+			"memory": 256,
+			"timeout": 10,
+			"secure": false,
+			"build": {}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

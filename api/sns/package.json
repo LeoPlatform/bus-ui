@@ -1,0 +1,34 @@
+{
+	"name": "sns_api",
+	"version": "1.0.0",
+	"description": "SNS Api",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "leo-cli test ."
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"POST:/api/sns_save/{type}/{id}",
+				"GET:/api/sns_get"
+			],
+			"name": "Leo_Botmon_api_sns",
+			"handler": "handler",
+			"memory": 256,
+			"timeout": 30,
+			"secure": false,
+			"build": {},
+			"env": {
+				"StackName": "${AWS::StackName}"
+			},
+			"role": "LeoBotmonSnsRole"
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

@@ -1,0 +1,45 @@
+{
+	"name": "stats_processor",
+	"version": "1.0.1",
+	"description": "Reads stats events and writes them to the stats table",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "leo-cli test . "
+	},
+	"config": {
+		"leo": {
+			"type": "cron",
+			"handler": "handler",
+			"memory": 1536,
+			"timeout": 300,
+			"role": "LeoBotmonRole",
+			"env": {
+				"Resources": {
+					"LeoStats": "${LeoStats}"
+				}
+			},
+			"cron": {
+				"owner": "leo",
+				"settings": {
+					"batch": {
+						"size": {
+							"count": 1000,
+							"time": {
+								"seconds": 3
+							}
+						}
+					},
+					"source": "queue:monitor"
+				},
+				"ignoreMonitor": true,
+				"paused": false
+			}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

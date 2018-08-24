@@ -1,0 +1,33 @@
+{
+	"name": "cron_get_api",
+	"version": "1.0.0",
+	"description": "Cron Get Api",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "mocha --recursive"
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"GET:/api/cron/{id}",
+				"GET:/api/cron",
+				"GET:/api/bot/{id}",
+				"GET:/api/bot",
+				"POST:/api/bot"
+			],
+			"name": "Leo_Botmon_api_cron_get",
+			"handler": "handler",
+			"memory": 256,
+			"timeout": 10,
+			"secure": false,
+			"build": {}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

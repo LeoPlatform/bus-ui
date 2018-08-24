@@ -1,0 +1,34 @@
+{
+	"name": "dashboard_api",
+	"version": "1.0.0",
+	"description": "This is a sample ApiGateway Description",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "nodemon --exec \"mocha --recursive -w \""
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"GET:/api/dashboard/{type}/{id}",
+				"GET:/api/dashboard/{type}"
+			],
+			"name": "Leo_Botmon_api_dashboard",
+			"handler": "handler",
+			"role": null,
+			"memory": 384,
+			"timeout": 30,
+			"env": {
+				"Resources": {
+					"LeoStats": "${LeoStats}"
+				}
+			}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

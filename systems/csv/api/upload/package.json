@@ -1,0 +1,26 @@
+{
+  "name": "upload",
+  "version": "1.0.0",
+  "description": "This is a sample ApiGateway Description",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha --recursive -w "
+  },
+  "config": {
+    "leo": {
+      "type": "resource",
+      "uri": "POST:/api/upload",
+      "name": "Leo_csv_api_upload",
+      "handler": "handler",
+      "role": null,
+      "memory": 128,
+      "timeout": 3
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

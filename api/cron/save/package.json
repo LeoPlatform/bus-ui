@@ -1,0 +1,32 @@
+{
+	"name": "cron_save_api",
+	"version": "1.0.0",
+	"description": "Cron Save Api",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "mocha --recursive"
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"POST:/api/cron/save",
+				"PUT:/api/cron/save",
+				"POST:/api/bot/save",
+				"PUT:/api/bot/save"
+			],
+			"name": "Leo_Botmon_api_cron_save",
+			"handler": "handler",
+			"memory": 256,
+			"timeout": 10,
+			"secure": false,
+			"build": {}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

@@ -1,0 +1,25 @@
+{
+	"env": {
+		"Resources": {
+			"LeoStats": "Leo_cron_stats"
+		},
+		"leosdk": {
+			"kinesis": "Leo-KinesisStream-ATNV3XQO0YHV",
+			"firehose": "Leo-FirehoseStream-189A8WXE76MFS",
+			"s3": "leo-s3bus-1r0aubze8imm5",
+			"region": "us-west-2",
+			"resources": {
+				"LeoStream": "Leo_stream",
+				"LeoCron": "Leo_cron",
+				"LeoSettings": "Leo_setting",
+				"LeoSystem": "Leo_system",
+				"LeoEvent": "Leo_event",
+				"LeoArchive": "Leo_archive",
+				"Region": "us-west-2",
+				"LeoKinesisStream": "Leo-KinesisStream-ATNV3XQO0YHV",
+				"LeoS3": "leo-s3bus-1r0aubze8imm5",
+				"LeoFirehoseStream": "Leo-FirehoseStream-189A8WXE76MFS"
+			}
+		}
+	}
+}

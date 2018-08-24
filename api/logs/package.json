@@ -1,0 +1,31 @@
+{
+	"name": "logs_api",
+	"version": "1.0.0",
+	"description": "This is a sample ApiGateway Description",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "mocha --recursive -w "
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": "GET:/api/logs/{lambda}/{id}",
+			"name": "Leo_Botmon_api_logs",
+			"handler": "handler",
+			"role": null,
+			"memory": 256,
+			"timeout": 30,
+			"env": {
+				"Resources": {
+					"Region": "${AWS::Region}"
+				}
+			}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

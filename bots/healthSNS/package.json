@@ -1,0 +1,45 @@
+{
+	"name": "Leo_health_check",
+	"version": "1.0.5",
+	"description": "Bot Health Monitor",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "nodemon --exec \"leo-cli test .\""
+	},
+	"config": {
+		"leo": {
+			"type": "cron",
+			"handler": "handler",
+			"aws": {
+				"role": {
+					"ref": "core.roles.LeoHealthCheckRole"
+				}
+			},
+			"memory": 256,
+			"timeout": 10,
+			"cron": {
+				"owner": "leo",
+				"time": "30 */1 * * * *",
+				"paused": false
+			},
+			"env": {
+				"Resources": {
+					"SnsTopic": "${HealthCheckSNS}",
+					"DomainUrl": "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/Release",
+					"LeoStats": "${LeoStats}"
+				}
+			},
+			"build": {
+				"include": [
+					"../../node_modules/later"
+				]
+			}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

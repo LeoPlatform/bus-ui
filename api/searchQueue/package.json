@@ -1,0 +1,34 @@
+{
+	"name": "search_queue_api",
+	"version": "1.0.0",
+	"description": "This is a sample ApiGateway Description",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "leo-cli test ."
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"GET:/api/search/{queue}/{start}",
+				"GET:/api/search/{queue}/{start}/{query}"
+			],
+			"name": "Leo_Botmon_api_searchQueue",
+			"handler": "handler",
+			"role": null,
+			"memory": 512,
+			"timeout": 30,
+			"env": {
+				"Resources": {
+					"LeoStats": "${LeoStats}"
+				}
+			}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

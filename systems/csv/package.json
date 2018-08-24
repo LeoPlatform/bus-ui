@@ -1,0 +1,20 @@
+{
+  "name": "csv",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start": "nodemon --exec \"leo test .\"",
+    "test": "mocha --require ./test/bootstrap.js --recursive -w"
+  },
+  "config": {
+    "leo": {
+      "type": "microservice",
+      "name": "Leo_csv",
+      "restApiId": "",
+      "role": null
+    }
+  },
+  "author": "",
+  "license": "ISC"
+}

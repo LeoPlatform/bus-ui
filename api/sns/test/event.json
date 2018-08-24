@@ -1,0 +1,13 @@
+{
+	"body": {
+		"subscribe": false,
+		"protocol": "email",
+		"endpoint": "sreader@leoinsights.com",
+		"unSub": "arn:aws:sns:us-west-2:134898387190:sent-email:2bef056d-c61d-4e77-ba30-977ea63230b8"},
+	"requestContext": {"httpMethod":"GET"},
+	"params": {
+		"path": {"id": "arn:aws:sns:us-west-2:134898387190:sent-email", "type":"subscription"},
+		"querystring": {},
+		"header": {}
+	}
+}

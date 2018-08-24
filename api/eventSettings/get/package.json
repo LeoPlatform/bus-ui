@@ -1,0 +1,32 @@
+{
+	"name": "event_settings_get_api",
+	"version": "1.0.0",
+	"description": "Event Settings Get Api",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "mocha --recursive"
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"GET:/api/eventsettings/{event}",
+				"GET:/api/eventsettings",
+				"GET:/api/queue/{event}",
+				"GET:/api/queues"
+			],
+			"name": "Leo_Botmon_api_event_settings_get",
+			"handler": "handler",
+			"memory": 256,
+			"timeout": 10,
+			"secure": false,
+			"build": {}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

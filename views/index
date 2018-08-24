@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="mobile-web-app-capable" content="yes">
+	<link rel="manifest" href="${leo.static.uri}manifest.json">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+	<title>EventBus</title>
+    <base href="${leo.baseHref}" />
+	<link rel="icon" href="${leo.static.uri}images/icons/leo.png" type="image/png" />
+	<link rel="shortcut icon" href="${leo.static.uri}images/icons/leo.png" type="image/png" />
+
+	<link href="//fonts.googleapis.com/css?family=Lato&amp;subset=latin,latin-ext" rel="stylesheet" type="text/css" />
+
+	<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css" />
+
+	<!-- code mirror -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/codemirror.min.css" />
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/theme/eclipse.min.css" />
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/addon/lint/lint.min.css" />
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/dialog/dialog.min.css" integrity="sha256-YJKyPh6e25gWJyCXgvzIKoFDE1i3lw9UqKwrk0h29wQ=" crossorigin="anonymous" />
+	<!-- code mirror -->
+
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.min.css" rel="stylesheet" />
+	<link rel="stylesheet" href="${leo.static.uri}css/index.css">
+
+	<script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
+	<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
+
+	<script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js"></script>
+	<script src="${leo.static.uri}js/aws-sdk.min.js"></script>
+	<script type="text/javascript" src="${leo.static.uri}js/leoApiGateway.js"></script>
+
+	<script src="//cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.12/clipboard.min.js"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/numeral.js/1.4.5/numeral.min.js"></script>
+
+	<!-- code mirror -->
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/codemirror.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/mode/javascript/javascript.min.js"></script>
+
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/addon/edit/closebrackets.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/addon/edit/matchbrackets.min.js"></script>
+
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jshint/2.9.1/jshint.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jsonlint/1.6.0/jsonlint.min.js"></script>
+
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/addon/lint/lint.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/addon/lint/javascript-lint.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/addon/lint/json-lint.min.js"></script>
+
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.14.2/addon/hint/html-hint.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.14.2/addon/lint/html-lint.min.js"></script>
+
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.14.2/mode/htmlembedded/htmlembedded.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.14.2/mode/htmlmixed/htmlmixed.min.js"></script>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.14.2/mode/xml/xml.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.14.2/mode/css/css.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.14.2/addon/edit/matchbrackets.min.js"></script>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/search/jump-to-line.min.js" integrity="sha256-KiI8TYwFx5QBsY2zjjJkrGjb8Y50MpCj7K3FHGL33k8=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/search/search.min.js" integrity="sha256-jR746s3yEfafMDDa+uuOQ/9dh9KdTaSCnFDITGs0mIk=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/search/searchcursor.min.js" integrity="sha256-+WHQ6GVZ+En4S8tktYbST09huK+qux1Gvhqq5b9Pq+I=" crossorigin="anonymous"></script>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/dialog/dialog.min.js" integrity="sha256-KbBuDRpfbnVjlUhzPVbdWqcaMQDwf9FjH5NGlSma2/Y=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/keymap/sublime.min.js" integrity="sha256-TOXvqv3VQnTDTpI2OCHj0DZlCIuLAI00k7jHYn4R/PI=" crossorigin="anonymous"></script>
+
+	<!-- code mirror -->
+
+
+</head>
+<body class="theme-body-default">
+	<div id="EventBus"></div>
+</body>
+
+<script type="text/javascript">
+
+    window.botmon = {version:"${leo.version}"};
+	window.leostaticcdn = "${leo.static.uri}" //can't wait for ready state!
+	window.leoDocsLink = 'http://docs.leoplatform.io/docs/'
+	window.leoAws = {cognitoId: '${leo.CognitoId}', region: "${leo.Region}", cognito_region: '${leo.Region}'}
+
+</script>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.min.js"></script>
+<script src="${leo.static.uri}js/common.js"></script>
+<script src="${leo.static.uri}js/index.js"></script>
+<script src="${leo.static.uri}js/bootstrap-datetimepicker.js"></script>
+
+</html>

@@ -1,0 +1,32 @@
+{
+	"name": "event_settings_save_api",
+	"version": "1.0.0",
+	"description": "Event Settings Save Api",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "mocha --recursive"
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": [
+				"POST:/api/eventsettings/save",
+				"PUT:/api/eventsettings/save",
+				"POST:/api/queue/save",
+				"PUT:/api/queue/save"
+			],
+			"name": "Leo_Botmon_api_event_settings_save",
+			"handler": "handler",
+			"memory": 256,
+			"timeout": 10,
+			"secure": false,
+			"build": {}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}

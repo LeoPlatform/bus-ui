@@ -1,0 +1,167 @@
+
+
+.lk-modal {
+	/* 1 */
+	display: none;
+	/* 2 */
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 1010;
+	/* 3 */
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	/* 4 */
+	background: rgba(0, 0, 0, 0.6);
+	/* 5 */
+	opacity: 0;
+	-webkit-transition: opacity 0.15s linear;
+	transition: opacity 0.15s linear;
+	/* 6 */
+	touch-action: cross-slide-y pinch-zoom double-tap-zoom;
+}
+/*
+ * Open state
+ */
+.lk-modal.open {
+	opacity: 1;
+}
+
+/* Sub-object: `lk-modal-dialog`
+ ========================================================================== */
+/*
+ * 1. Create position context for caption, spinner and close button
+ * 2. Set box sizing
+ * 3. Set style
+ * 4. Slide-in transition
+ */
+.lk-modal-dialog {
+	/* 1 */
+	position: relative;
+	/* 2 */
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+	margin: 50px auto;
+	padding: 20px;
+	width: 600px;
+	max-width: 100%;
+	max-width: calc(100% - 20px);
+	/* 3 */
+	background: #ffffff;
+	/* 4 */
+	opacity: 0;
+	-webkit-transform: translateY(-100px);
+	transform: translateY(-100px);
+	-webkit-transition: opacity 0.3s linear, -webkit-transform 0.3s ease-out;
+	transition: opacity 0.3s linear, transform 0.3s ease-out;
+	border-radius: 4px;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+	display: table; /* center, auto size */
+}
+/* Phone landscape and smaller */
+@media (max-width: 767px) {
+	/*
+		 * Fit in small screen
+		 */
+	.lk-modal-dialog {
+		width: auto;
+		margin: 10px auto;
+	}
+}
+/*
+ * Open state
+ */
+.lk-modal.open .lk-modal-dialog {
+	/* 4 */
+	opacity: 1;
+	-webkit-transform: translateY(0);
+	transform: translateY(0);
+}
+/*
+ * Remove margin from the last-child
+ */
+.lk-modal-dialog > :not([class*='lk-modal-']):last-child {
+	margin-bottom: 0;
+}
+/* Close in modal
+ ========================================================================== */
+.lk-modal-dialog > .lk-close:first-child {
+	margin: -10px -10px 0 0;
+	float: right;
+}
+/*
+ * Remove margin from adjacent element
+ */
+.lk-modal-dialog > .lk-close:first-child + *:not([class*='lk-modal-']) {
+	margin-top: 0;
+}
+
+
+/* Sub-Object: `lk-modal-header` and `lk-modal-footer`
+ ========================================================================== */
+.lk-modal-header {
+	margin: -20px -20px 15px -20px;
+	padding: 10px 20px;
+	border-bottom: 1px solid #dddddd;
+	border-radius: 4px 4px 0 0;
+	background: #fafafa;
+}
+.lk-modal-footer {
+	margin: 15px -20px -20px -20px;
+	padding: 10px 20px;
+	border-top: 1px solid #dddddd;
+	border-radius: 0 0 4px 4px;
+	background: #fafafa;
+}
+/*
+ * Remove margin from the last-child
+ */
+.lk-modal-header > :last-child,
+.lk-modal-footer > :last-child {
+	margin-bottom: 0;
+}
+
+
+.lk-modal h2 {
+	margin: 0
+}
+
+.lk-modal .lk-close {
+	float: right;
+	cursor: pointer;
+}
+
+.lk-modal-content,
+.dialog-content {
+	max-height: 80vh;
+	overflow: auto;
+	max-width: 90vw;
+	padding: 5px;
+}
+
+.dialog-warning .fa-exclamation-triangle {
+	color: gold;
+	width: 1em;
+	padding: .2em;
+	text-align: center;
+	margin: 0 10px 0 0;
+	vertical-align: middle;
+	font-size: 25px;
+	height: 1em;
+}
+
+
+.dialog-error .icon-cancel {
+	color: white;
+	border-radius: 50%;
+	background: firebrick;
+	width: 1em;
+	padding: .2em;
+	text-align: center;
+	margin: 0 10px 0 0;
+	vertical-align: middle;
+	font-size: 20px;
+	height: 1em;
+}

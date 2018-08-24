@@ -1,0 +1,23 @@
+{
+	"env": {
+		"Resources": {
+			"LeoStats": "BotmonTest-LeoStats-1GUSADLXH6JR0"
+		},
+		"LeoResources": {
+			"region": "us-west-2",
+			"kinesis": "Staging-LeoKinesisStream-1VV2I9X0LE7WT",
+			"s3": "staging-leos3-kwah9bq4vk1y",
+			"firehose": "Staging-LeoFirehoseStream-2KPFQLPORBMC",
+			"resources": {
+				"LeoStream": "Staging-LeoStream-1RXA45W93PBKT",
+				"LeoCron": "Staging-LeoCron-P2BJYEG01WR9",
+				"LeoEvent": "Staging-LeoEvent-RDAZ0DFZD7F5",
+				"LeoSettings": "Staging-LeoSettings-16ZNXDXMT07S4",
+				"LeoS3": "staging-leos3-kwah9bq4vk1y",
+				"LeoKinesisStream": "Staging-LeoKinesisStream-1VV2I9X0LE7WT",
+				"LeoFirehoseStream": "Staging-LeoFirehoseStream-2KPFQLPORBMC",
+				"Region": "us-west-2"
+			}
+		}
+	}
+}

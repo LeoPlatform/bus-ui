@@ -1,0 +1,13 @@
+{
+	"body": {},
+	"params": {
+		"path": {},
+		"querystring": {
+			"timestamp": "2018-01-18 15:56:55-07:00",
+			"range": "hour",
+			"count": 6
+
+		},
+		"header": {}
+	}
+}
