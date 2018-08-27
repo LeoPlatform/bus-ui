@@ -10,26 +10,21 @@ var uuid = require("uuid");
 
 var EVENT_TABLE = leo.configuration.resources.LeoEvent;
 
-exports.handler = function (event, context, callback) {
+exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, callback) => {
 	var body = event.body;
 
 	var ref = util.ref(body.id || body.event || uuid.v4(), "queue");
 
-	request.authorize(event, {
+	await request.authorize(event, {
 		lrn: 'lrn:leo:botmon:::eventsettings/{id}',
 		action: "saveEventSettings",
 		botmon: {
 			id: ref.id
 		}
-	}, function (err, user) {
-		if (err) {
-			callback(err);
-		} else {
-			var doc = Object.assign({}, body);
-			save(ref, doc, callback)
-		}
 	});
-};
+	var doc = Object.assign({}, body);
+	save(ref, doc, callback)
+});
 
 function save(ref, doc, callback) {
 	var sets = [];
