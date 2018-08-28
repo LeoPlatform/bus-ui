@@ -304,6 +304,7 @@ class Settings extends React.Component {
         let data = { id: node.id, paused: pause };
         this.dataStore.nodes[node.id].paused = !this.dataStore.nodes[node.id].paused;
 		$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
+			this.dataStore.getStats();
 			window.messageLogNotify('Bot ' + (!pause ? 'Unpaused' : 'Paused'), 'info')
 		}).fail((result) => {
 			this.dataStore.nodes[node.id].paused = !this.dataStore.nodes[node.id];
