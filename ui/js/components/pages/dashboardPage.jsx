@@ -346,8 +346,8 @@ class DashboardView extends React.Component {
 														{
 															row.payload && row.payload.diff && row.payload.diff.map((change, i) => {
 																let objKey = Object.keys(toJS(change))[0];
-																let oldChange = change[objKey].old === '' ? 'NULL' : change[objKey].old;
-																let newChange = change[objKey].new === '' ? 'NULL' : change[objKey].new;
+																let oldChange = change[objKey].old === '' ? 'NULL' : change[objKey].old.toString();
+																let newChange = change[objKey].new === '' ? 'NULL' : change[objKey].new.toString();
 																return (
 																	<tr key={i}>
 																		<td>{objKey}</td>
