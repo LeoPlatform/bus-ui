@@ -230,6 +230,10 @@
 
 	}
 
+	.checksum {
+		display: table;
+	}
+
 	@media (min-width: 900px) {
 		.detail-timestamp {
 			width: 212px;
@@ -2441,6 +2445,14 @@
 
 		&:hover dd {
 			display: block;
+		}
+
+		&:hover .checksum dd {
+			display: table;
+		}
+
+		&:hover .checksum {
+			position: absolute;
 		}
 	}
 
