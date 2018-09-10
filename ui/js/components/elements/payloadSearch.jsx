@@ -83,7 +83,8 @@ export default class PayloadSearch extends React.Component {
 	selectTimeFrame(timeFrame) {
 		this.setState({
 			timeFrame: timeFrame,
-			timestamp: undefined
+            searchEndTime: moment(),
+            timestamp: undefined
 		}, () => {
 			this.startPayloadSearch()
 		})
@@ -94,6 +95,7 @@ export default class PayloadSearch extends React.Component {
 		customTime = moment.utc(customTime, 'MM/DD/YYYY h:mm A')
 		this.setState({
 			timestamp: 'z' + customTime.format(timeFormat) + customTime.valueOf(),
+            searchEndTime: moment.utc(customTime),
 			timeFrame: ''
 		}, () => {
 			this.startPayloadSearch()

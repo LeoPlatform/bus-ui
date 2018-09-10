@@ -74,7 +74,7 @@ class Checksum extends React.Component {
                                 <table>
 								<thead>
 									<tr>
-										<td>column</td>
+										<th>column</th>
 										{
 											data.diff && Object.keys(data.diff).length > 0
 											? Object.keys(data.diff).map((diffId, index) => {
@@ -97,7 +97,7 @@ class Checksum extends React.Component {
 												<td>{diffId}</td>
 												{
 													Object.keys(data.diff[diffId]).map((systemId) => {
-														return (<th key={systemId}>{data.diff[diffId][systemId] === null ? 'NULL' : data.diff[diffId][systemId]}</th>)
+														return (<td key={systemId}>{data.diff[diffId][systemId] === null ? 'NULL' : data.diff[diffId][systemId]}</td>)
 													})
 												}
 											</tr>)
@@ -237,7 +237,9 @@ class Checksum extends React.Component {
 									<td className="hover-tool-tip">
 										{checksum.totals.incorrect || '-'}
 										<small className="display-block">{checksum.total ? Math.round(checksum.totals.incorrect / checksum.total * 10000)/100 + '%' : '-'}</small>
+										<span className="checksum">
 										<dd>{this.showSampleData('incorrect', checksum.bot_id)}</dd>
+										</span>
 									</td>
 									<td className="hover-tool-tip">
 										{checksum.totals.missing || '-'}

@@ -43,7 +43,6 @@ export default class MuteButton extends React.Component {
 		};
 
 
-		let existed = true;
         let temp = (this.dataStore.nodes && this.dataStore.nodes[id] && this.dataStore.nodes[id].health && this.dataStore.nodes[id].health.mute) ? this.dataStore.nodes[id].health.mute : false;
         if (this.dataStore.nodes && this.dataStore.nodes[id] && this.dataStore.nodes[id].health && (this.dataStore.nodes[id].health.mute || this.dataStore.nodes[id].health.mute === false)) {
             if (mute === true && this.dataStore.nodes[id].health.mute === false) {
@@ -57,15 +56,12 @@ export default class MuteButton extends React.Component {
 		// For the first time ever muted
         if(this.dataStore.nodes[id].health.mute === undefined) {
             this.dataStore.nodes[id].health.mute = mute;
-            existed = false;
 		}
 
         $.post('api/cron/saveOverrides', JSON.stringify(data), (response) => {
             window.messageLogNotify(id + (!mute ? ' un-muted' : (' muted' + (mute !== true ? ' until ' + moment(mute).calendar() : ' indefinitely'))), 'info');
             this.setState({ paused: mute });
-			if(!existed) {
-            	this.dataStore.getStats();
-			}
+			this.dataStore.getStats();
         }).fail((result) => {
             this.dataStore.nodes[id].health.mute = temp;
 			window.messageLogNotify('Failed to ' + (!mute ? 'un-mute ' : 'mute ') + (id || ''), 'error', result)
