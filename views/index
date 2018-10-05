@@ -79,7 +79,8 @@
     window.botmon = {version:"${leo.version}"};
 	window.leostaticcdn = "${leo.static.uri}" //can't wait for ready state!
 	window.leoDocsLink = 'http://docs.leoplatform.io/docs/'
-	window.leoAws = {cognitoId: '${leo.CognitoId}', region: "${leo.Region}", cognito_region: '${leo.Region}'}
+	window.leo = ${leo};
+	window.leoAws = {cognitoId: leo.logins || leo.CognitoId, region: "${leo.Region}", cognito_region: '${leo.Region}'}
 
 </script>
 <script src="https://d3js.org/d3.v3.min.js"></script>

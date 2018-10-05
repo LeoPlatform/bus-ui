@@ -50,19 +50,18 @@
 				"Resources": {
 					"CognitoId": "${CognitoId}",
 					"Region": "${AWS::Region}"
-				}
+				},
+				"Logins": "${Logins}"
 			},
 			"3rdParty": true,
 			"excludeProfiles": true
 		},
 		"console": {
-			"navigation": [
-				{
-					"title": "Botmon",
-					"href": "/botmon",
-					"icon": ""
-				}
-			]
+			"navigation": [{
+				"title": "Botmon",
+				"href": "/botmon",
+				"icon": ""
+			}]
 		}
 	},
 	"author": "",

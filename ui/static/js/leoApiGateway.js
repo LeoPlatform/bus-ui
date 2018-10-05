@@ -4,10 +4,14 @@ LEOCognito = {};
 	var isFetchingToken = false;
 
 	LEOCognito.start = function (poolId, getToken, opts, callback) {
-		AWS.config.region = poolId.split(/:/)[0];
-		AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-			IdentityPoolId: poolId
-		});
+		if (typeof poolId == "string") {
+			AWS.config.region = poolId.split(/:/)[0];
+			AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+				IdentityPoolId: poolId
+			});
+		} else {
+			AWS.config.credentials = new AWS.CognitoIdentityCredentials(poolId);
+		}
 
 		var loadCallbacks = [];
 
