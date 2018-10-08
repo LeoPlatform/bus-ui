@@ -10,6 +10,7 @@ LEOCognito = {};
 				IdentityPoolId: poolId
 			});
 		} else {
+			AWS.config.region = poolId.Region;
 			AWS.config.credentials = new AWS.CognitoIdentityCredentials(poolId);
 		}
 
