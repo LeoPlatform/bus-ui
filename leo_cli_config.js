@@ -7,14 +7,16 @@ module.exports = {
 		},
 		public: true,
 		staticAssets: "s3://leomicroservices-leos3bucket-10v1vi32gpjy1/leo_botmon"
-	}, {
-		leoaws: {
-			profile: 'default',
-			region: 'us-east-1'
-		},
-		public: true,
-		staticAssets: "s3://leomicroservices-leos3bucket-10v1vi32gpjy1/leo_botmon"
-	}],
+	}
+	// , {
+	// 	leoaws: {
+	// 		profile: 'default',
+	// 		region: 'us-east-1'
+	// 	},
+	// 	public: true,
+	// 	staticAssets: "s3://leomicroservices-leos3bucket-10v1vi32gpjy1/leo_botmon"
+	// }
+	],
 	deploy: {
 		dev: {
 			stack: 'DevBotmon',

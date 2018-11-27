@@ -113,6 +113,7 @@ function save(id, doc, callback) {
 		doc.trigger = moment.now();
 		doc.ignorePaused = true;
 		doc.errorCount = 0;
+		doc.scheduledTrigger = null;
 	}
 	delete doc.executeNow;
 
