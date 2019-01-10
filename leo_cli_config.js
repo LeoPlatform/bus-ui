@@ -2,20 +2,20 @@
 module.exports = {
 	publish: [{
 		leoaws: {
-			profile: 'default',
+			profile: 'leo',
 			region: 'us-west-2'
 		},
 		public: true,
-		staticAssets: "s3://leomicroservices-leos3bucket-10v1vi32gpjy1/leo_botmon"
+		staticAssets: "s3://leomicro-leos3bucket-196kh64k036gk/leo_botmon"
 	}
-	// , {
-	// 	leoaws: {
-	// 		profile: 'default',
-	// 		region: 'us-east-1'
-	// 	},
-	// 	public: true,
-	// 	staticAssets: "s3://leomicroservices-leos3bucket-10v1vi32gpjy1/leo_botmon"
-	// }
+	, {
+		leoaws: {
+			profile: 'leo',
+			region: 'us-east-1'
+		},
+		public: true,
+		staticAssets: "s3://leomicro-leos3bucket-196kh64k036gk/leo_botmon"
+	}
 	],
 	deploy: {
 		dev: {
