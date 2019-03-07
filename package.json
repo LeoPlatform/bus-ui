@@ -1,6 +1,6 @@
 {
 	"name": "botmon",
-	"version": "2.1.2",
+	"version": "2.1.3",
 	"description": "",
 	"main": "app.js",
 	"scripts": {
@@ -49,7 +49,8 @@
 			"showPagesEnv": {
 				"Resources": {
 					"CognitoId": "${CognitoId}",
-					"Region": "${AWS::Region}"
+					"Region": "${AWS::Region}",
+					"CustomJS": "${CustomJS}"
 				},
 				"Logins": "${Logins}"
 			},

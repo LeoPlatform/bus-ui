@@ -74,12 +74,14 @@
 	<div id="EventBus"></div>
 </body>
 
+<script src="${leo.CustomJS}"></script>
 <script type="text/javascript">
 
     window.botmon = {version:"${leo.version}"};
 	window.leostaticcdn = "${leo.static.uri}" //can't wait for ready state!
 	window.leoDocsLink = 'http://docs.leoplatform.io/docs/'
-	window.leo = ${leo};
+	
+	window.leo = Object.assign(${leo}, window.leo);
 	window.leoAws = {cognitoId: leo.logins || leo.CognitoId, region: "${leo.Region}", cognito_region: '${leo.Region}'}
 
 </script>

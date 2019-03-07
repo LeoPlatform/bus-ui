@@ -20,7 +20,6 @@
 			"handler": "handler",
 			"memory": 256,
 			"timeout": 30,
-			"secure": false,
 			"build": {},
 			"env": {
 				"StackName": "${AWS::StackName}"

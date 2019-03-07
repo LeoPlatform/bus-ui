@@ -83,7 +83,7 @@ import "../css/main.less";
 import "../static/js/data.js";
 import "../static/js/dialogs.js";
 $(function () {
-    LEOCognito.start(window.leoAws.cognitoId, false, {apiUri: "api/", region: window.leoAws.region, cognito_region: window.leoAws.cognito_region}, function () {
+    LEOCognito.start(window.leoAws.cognitoId, (window.leo && window.leo.getToken) || false, {apiUri: "api/", region: window.leoAws.region, cognito_region: window.leoAws.cognito_region}, function () {
         require("react-dom").render( < Root /> , document.getElementById('EventBus'));
     })
 })

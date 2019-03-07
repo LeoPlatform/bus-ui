@@ -8,6 +8,10 @@ module.exports = {
 		"Logins": {
 			"Type": "String",
 			"Description": "Array of Logins"
-		}
+		},
+		"CustomJS": {
+			"Description": "Custom Javascript for the web app",
+			"Type": "String"
+		},
 	}
 }
