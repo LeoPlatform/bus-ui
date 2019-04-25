@@ -1,9 +1,34 @@
 {
 	"env": {
-		"leoauthsdk": {"region":"us-west-2","resources":{"LeoAuth":"DevAuth-LeoAuth-LOG79AKRRTFR","LeoAuthUser":"DevAuth-LeoAuthUser-VH4EUCCJAUJM","Region":"us-west-2"}},
-		"leosdk" : {"region":"us-west-2","kinesis":"DevBus-LeoKinesisStream-1LGSWLTEDERND","s3":"devbus-leos3-1vgbqr50913nz","firehose":"DevBus-LeoFirehoseStream-WLRD5KQ5ISSP","resources":{"LeoStream":"DevBus-LeoStream-UY635GZGFIUQ","LeoCron":"DevBus-LeoCron-1FLNC9Z5KSB72","LeoEvent":"DevBus-LeoEvent-15BW5AWF2WDL","LeoSettings":"DevBus-LeoSettings-14HODE41JWL2O","LeoSystem":"DevBus-LeoSystem-AHQC22IPM23A","LeoS3":"devbus-leos3-1vgbqr50913nz","LeoKinesisStream":"DevBus-LeoKinesisStream-1LGSWLTEDERND","LeoFirehoseStream":"DevBus-LeoFirehoseStream-WLRD5KQ5ISSP","Region":"us-west-2"}},
-		"Resources" : {"CognitoId":"us-west-2:aa1428e4-3b13-4dc2-ac73-e2f8c9e5a3b4" ,"LeoStats":"DevBotmon-LeoStats-1MCOPFU8F896T", "Region": "us-west-2"},
-		"StackName" : "DevBotmon"
+		"leosdk": {
+			"resources": {
+				"Region": "us-west-2",
+				"LeoArchive": "LeoDev-Bus-NQQPNFKOGCH0-LeoArchive-EEUAJWFNPBID",
+				"LeoCron": "LeoDev-Bus-NQQPNFKOGCH0-LeoCron-MHLFTV8UVHHM",
+				"LeoEvent": "LeoDev-Bus-NQQPNFKOGCH0-LeoEvent-1DQB1MJ403WL6",
+				"LeoFirehoseStream": "LeoDev-Bus-NQQPNFKOGCH0-LeoFirehoseStream-1I78RJ40WKDO1",
+				"LeoKinesisStream": "LeoDev-Bus-NQQPNFKOGCH0-LeoKinesisStream-6PM8JSB8ZEVB",
+				"LeoS3": "leodev-bus-nqqpnfkogch0-leos3-10ht2jx9t1qms",
+				"LeoSettings": "LeoDev-Bus-NQQPNFKOGCH0-LeoSettings-651QFVERENVL",
+				"LeoStream": "LeoDev-Bus-NQQPNFKOGCH0-LeoStream-Q20RWP2LACKI",
+				"LeoSystem": "LeoDev-Bus-NQQPNFKOGCH0-LeoSystem-HN2NII97GGG5"
+			}
+		},
+		"leoauthsdk": {
+			"resources": {
+				"Region": "us-west-2",
+				"LeoAuth": "LeoDev-Auth-RGCX2MFE0RA1-LeoAuth-M5YLTWQ29HNW",
+				"LeoAuthIdentity": "LeoDev-Auth-RGCX2MFE0RA1-LeoAuthIdentity-5MM250283GDM",
+				"LeoAuthPolicy": "LeoDev-Auth-RGCX2MFE0RA1-LeoAuthPolicy-1F1FUQ9MIY0Y0",
+				"LeoAuthUser": "LeoDev-Auth-RGCX2MFE0RA1-LeoAuthUser-15UZWJSTM6FIS"
+			}
+		},
+		"Resources": {
+			"CognitoId": "us-west-2:39a2490a-235d-41f8-9e73-1ed0ea28a5be",
+			"LeoStats": "LeoDev-Botmon-5YEXS12HZMGR-LeoStats-BODXLFR4TYVZ",
+			"Region": "us-west-2"
+		},
+		"StackName": "LeoDev-Botmon-5YEXS12HZMGR"
 	}
 
 }

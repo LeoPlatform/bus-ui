@@ -23,7 +23,6 @@
 			"handler": "handler",
 			"memory": 256,
 			"timeout": 10,
-			"secure": false,
 			"build": {}
 		}
 	},

@@ -320,7 +320,7 @@ class DashboardView extends React.Component {
 							<tbody>
                             {
                                 this.dataStore.changeLog && this.dataStore.changeLog.map((row, i) => {
-                                	let botName = (row.payload && row.payload.new && row.payload.new.name !== '' && row.payload.new.name !== null && row.payload.new.name !== undefined)? row.payload.new.name : row.payload.new.id;
+                                	let botName = (row.payload && row.payload.new && row.payload.new.name !== '' && row.payload.new.name !== null && row.payload.new.name !== undefined)? row.payload.new.name : (row.payload.new && row.payload.new.id?row.payload.new.id:row.payload.refId);
                                     let timeStamp = row.timestamp;
                                     let formattedTime = moment(timeStamp).format("hh:mm:ss A");
                                     let formattedTime2 = moment(timeStamp).format("MM/DD/YYYY");

@@ -6,7 +6,7 @@ module.exports = {
         leosdk: process.env.leosdk && JSON.parse(process.env.leosdk).resources,
         Resources: process.env.Resources && JSON.parse(process.env.Resources),
         ui: {
-            staticAssets: "https://dl3oo5x3a6dzh.cloudfront.net/leo_botmon",
+            staticAssets: "https://assets.leoplatform.io/leo_botmon",
             cognito: {
                 id: "us-west-2:aa1428e4-3b13-4dc2-ac73-e2f8c9e5a3b4"
             },

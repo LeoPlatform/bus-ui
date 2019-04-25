@@ -29,7 +29,7 @@ export default class TimePicker extends React.Component {
 			$('#dateTimePicker').datetimepicker({
 				sideBySide: true,
 				maxDate: moment().endOf('d'),
-				date: this.props.customTimeFrame,
+				date: moment(this.props.customTimeFrame)
 			})
 		}
 

@@ -50,7 +50,7 @@ class Logs extends React.Component {
 				? this.state.customTimeFrame
 				: moment().subtract(this.state.timeFrame.slice(0, 1), this.state.timeFrame.slice(-1)).valueOf();
         this.dataStore.logId = this.dataStore.cronInfo.lambdaName || (this.dataStore.cronInfo.templateId !== 'Leo_core_custom_lambda_bot'? this.dataStore.cronInfo.templateId : null) || refUtil.botRef(this.dataStore.cronInfo.id).id;
-        this.dataStore.getLogs(this.dataStore.logId, this.cronInfo, queryString);
+        this.dataStore.getLogs(this.dataStore.logId, this.dataStore.cronInfo, queryString);
 	}
 
 
