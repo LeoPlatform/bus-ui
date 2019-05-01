@@ -9,6 +9,8 @@ var config = window;
 
 config.registry.tabs = Object.assign({
 	CodeEditor: require("../tabs/codeEditor.jsx").default,
+	CodeOverrides: require("../tabs/codeOverrides.jsx").default,
+
 	Logs: require("../tabs/logs.jsx").default,
 	BotSettings: require("../tabs/botSettings.jsx").default,
 	BotDashboard: require("../tabs/botDashboard.jsx").default,
@@ -40,7 +42,8 @@ class Settings extends React.Component {
 
 		AWSBot: {
 			Dashboard: 'BotDashboard',
-			Code: 'CodeEditor', //'Mapper',
+			// Code: 'CodeEditor', //'Mapper',
+			Code: 'CodeOverrides',
 			Logs: 'Logs',
 			Settings: 'BotSettings'
 		},
