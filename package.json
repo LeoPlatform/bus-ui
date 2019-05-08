@@ -85,7 +85,6 @@
 		"jsonpath": "^0.2.9",
 		"later": "^1.2.0",
 		"leo-auth": "^2.0.1",
-		"leo-aws": "^1.4.2",
 		"leo-sdk": "^2.0.1",
 		"material-ui": "^0.19.4",
 		"mobx": "^3.3.0",
