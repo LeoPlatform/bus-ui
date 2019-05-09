@@ -111,7 +111,8 @@ class CodeOverrides extends React.Component {
 		}
 
 		try {
-			eval(code);
+			let func = new Function(`return (obj) => {${code}; return obj;}`)();
+			func(obj);
 		} catch (e) {
 			return this.setState({results: `invalid javascript syntax. ${e.message}`});
 		}
