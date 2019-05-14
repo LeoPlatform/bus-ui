@@ -2,7 +2,7 @@
 module.exports = {
 	publish: [{
 		leoaws: {
-			profile: 'leo',
+			profile: 'leoplatform',
 			region: 'us-west-2'
 		},
 		public: true,
@@ -10,7 +10,7 @@ module.exports = {
 	}
 	, {
 		leoaws: {
-			profile: 'leo',
+			profile: 'leoplatform',
 			region: 'us-east-1'
 		},
 		public: true,
