@@ -7,10 +7,12 @@ module.exports = {
 		},
 		"Logins": {
 			"Type": "String",
+            "Default": "[]",
 			"Description": "Array of Logins"
 		},
 		"CustomJS": {
 			"Description": "Custom Javascript for the web app",
+            "Default": "",
 			"Type": "String"
 		},
 	}
