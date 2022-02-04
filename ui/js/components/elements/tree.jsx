@@ -44,9 +44,9 @@ d3.wordwrap = function (line = '', maxCharactersPerLine = 43, maxLines = 3) {
 		lines = [],
 		words = [];
 
-	for(let num in regexChecks) {
-		if (line.search(regexChecks[num]) >= 0) {
-			parts = line.replace(regexChecks[num], (num == 2 ? ' $1' : ' ')).split(' ');
+	for(let regexCheck in regexChecks) {
+		if (line.search(regexChecks[regexCheck]) >= 0) {
+			parts = line.replace(regexChecks[regexCheck], (regexCheck == 2 ? ' $1' : ' ')).split(' ');
 		}
 	}
 
