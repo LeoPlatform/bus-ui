@@ -38,34 +38,40 @@ d3.selection.prototype.tspans2 = function(lines, lh) {
 }
 
 
-d3.wordwrap = function (line, maxCharactersPerLine, maxLines = 2) {
-	var parts = line.split(/([^a-z][a-z]*)/), //split at non-words
+d3.wordwrap = function (line = '', maxCharactersPerLine = 43, maxLines = 3) {
+	const regexChecks = [/_/ig, /-/ig, /([A-Z])/g];
+	var parts = [],
 		lines = [],
-		words = [],
-		maxChars = maxCharactersPerLine || 40
+		words = [];
+
+	for(let num in regexChecks) {
+		if (line.search(regexChecks[num]) >= 0) {
+			parts = line.replace(regexChecks[num], (num == 2 ? ' $1' : ' ')).split(' ');
+		}
+	}
 
 	parts.forEach(function (part) {
 		if (part) {
-			if (words.length > 0 && (words.join('').length + part.length) > maxChars) {
-				lines.push(words.join(''))
+			if (words.length > 0 && (words.join(' ').length + part.length) > maxCharactersPerLine) {
+				lines.push(words.join(' '))
 				words = []
 			}
-			//if it's too long, chop it
-			while (part.length > maxChars) {
-				lines.push(part.slice(0, maxChars - 1) + '-')
-				part = part.slice(maxChars - 1)
+			//if the word is too long, chop it
+			while (part.length > maxCharactersPerLine) {
+				lines.push(part.slice(0, maxCharactersPerLine - 1) + '-')
+				part = part.slice(maxCharactersPerLine - 1)
 			}
 			words.push(part)
 		}
 	})
 
 	if (words.length) {
-		lines.push(words.join(''))
+		lines.push(words.join(' '))
 	}
 
 	if (lines.length > maxLines) {
 		lines = lines.slice(0, maxLines)
-		lines[1] += '...'
+		lines[maxLines - 1] += '...'
 	}
 
 	return lines
@@ -589,7 +595,7 @@ class Tree extends React.Component {
 				})
 
 			nodeText.tspans2(function (d) {
-				return d3.wordwrap((d.label || '').toString().replace(/_/ig, ' '), 20) //12
+				return d3.wordwrap((d.label || ''));
 			})
 
 			nodeText.call(me.getBB)
