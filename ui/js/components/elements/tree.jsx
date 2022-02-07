@@ -35,7 +35,7 @@ d3.selection.prototype.tspans2 = function(lines, lh) {
 				return '<tspan fill="' + ((['errors', 'error', 'red'].indexOf(k) != -1) ? 'red' : '') + '">' + d[k] + '</tspan>'
 			}).join('')
 		})
-}
+}	
 
 
 d3.wordwrap = function (line = '', maxCharactersPerLine = 43, maxLines = 3) {
@@ -44,11 +44,12 @@ d3.wordwrap = function (line = '', maxCharactersPerLine = 43, maxLines = 3) {
 		lines = [],
 		words = [];
 
-	for(let regexCheck in regexChecks) {
-		if (line.search(regexChecks[regexCheck]) >= 0) {
-			parts = line.replace(regexChecks[regexCheck], (regexCheck == 2 ? ' $1' : ' ')).split(' ');
+	const parts = regexChecks.reduce((accumulator, regexCheck, index) => {
+		if(line.search(regexCheck) >= 0) {
+			accumulator.push(line.replace(regexChecks[index], (index == 2 ? ' $1' : ' ')).split(' '));
 		}
-	}
+		return accumulator;
+	}, []);
 
 	parts.forEach(function (part) {
 		if (part) {
