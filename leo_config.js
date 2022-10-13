@@ -1,14 +1,17 @@
 'use strict';
+const leoauth = process.env.leoauthsdk && JSON.parse(process.env.leoauthsdk) || {};
+const leosdk = process.env.leosdk && JSON.parse(process.env.leosdk) || {};
+
 module.exports = {
     /**defaults applied to every system**/
     _global: {
-        leoauth: process.env.leoauthsdk && JSON.parse(process.env.leoauthsdk).resources,
-        leosdk: process.env.leosdk && JSON.parse(process.env.leosdk).resources,
+        leoauth: leoauth.resources || leoauth,
+        leosdk: leosdk.resources || leosdk,
         Resources: process.env.Resources && JSON.parse(process.env.Resources),
         ui: {
             staticAssets: "https://assets.leoplatform.io/leo_botmon",
             cognito: {
-                id: "us-west-2:aa1428e4-3b13-4dc2-ac73-e2f8c9e5a3b4"
+                id: "us-west-2:fd666b98-85dc-41bb-b04d-0afdf114c7e4"
             },
             region: "us-west-2"
         }
@@ -16,7 +19,7 @@ module.exports = {
     _local: {
         leoaws: {
             profile: 'default',
-            region: 'us-west-2'
+            region: leosdk.region || leosdk.Region || (leosdk.resources && leosdk.resources.Region) || 'us-east-1'
         }
     }
 };
