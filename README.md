@@ -90,6 +90,6 @@ module.exports = {
 	env: config
 }
 
-console.log(`Connectiong to Bus: ${config.BusName}, Botmon: ${config.StackName}`);
+console.log(`Connecting to Bus: ${config.BusName}, Botmon: ${config.StackName}`);
 
 ```
