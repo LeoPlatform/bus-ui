@@ -4,8 +4,12 @@ module.exports = function(buildDir, newCloudformation, done) {
 	// Show pages uses the leo-cli lambda template which uses nodejs12.x runtime, so override it
 	newCloudformation.Resources.ShowPages.Properties.Runtime = "nodejs16.x";
 
+	// Set compression min size
+	newCloudformation.Resources.RestApi.Properties.MinimumCompressionSize = 100;
+
 	Object.entries(newCloudformation.Resources).forEach(([key, value]) => {
 		if (value.Type == "AWS::Lambda::Function") {
+			value.Properties.Architectures = ["arm64"];
 			value.Properties.Tags = [
 				{
 					"Key": "app",

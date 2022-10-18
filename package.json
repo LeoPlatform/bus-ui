@@ -1,6 +1,6 @@
 {
 	"name": "botmon",
-	"version": "2.3.0",
+	"version": "3.0.1",
 	"description": "",
 	"main": "app.js",
 	"scripts": {
@@ -55,6 +55,7 @@
 				},
 				"Logins": "${Logins}"
 			},
+			"parallelCompile": 10,
 			"3rdParty": true,
 			"excludeProfiles": true,
 			"runtime": "nodejs16.x"
@@ -101,9 +102,9 @@
 		"react-autobind": "^1.0.6",
 		"react-codemirror": "^1.0.0",
 		"react-dom": "^15.6.2",
-		"react-redux": "^4.4.5",
-		"redux": "^3.6.0",
-		"redux-thunk": "^2.1.0",
+		"react-redux": "^5.0.0",
+		"redux": "^4.2.0",
+		"redux-thunk": "^2.4.1",
 		"uuid": "^2.0.3"
 	},
 	"devDependencies": {
