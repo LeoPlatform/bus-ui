@@ -1,6 +1,6 @@
-import React, {Component} from 'react'
+import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import {observer, inject} from 'mobx-react'
+import { observer, inject } from 'mobx-react'
 import { saveSettings } from '../../actions'
 import TimePeriod from '../elements/timePeriod.jsx'
 import TimeSlider from '../elements/timeSlider.jsx'
@@ -51,24 +51,24 @@ class DetailsPane extends React.Component {
 			this.botId = undefined
 			this.queueId = undefined
 
-			//which one is a bot?
-			;(this.props.userSettings.selected || []).map((selected) => {
+				//which one is a bot?
+				; (this.props.userSettings.selected || []).map((selected) => {
 
-				var node = this.dataStore.nodes[selected] || {}
+					var node = this.dataStore.nodes[selected] || {}
 
-				if (node.type == 'bot') {
-					this.botId = selected
-					this.bot = node
-				} else if (node.type == 'system'){
-					this.queueId = "e_" + node.queue;
-					this.queue = node;
-				}
-				else {
-					this.queueId = selected
-					this.queue = node
-				}
+					if (node.type == 'bot') {
+						this.botId = selected
+						this.bot = node
+					} else if (node.type == 'system') {
+						this.queueId = "e_" + node.queue;
+						this.queue = node;
+					}
+					else {
+						this.queueId = selected
+						this.queue = node
+					}
 
-			})
+				})
 
 			this.node = (this.botId ? this.bot : this.queue)
 
@@ -86,8 +86,9 @@ class DetailsPane extends React.Component {
 				this.setState({
 					data: result
 				})
-			}).always((xhr, status)=>{
-				if (status !== "abort") {
+			}).always((xhr, status) => {
+				currentRequest = null;
+				if (status !== "abort" && status != "canceled") {
 					clearTimeout(reloadTimeout)
 					reloadTimeout = setTimeout(this.refreshData.bind(this), 10000)
 				}
@@ -174,55 +175,55 @@ class DetailsPane extends React.Component {
 			: ['read', 'write']
 		)
 
-		;['bots', 'queues'].forEach((nodeType) => {
-			inOuts.forEach((eventType) => {
-				if (this.state.data[nodeType] && this.state.data[nodeType][eventType]) {
-					Object.keys(this.state.data[nodeType][eventType]).forEach((eventId) => {
-						var event = this.state.data[nodeType][eventType][eventId]
+			;['bots', 'queues'].forEach((nodeType) => {
+				inOuts.forEach((eventType) => {
+					if (this.state.data[nodeType] && this.state.data[nodeType][eventType]) {
+						Object.keys(this.state.data[nodeType][eventType]).forEach((eventId) => {
+							var event = this.state.data[nodeType][eventType][eventId]
 
-						/*
-						var writes = {}
-						for(var writeId in this.state.data[nodeType]['write']) {
-							writes = this.state.data[nodeType]['write'][writeId]
-						}
-						*/
+							/*
+							var writes = {}
+							for(var writeId in this.state.data[nodeType]['write']) {
+								writes = this.state.data[nodeType]['write'][writeId]
+							}
+							*/
 
-						if (this.state.tabIndex == undefined && event.id == this.queueId) {
-							tabIndex = tabs.length
-						}
+							if (this.state.tabIndex == undefined && event.id == this.queueId) {
+								tabIndex = tabs.length
+							}
 
-						var node = this.dataStore.nodes[event.id]
-						if (node && node.status !== 'archived' && !node.archived) {
+							var node = this.dataStore.nodes[event.id]
+							if (node && node.status !== 'archived' && !node.archived) {
 
-							tabs.push({
-								botId: (this.node.type == 'bot' ? this.botId : event.id),
-								queueId: (this.node.type !== 'bot' ? this.botId : event.id),
-								label: (this.dataStore.nodes[event.id] || {}).label || '',
-								//icon: event.type === 'read' ? 'icon-logout' : 'icon-login',
-								icon: event.type,
-								type: 'queue_' + event.type,
-								data: {
-									writes: event.values,
-									reads: (nodeType === 'queues' ? event.reads : event.values),
-									[eventType + '_lag']: event.lags || [],
-									compare: event.compare
-								},
-								lastRead: event.last_read_event_timestamp || 0,
-								checkpoint: event.checkpoint,
-								checkpointData: {
-									id: (this.node.type === 'queue' ? this.queueId : eventId),
-									type: 'queue',
+								tabs.push({
+									botId: (this.node.type == 'bot' ? this.botId : event.id),
+									queueId: (this.node.type !== 'bot' ? this.botId : event.id),
+									label: (this.dataStore.nodes[event.id] || {}).label || '',
+									//icon: event.type === 'read' ? 'icon-logout' : 'icon-login',
+									icon: event.type,
+									type: 'queue_' + event.type,
+									data: {
+										writes: event.values,
+										reads: (nodeType === 'queues' ? event.reads : event.values),
+										[eventType + '_lag']: event.lags || [],
+										compare: event.compare
+									},
+									lastRead: event.last_read_event_timestamp || 0,
 									checkpoint: event.checkpoint,
-									openTab: 'Events'
-								}
-							})
+									checkpointData: {
+										id: (this.node.type === 'queue' ? this.queueId : eventId),
+										type: 'queue',
+										checkpoint: event.checkpoint,
+										openTab: 'Events'
+									}
+								})
 
-						}
+							}
 
-					})
-				}
+						})
+					}
+				})
 			})
-		})
 
 		return (<div className="flex-column">
 			<div className="details-pane-bottom">
@@ -244,27 +245,27 @@ class DetailsPane extends React.Component {
 							tabs.map((tab, index) => {
 								return (
 									tabIndex === index
-									? (<div key={index} className="active">
-										<div style={{ marginTop: '-1em', height: 20 }}>
+										? (<div key={index} className="active">
+											<div style={{ marginTop: '-1em', height: 20 }}>
 
-											{<TimeSlider onChange={this.onChange.bind(this)} />}
+												{<TimeSlider onChange={this.onChange.bind(this)} />}
 
+												{
+													tab.checkpoint
+														? (<div className="event-timestamp pull-right text-ellipsis">
+															<label>Event ID</label>
+															<a onClick={this.viewEvents.bind(this, tab.checkpointData)}>{tab.checkpoint || ''}</a>
+														</div>)
+														: false
+												}
+											</div>
 											{
-												tab.checkpoint
-												? (<div className="event-timestamp pull-right text-ellipsis">
-													<label>Event ID</label>
-													<a onClick={this.viewEvents.bind(this, tab.checkpointData)}>{tab.checkpoint || ''}</a>
-												</div>)
-												: false
+												tabIndex == index
+													? <NodeCharts className="node-charts" data={tab.data} nodeType={tab.type} interval={this.state.interval} showHeader="true" lastRead={tab.lastRead} botId={tab.botId} queueId={tab.queueId} />
+													: false
 											}
-										</div>
-										{
-											tabIndex == index
-											? <NodeCharts className="node-charts" data={tab.data} nodeType={tab.type} interval={this.state.interval} showHeader="true" lastRead={tab.lastRead} botId={tab.botId} queueId={tab.queueId} />
-											: false
-										}
-									</div>)
-									: false
+										</div>)
+										: false
 								)
 							})
 						}

@@ -1,5 +1,5 @@
-import React, {Component} from 'react'
-import {inject, observer} from 'mobx-react'
+import React, { Component } from 'react'
+import { inject, observer } from 'mobx-react'
 import Tree from '../elements/tree.jsx'
 
 @inject('dataStore')
@@ -52,7 +52,7 @@ export default class EventTrace extends React.Component {
 
 		var source = {
 			//above: [],
-			below: [ moment(data.event.timestamp).format('MM/DD/YY h:mm:ss a') ],
+			below: [moment(data.event.timestamp).format('MM/DD/YY h:mm:ss a')],
 			checkpoint: data.event.checkpoint || data.event.kinesis_number,
 			icon: 'queue.png',
 			id: data.event.id,
@@ -83,7 +83,7 @@ export default class EventTrace extends React.Component {
 
 			var node = {
 				//above: [],
-				below: parent.type == 'queue' ? [ moment(parent.timestamp).format('h:mm:ss a')] : [],
+				below: parent.type == 'queue' ? [moment(parent.timestamp).format('h:mm:ss a')] : [],
 				checkpoint: parent.checkpoint || parent.kinesis_number,
 				icon: parent.type + '.png',
 				id: parent.id,
@@ -119,7 +119,7 @@ export default class EventTrace extends React.Component {
 
 		Object.keys(children).forEach((childId) => {
 			let child = children[childId]
-			,   node = this.dataStore.nodes[childId];
+				, node = this.dataStore.nodes[childId];
 
 			if (node && node.status !== 'archived' && !node.archived) {
 
@@ -128,7 +128,7 @@ export default class EventTrace extends React.Component {
 
 				kids.push({
 					//above: [],
-					below: child.type == 'queue' ? [ moment(child.timestamp).format('h:mm:ss a')] : [child.has_processed ? 'Processed' : {errors:'Not Processed'}],
+					below: child.type == 'queue' ? [moment(child.timestamp).format('h:mm:ss a')] : [child.has_processed ? 'Processed' : { errors: 'Not Processed' }],
 					checkpoint: child.checkpoint || child.kinesis_number,
 					icon: child.type + '.png',
 					id: child.id,
@@ -167,7 +167,7 @@ export default class EventTrace extends React.Component {
 			var lookups = []
 			var parent = data.source
 			lookups.unshift(data.target.id)
-			while(!parent.checkpoint || typeof parent.checkpoint !== "string" || (this.dataStore.nodes[parent.id] || {}).type === 'bot') { //must be queue
+			while (!parent.checkpoint || typeof parent.checkpoint !== "string" || (this.dataStore.nodes[parent.id] || {}).type === 'bot') { //must be queue
 				lookups.unshift(parent.id)
 				parent = parent.parent
 			}
@@ -191,7 +191,7 @@ export default class EventTrace extends React.Component {
 			this.setState({ source: showProcessing(this.state.source) })
 
 			var href = window.api + '/trace/' + encodeURIComponent(parent.id) + '/' + encodeURIComponent(parent.checkpoint)
-			$.get(href, {children: lookups.join(',')}, (newData) => {
+			$.get(href, { children: lookups.join(',') }, (newData) => {
 				var source = JSON.parse(JSON.stringify(this.state.source))
 				var updateKids = (source) => {
 					if (source.kids) {
@@ -231,7 +231,7 @@ export default class EventTrace extends React.Component {
 
 
 	formatTime(milliseconds) {
-		return (numeral(Math.floor(milliseconds/1000)).format('00:00:00')+numeral((milliseconds/1000)%1).format('.0')).replace(/^0:/, '').replace(/^00:/g, '').replace(/^00\./g, '.')+'s'
+		return (numeral(Math.floor(milliseconds / 1000)).format('00:00:00') + numeral((milliseconds / 1000) % 1).format('.0')).replace(/^0:/, '').replace(/^00:/g, '').replace(/^00\./g, '.') + 's'
 	}
 
 

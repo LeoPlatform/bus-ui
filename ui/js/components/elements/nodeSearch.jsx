@@ -1,6 +1,6 @@
-import React, {Component} from 'react'
+import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import {observer, inject} from 'mobx-react'
+import { observer, inject } from 'mobx-react'
 import { saveSettings } from '../../actions'
 
 import NodeIcon from '../elements/nodeIcon.jsx'
@@ -11,9 +11,9 @@ class NodeSearch extends React.Component {
 
 	constructor(props) {
 		super(props);
-        this.dataStore = this.props.dataStore;
+		this.dataStore = this.props.dataStore;
 
-        let searchText = ''
+		let searchText = ''
 			, searchId;
 		if (props.value) {
 			Object.keys(this.dataStore.nodes).filter((nodeId) => {
@@ -30,7 +30,7 @@ class NodeSearch extends React.Component {
 			showDropdown: false,
 			searchId: searchId,
 			searchText: searchText,
-            old_searchText: searchText,
+			old_searchText: searchText,
 			searchIndex: 0,
 
 			showNew: ((this.props.nodeType || '').split('|').indexOf('new') != -1)
@@ -56,34 +56,34 @@ class NodeSearch extends React.Component {
 
 	componentWillReceiveProps() {
 		try {
-            if (this.state.old_searchText !== this.dataStore.nodes[this.props.value].id) {
-                if (typeof this.props.searchText !== 'undefined' && this.props.searchText !== this.state.searchText) {
+			if (!this.dataStore.nodes[this.props.value] || this.state.old_searchText !== this.dataStore.nodes[this.props.value].id) {
+				if (typeof this.props.searchText !== 'undefined' && this.props.searchText !== this.state.searchText) {
 
-                    this.setState({searchText: this.props.searchText}, () => {
-                        this.findNodes()
-                        this.props.searchResults(this.foundNodeIds, this.props.searchText)
-                    })
+					this.setState({ searchText: this.props.searchText }, () => {
+						this.findNodes()
+						this.props.searchResults && this.props.searchResults(this.foundNodeIds, this.props.searchText)
+					})
 
-                } else {
+				} else {
 
-                    var searchText = ''
-                        , searchId
-                    if (this.props.value) {
-                        Object.keys(this.dataStore.nodes).filter((nodeId) => {
-                            var node = this.dataStore.nodes[nodeId]
-                            if (node.id === this.props.value.replace(/^system\./, '')) {
-                                searchText = node.id
-                                searchId = nodeId
-                            }
-                        })
-                    }
+					var searchText = ''
+						, searchId
+					if (this.props.value) {
+						Object.keys(this.dataStore.nodes).filter((nodeId) => {
+							var node = this.dataStore.nodes[nodeId]
+							if (node.id === this.props.value.replace(/^system\./, '')) {
+								searchText = node.id
+								searchId = nodeId
+							}
+						})
+					}
 
-                    if (searchText && searchText != this.state.searchText) {
-                        this.setState({searchText: searchText, searchId: searchId})
-                    }
-                }
-            }
-        } catch(e) {
+					if (searchText && searchText != this.state.searchText) {
+						this.setState({ searchText: searchText, searchId: searchId })
+					}
+				}
+			}
+		} catch (e) {
 			return false
 		}
 	}
@@ -168,13 +168,13 @@ class NodeSearch extends React.Component {
 	setSearchIndex(searchIndex) {
 		searchIndex = this.state.showNew
 			? Math.min(Math.max(searchIndex, 0), this.searchCount)
-			: Math.min(Math.max(searchIndex, 0), this.searchCount-1)
+			: Math.min(Math.max(searchIndex, 0), this.searchCount - 1)
 		this.setState({ searchIndex: searchIndex }, () => {
 			setTimeout(() => {
 				var list = $('.search-list')
 				if (list.length && list.find('li.active')) {
 					list.stop(true).animate({
-						scrollTop: (list.find('li.active').position().top + list[0].scrollTop - list.height()/2 + list.find('li.active').height()/2)
+						scrollTop: (list.find('li.active').position().top + list[0].scrollTop - list.height() / 2 + list.find('li.active').height() / 2)
 					}, 'fast')
 				}
 			}, 0)
@@ -183,37 +183,37 @@ class NodeSearch extends React.Component {
 
 
 	handleKeyDown(event) {
-		switch(event.keyCode) {
+		switch (event.keyCode) {
 			case 13: //enter
 				setTimeout(() => {
 					this.selectNode(this.searchNode || (this.foundNodeIds || [])[this.state.searchIndex] || this.props.userSettings.selected[0])
 				}, 1)
 				event.preventDefault()
-			break
+				break
 
 			case 38: //up
 				this.setSearchIndex(--this.state.searchIndex)
 				this.props.upAndDown && this.props.upAndDown(-1)
 				event.preventDefault()
-			break
+				break
 
 			case 40: //down
 				this.setSearchIndex(++this.state.searchIndex)
 				this.props.upAndDown && this.props.upAndDown(1)
 				event.preventDefault()
-			break
+				break
 
 			case 27: //escape
 				this.toggleSearchBox.call(this, false)
-			break
+				break
 		}
 	}
 
 
 	selectNode(id) {
 		if (this.props.settings) {
-			this.dataStore.changeAllStateValues(id, this.dataStore.urlObj.timePeriod ,'node', [0,0], id);
-			this.props.dispatch(saveSettings({ node: id, selected: [id], view: 'node', offset: [0,0] }))
+			this.dataStore.changeAllStateValues(id, this.dataStore.urlObj.timePeriod, 'node', [0, 0], id);
+			this.props.dispatch(saveSettings({ node: id, selected: [id], view: 'node', offset: [0, 0] }))
 		}
 		let selectedText = (this.dataStore.nodes[id] || {}).id || id;
 		this.setState({ selectedText: selectedText, searchText: selectedText }, () => {
@@ -251,69 +251,69 @@ class NodeSearch extends React.Component {
 		return (<div className={"theme-autocomplete " + (this.props.className || '')}>
 			{
 				this.state.showDropdown
-				? <div className="mask" onClick={this.toggleSearchBox.bind(this, false)}></div>
-				: false
+					? <div className="mask" onClick={this.toggleSearchBox.bind(this, false)}></div>
+					: false
 			}
 			<input type="search" name={this.props.name || 'undefined'} className="searchBox theme-form-input" placeholder={this.props.placeholder || 'search...'} onChange={this.searchNodes.bind(this)} onKeyDown={this.handleKeyDown.bind(this)} onFocus={this.toggleSearchBox.bind(this, true)} value={this.state.searchText || ''} autoComplete="off" />
 			{
 				this.state.searchText
-				? <i className="icon-cancel" onClick={this.clearSearch.bind(this)}></i>
-				: false
+					? <i className="icon-cancel" onClick={this.clearSearch.bind(this)}></i>
+					: false
 			}
 			<i className={'search-icon ' + (this.props.icon || 'icon-search')} />
 
 			{
 				this.state.showDropdown
-				? <ul className="search-list">
-					{
-						this.state.showNew
-						? (<li className={searchIndex++ == this.state.searchIndex ? 'active' : ''} onClick={this.selectNode.bind(this, this.state.searchText)}>
-							<i className="icon-plus display-inline-block margin-5"></i>
-							{this.searchNode = (this.state.searchText != this.state.selectedText ? this.state.searchText : '')}
-						</li>)
+					? <ul className="search-list">
+						{
+							this.state.showNew
+								? (<li className={searchIndex++ == this.state.searchIndex ? 'active' : ''} onClick={this.selectNode.bind(this, this.state.searchText)}>
+									<i className="icon-plus display-inline-block margin-5"></i>
+									{this.searchNode = (this.state.searchText != this.state.selectedText ? this.state.searchText : '')}
+								</li>)
 
-						: false
-					}
-					{
-						this.foundNodeIds.map((nodeId) => {
+								: false
+						}
+						{
+							this.foundNodeIds.map((nodeId) => {
 
-							var node = this.dataStore.nodes[nodeId] || {}
-							var tags = (node.tags || '').toString().split(',')
+								var node = this.dataStore.nodes[nodeId] || {}
+								var tags = (node.tags || '').toString().split(',')
 
-							if (searchIndex == this.state.searchIndex) {
-								this.searchNode = nodeId
-							}
+								if (searchIndex == this.state.searchIndex) {
+									this.searchNode = nodeId
+								}
 
-							return (<li key={nodeId} className={'flex-row flex-space ' + (searchIndex++ == this.state.searchIndex ? 'active' : '')} onClick={this.selectNode.bind(this, nodeId)} >
-								<NodeIcon className="theme-image-tiny margin-0-5" node={nodeId} />
-								<span className="flex-grow">
-									{node.label}
-									<div className="theme-tags">
-									{
-										tags.map((tag, index) => {
-											return (<span key={index}>{tag}</span>)
-										})
-									}
-									</div>
-								</span>
-								<i className="icon-cog" style={{ fontSize: '1.25em' }} onClick={window.nodeSettings.bind(this, {
-									id: nodeId,
-									label: node.label,
-									server_id: node.id,
-									type: node.type,
-									logs: node.logs
-								})} />
-							</li>)
+								return (<li key={nodeId} className={'flex-row flex-space ' + (searchIndex++ == this.state.searchIndex ? 'active' : '')} onClick={this.selectNode.bind(this, nodeId)} >
+									<NodeIcon className="theme-image-tiny margin-0-5" node={nodeId} />
+									<span className="flex-grow">
+										{node.label}
+										<div className="theme-tags">
+											{
+												tags.map((tag, index) => {
+													return (<span key={index}>{tag}</span>)
+												})
+											}
+										</div>
+									</span>
+									<i className="icon-cog" style={{ fontSize: '1.25em' }} onClick={window.nodeSettings.bind(this, {
+										id: nodeId,
+										label: node.label,
+										server_id: node.id,
+										type: node.type,
+										logs: node.logs
+									})} />
+								</li>)
 
-						})
-					}
-					{
-						this.searchCount == 0
-						? (<li><em>no results</em></li>)
-						: false
-					}
-				</ul>
-				: false
+							})
+						}
+						{
+							this.searchCount == 0
+								? (<li><em>no results</em></li>)
+								: false
+						}
+					</ul>
+					: false
 			}
 		</div>)
 	}

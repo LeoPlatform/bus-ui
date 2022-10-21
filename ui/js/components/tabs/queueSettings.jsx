@@ -1,5 +1,5 @@
-import React, {Component} from 'react';
-import {inject, observer} from 'mobx-react';
+import React, { Component } from 'react';
+import { inject, observer } from 'mobx-react';
 import TagsInput from '../elements/tagsInput.jsx';
 
 @inject('dataStore')
@@ -23,12 +23,14 @@ class QueueSettings extends React.Component {
 				name: response.name || response.event,
 				archived: response.archived
 			})
-		}).fail((result) => {
-			window.messageLogModal('Failure retrieving queue settings ' + this.dataStore.nodes[this.props.nodeData.id].label, 'warning', result)
-			this.setState({
-				isReady: true,
-				tags: ''
-			})
+		}).fail((result, status) => {
+			if (status !== "abort" && status !== "canceled") {
+				window.messageLogModal('Failure retrieving queue settings ' + this.dataStore.nodes[this.props.nodeData.id].label, 'warning', result)
+				this.setState({
+					isReady: true,
+					tags: ''
+				})
+			}
 		})
 
 	}
@@ -82,8 +84,8 @@ class QueueSettings extends React.Component {
 
 	archiveQueue() {
 		let node = this.dataStore.nodes[this.props.nodeData.id] || {};
-        let archive = !this.state.archived;
-        let data = { id: this.props.nodeData.id, event: this.props.nodeData.id, archived: archive, paused: true };
+		let archive = !this.state.archived;
+		let data = { id: this.props.nodeData.id, event: this.props.nodeData.id, archived: archive, paused: true };
 		$.post(window.api + '/eventsettings/save', JSON.stringify(data), (response) => {
 			window.fetchData()
 			window.messageLogNotify((!archive ? 'Unarchived' : 'Archived') + ' queue ' + (node.label || ''), 'info')
@@ -101,55 +103,55 @@ class QueueSettings extends React.Component {
 			{
 				!this.state.isReady
 
-				? <div className="theme-spinner-large"></div>
+					? <div className="theme-spinner-large"></div>
 
-				: <div className="flex-row">
+					: <div className="flex-row">
 
-					<div className="theme-form">
+						<div className="theme-form">
 
-						<div className="theme-form-section">
-							<div className="theme-form-row theme-form-group-heading">
-								<div>queue info</div>
+							<div className="theme-form-section">
+								<div className="theme-form-row theme-form-group-heading">
+									<div>queue info</div>
+									<div>&nbsp;</div>
+								</div>
 								<div>&nbsp;</div>
-							</div>
-							<div>&nbsp;</div>
 
-							<div>
-								<label>Name</label>
-								<input type="text" name="name" defaultValue={this.state.name} onChange={this.setDirty.bind(this)} />
-							</div>
-							<div>
-								<label>Tags</label>
-								{/*<input type="text" name="tags" defaultValue={this.state.tags} onChange={this.setDirty.bind(this)} />*/}
-								<TagsInput name="tags" defaultValue={this.state.tags} onChange={this.setDirty.bind(this)} />
-							</div>
-							<div>
-								<label>Min</label>
-								<input type="text" name="min" defaultValue={this.state.min} onChange={this.setDirty.bind(this)} />
+								<div>
+									<label>Name</label>
+									<input type="text" name="name" defaultValue={this.state.name} onChange={this.setDirty.bind(this)} />
+								</div>
+								<div>
+									<label>Tags</label>
+									{/*<input type="text" name="tags" defaultValue={this.state.tags} onChange={this.setDirty.bind(this)} />*/}
+									<TagsInput name="tags" defaultValue={this.state.tags} onChange={this.setDirty.bind(this)} />
+								</div>
+								<div>
+									<label>Min</label>
+									<input type="text" name="min" defaultValue={this.state.min} onChange={this.setDirty.bind(this)} />
+								</div>
+
+								<div>
+									<label>Id</label>
+									<span className="text-left theme-color-disabled">{this.props.nodeData.id}</span>
+								</div>
+
 							</div>
 
-							<div>
-								<label>Id</label>
-								<span className="text-left theme-color-disabled">{this.props.nodeData.id}</span>
+							<div className="form-button-bar">
+								<button type="button" className="theme-button" onClick={this.onReset.bind(this, false)}>Discard Changes</button>
+								<button type="button" className="theme-button-primary" onClick={this.onSave.bind(this, false)} disabled={!this.state.dirty}>Save Changes</button>
+								<button type="button" className="theme-button pull-right" onClick={this.archiveQueue.bind(this)}>
+									{
+										this.state.archived
+											? <i className="icon-unarchive"> Unarchive</i>
+											: <i className="icon-archive"> Archive</i>
+									}
+								</button>
 							</div>
 
-						</div>
-
-						<div className="form-button-bar">
-							<button type="button" className="theme-button" onClick={this.onReset.bind(this, false)}>Discard Changes</button>
-							<button type="button" className="theme-button-primary" onClick={this.onSave.bind(this, false)} disabled={!this.state.dirty}>Save Changes</button>
-							<button type="button" className="theme-button pull-right" onClick={this.archiveQueue.bind(this)}>
-								{
-									this.state.archived
-									? <i className="icon-unarchive"> Unarchive</i>
-									: <i className="icon-archive"> Archive</i>
-								}
-							</button>
 						</div>
 
 					</div>
-
-				</div>
 			}
 
 		</div>)

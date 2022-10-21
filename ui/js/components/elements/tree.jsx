@@ -1,7 +1,7 @@
-import React, {Component} from 'react'
+import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { saveSettings } from '../../actions'
-import {observer, inject} from 'mobx-react'
+import { observer, inject } from 'mobx-react'
 
 import Trunk from '../elements/trunk.jsx'
 import { NodeImages } from '../elements/nodeIcon.jsx'
@@ -26,7 +26,7 @@ d3.selection.prototype.tspans2 = function(lines, lh) {
 			return (typeof d == 'object' && !d.length) ? '' : d
 		})
 		.attr('x', 0)
-		.attr('dy', function(d,i) { return i ? lh || 15 : 0; })
+		.attr('dy', function(d, i) { return i ? lh || 15 : 0; })
 		.filter(function(d) {
 			return (typeof d == 'object' && !d.length)
 		})
@@ -38,13 +38,13 @@ d3.selection.prototype.tspans2 = function(lines, lh) {
 }
 
 
-d3.wordwrap = function (line, maxCharactersPerLine, maxLines = 2) {
+d3.wordwrap = function(line, maxCharactersPerLine, maxLines = 2) {
 	var parts = line.split(/([^a-z][a-z]*)/), //split at non-words
 		lines = [],
 		words = [],
 		maxChars = maxCharactersPerLine || 40
 
-	parts.forEach(function (part) {
+	parts.forEach(function(part) {
 		if (part) {
 			if (words.length > 0 && (words.join('').length + part.length) > maxChars) {
 				lines.push(words.join(''))
@@ -144,63 +144,63 @@ class Tree extends React.Component {
 
 			me.svg = d3.select(selector + ' svg').attr("width", me.width).attr("height", me.height)
 
-            _.map(window.dataStore.systems, (system) => {
+			_.map(window.dataStore.systems, (system) => {
 				if (Object.keys(window.dataStore.nodes[system].link_to.parent).length > 1 && window.dataStore.urlObj.collapsed.left.indexOf(system) === -1) {
-                    window.dataStore.urlObj.collapsed.right.push(system);
-                }
-                if (Object.keys(window.dataStore.nodes[system].link_to.children).length > 1 && window.dataStore.urlObj.collapsed.left.indexOf(system) === -1) {
-                    window.dataStore.urlObj.collapsed.left.push(system);
-                }
-            });
+					window.dataStore.urlObj.collapsed.right.push(system);
+				}
+				if (Object.keys(window.dataStore.nodes[system].link_to.children).length > 1 && window.dataStore.urlObj.collapsed.left.indexOf(system) === -1) {
+					window.dataStore.urlObj.collapsed.left.push(system);
+				}
+			});
 
 			me.left = {
 				name: 'left',
 				flip: -1,
-				diagonal: d3.svg.diagonal().projection(function (d) {
+				diagonal: d3.svg.diagonal().projection(function(d) {
 					return [(me.left.flip * d.y), d.x];
 				}),
-                tree: d3.layout.tree().children(function (d) {
-                    if(window.dataStore.urlObj.collapsed.left.indexOf(d.id) === -1 && d.leftCollapsed) {
-                        window.collapsedStart.push(d.id);
-                    }
-                    if (window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
-                        return d.parents;
-                    }
-                    if(window.dataStore.urlObj.collapsed.left.indexOf(d.id) === -1 && d.leftCollapsed && !window.keepTrackLeft[d.id]) {
-                        window.dataStore.urlObj.collapsed.left.push(d.id);
-                        window.keepTrackLeft[d.id] = true;
-                    }
-                    if (window.dataStore.urlObj.collapsed.left.indexOf(d.id) !== -1 || !d.parents || d.parents.length === 0) {
+				tree: d3.layout.tree().children(function(d) {
+					if (window.dataStore.urlObj.collapsed.left.indexOf(d.id) === -1 && d.leftCollapsed) {
+						window.collapsedStart.push(d.id);
+					}
+					if (window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
+						return d.parents;
+					}
+					if (window.dataStore.urlObj.collapsed.left.indexOf(d.id) === -1 && d.leftCollapsed && !window.keepTrackLeft[d.id]) {
+						window.dataStore.urlObj.collapsed.left.push(d.id);
+						window.keepTrackLeft[d.id] = true;
+					}
+					if (window.dataStore.urlObj.collapsed.left.indexOf(d.id) !== -1 || !d.parents || d.parents.length === 0) {
 						return null
 					}
 					return d.parents;
 				}),
-                g: d3.select(selector + ' .left-side')
+				g: d3.select(selector + ' .left-side')
 			}
 
 			me.right = {
 				name: 'right',
 				flip: 1,
-				diagonal: d3.svg.diagonal().projection(function (d) {
+				diagonal: d3.svg.diagonal().projection(function(d) {
 					return [(me.right.flip * d.y), d.x];
 				}),
-                tree: d3.layout.tree().children(function (d) {
-                    if(window.dataStore.urlObj.collapsed.right.indexOf(d.id) === -1 && d.rightCollapsed) {
-                        window.collapsedStart.push(d.id);
-                    }
-                    if (window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
-                        return d.kids;
-                    }
-                    if (window.dataStore.urlObj.collapsed.right.indexOf(d.id) === -1 && d.rightCollapsed && !window.keepTrackRight[d.id]) {
-                        window.dataStore.urlObj.collapsed.right.push(d.id);
-                        window.keepTrackRight[d.id] = true;
-                    }
-                    if (window.dataStore.urlObj.collapsed.right.indexOf(d.id) !== -1 || !d.kids || d.kids.length === 0) {
-                        return null
-                    }
+				tree: d3.layout.tree().children(function(d) {
+					if (window.dataStore.urlObj.collapsed.right.indexOf(d.id) === -1 && d.rightCollapsed) {
+						window.collapsedStart.push(d.id);
+					}
+					if (window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
+						return d.kids;
+					}
+					if (window.dataStore.urlObj.collapsed.right.indexOf(d.id) === -1 && d.rightCollapsed && !window.keepTrackRight[d.id]) {
+						window.dataStore.urlObj.collapsed.right.push(d.id);
+						window.keepTrackRight[d.id] = true;
+					}
+					if (window.dataStore.urlObj.collapsed.right.indexOf(d.id) !== -1 || !d.kids || d.kids.length === 0) {
+						return null
+					}
 					return d.kids;
 				}),
-                g: d3.select(selector + ' .right-side')
+				g: d3.select(selector + ' .right-side')
 			}
 
 			me.hoverBoard = d3.select('.hoverBoard')
@@ -266,7 +266,7 @@ class Tree extends React.Component {
 				me.pinching = false
 			}
 
-			me.treeWrapper.bind('mousedown touchstart', function (event) {
+			me.treeWrapper.bind('mousedown touchstart', function(event) {
 				if (event.button == 0 || event.type == 'touchstart') {
 					event = event.originalEvent || event
 					if (event.touches) {
@@ -280,7 +280,7 @@ class Tree extends React.Component {
 				}
 			})
 
-			me.treeWrapper.bind('mousemove touchmove', function (event) {
+			me.treeWrapper.bind('mousemove touchmove', function(event) {
 				event = event.originalEvent || event
 				if (event.touches && event.touches.length > 1) {
 					//if (me.scaling) {
@@ -301,7 +301,7 @@ class Tree extends React.Component {
 				}
 			})
 
-			me.treeWrapper.bind('mouseup mouseleave touchend', function () {
+			me.treeWrapper.bind('mouseup mouseleave touchend', function() {
 				me.scaling = false
 				me.dragStart = false
 
@@ -311,7 +311,7 @@ class Tree extends React.Component {
 
 				me.updateDiagram(me.root, true)
 			})
-        },
+		},
 
 
 		windowResized: () => {
@@ -375,11 +375,11 @@ class Tree extends React.Component {
 
 		update: (which) => {
 			let side;
-			if(which.name === 'left') {
-                side = window.dataStore.urlObj.collapsed.left;
+			if (which.name === 'left') {
+				side = window.dataStore.urlObj.collapsed.left;
 			} else {
 				side = window.dataStore.urlObj.collapsed.right;
-            }
+			}
 
 			var thisComponent = this
 				, me = this.nodeTree
@@ -399,10 +399,10 @@ class Tree extends React.Component {
 
 			var parentLevels = 1
 			var parentCount = function(level, n) {
-                if (window.dataStore.urlObj.collapsed.left.indexOf(n.id) === -1) {
+				if (window.dataStore.urlObj.collapsed.left.indexOf(n.id) === -1) {
 					if (n.parents && n.parents.length > 0) {
 						parentLevels += (n.parents.length - 1)
-						n.parents.forEach(function (d) {
+						n.parents.forEach(function(d) {
 							parentCount(level + 1, d)
 						})
 					}
@@ -412,23 +412,23 @@ class Tree extends React.Component {
 
 			var levelHeight = 1;
 			var childCount = function(level, n) {
-                if (window.dataStore.urlObj.collapsed.right.indexOf(n.id) === -1) {
+				if (window.dataStore.urlObj.collapsed.right.indexOf(n.id) === -1) {
 					if (n.kids && n.kids.length > 0) {
 						levelHeight += (n.kids.length - 1);
-						n.kids.forEach(function (d) {
+						n.kids.forEach(function(d) {
 							childCount(level + 1, d)
 						})
 					}
 				}
-            };
+			};
 			childCount(0, source)
 
 			levelHeight = Math.max(levelHeight, parentLevels)
 
-			me.middle = -((me.zoom-1) * me.height/2) - ICON_SIZE
+			me.middle = -((me.zoom - 1) * me.height / 2) - ICON_SIZE
 
 			if ((levelHeight * NODE_SPREAD) > me.height) {
-				me.middle += (me.height*me.zoom - (levelHeight * NODE_SPREAD)*me.zoom) / 2
+				me.middle += (me.height * me.zoom - (levelHeight * NODE_SPREAD) * me.zoom) / 2
 			}
 
 			me.height = Math.max(me.height, (levelHeight * NODE_SPREAD))
@@ -455,7 +455,7 @@ class Tree extends React.Component {
 				flip = which.flip,
 				offset = 0
 
-			nodes.forEach(function (d, i) {
+			nodes.forEach(function(d, i) {
 				if (d.depth === 0) {
 					offset = (me.height / 2 - d.x)
 					d.x = me.height / 2
@@ -472,22 +472,22 @@ class Tree extends React.Component {
 
 				//vertical lazy load
 				if (
-					((d.x*me.zoom + middle) < 0 && ((d.parent || {}).x*me.zoom + middle) < 0)
-					|| ((d.x*me.zoom + middle) > me.height && ((d.parent || {}).x*me.zoom + middle) > me.height)
+					((d.x * me.zoom + middle) < 0 && ((d.parent || {}).x * me.zoom + middle) < 0)
+					|| ((d.x * me.zoom + middle) > me.height && ((d.parent || {}).x * me.zoom + middle) > me.height)
 				) {
 					return false
 				}
 
 				//lazy load
 				return (
-					(flip === -1 && (me.center + me.offsetDistance[0] - d.y * me.zoom + NODE_SPREAD*2* me.zoom) > 0) //left side
-					|| (flip === 1 && (me.center + me.offsetDistance[0] + d.y * me.zoom - NODE_SPREAD*2* me.zoom) < me.width) //right side
+					(flip === -1 && (me.center + me.offsetDistance[0] - d.y * me.zoom + NODE_SPREAD * 2 * me.zoom) > 0) //left side
+					|| (flip === 1 && (me.center + me.offsetDistance[0] + d.y * me.zoom - NODE_SPREAD * 2 * me.zoom) < me.width) //right side
 				)
 			})
 
 			// Update the nodes…
 			var node = which.g.selectAll('g.node')
-				.data(nodes, function (d) {
+				.data(nodes, function(d) {
 					return d.node_index || (d.node_index = ++me.node_index);
 				})
 
@@ -496,23 +496,23 @@ class Tree extends React.Component {
 				.filter(function(d) {
 					return d.icon //no icon, no node
 				})
-				.attr('class', function (d) {
-                    let collapsedSide = window.dataStore.urlObj.collapsed.right.indexOf(d.id);
-                    if (window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
-                        collapsedSide = false;
-                    }
-                    if (which.name === 'left') {
-                        collapsedSide = window.dataStore.urlObj.collapsed.left.indexOf(d.id);
-                        if (window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
-                            collapsedSide = false;
+				.attr('class', function(d) {
+					let collapsedSide = window.dataStore.urlObj.collapsed.right.indexOf(d.id);
+					if (window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
+						collapsedSide = false;
+					}
+					if (which.name === 'left') {
+						collapsedSide = window.dataStore.urlObj.collapsed.left.indexOf(d.id);
+						if (window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
+							collapsedSide = false;
 						}
-                    }
-                    return 'node' + (d.is_root ? ' center' : '') + (me.selected.join('-') === d.id ? ' active' : '') + (collapsedSide ? ' collapsed' : '') + (d.status === "paused" ? ' paused' : '')
+					}
+					return 'node' + (d.is_root ? ' center' : '') + (me.selected.join('-') === d.id ? ' active' : '') + (collapsedSide ? ' collapsed' : '') + (d.status === "paused" ? ' paused' : '')
 				})
-				.attr('data-id', function (d) { return d.id })
-				.attr('data-icon', function (d) { return d.type })
-				.attr('transform', function (d) { return 'translate(' + 0 + ',' + me.height / 2 + ')'; })
-				.on('click', function (data) {
+				.attr('data-id', function(d) { return d.id })
+				.attr('data-icon', function(d) { return d.type })
+				.attr('transform', function(d) { return 'translate(' + 0 + ',' + me.height / 2 + ')'; })
+				.on('click', function(data) {
 					if (data.id !== 'add' && data.id !== 'infinite') {
 						me.selected = [data.id]
 						thisComponent.props.onNodeClick && thisComponent.props.onNodeClick(data)
@@ -525,18 +525,18 @@ class Tree extends React.Component {
 					setTimeout(thisComponent.hideHover.bind(thisComponent), 250)
 				})
 
-			var nodeEnterCollapsed = nodeEnter.filter(function (d) {
+			var nodeEnterCollapsed = nodeEnter.filter(function(d) {
 				let show = side.indexOf(d.id) !== -1;
-                if (which.name === 'right' && window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
-                    show = false;
-                }
-                if (which.name === 'left' && window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
-                    show = false;
-                }
+				if (which.name === 'right' && window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
+					show = false;
+				}
+				if (which.name === 'left' && window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
+					show = false;
+				}
 				return show
 			})
 
-			nodeEnterCollapsed.append('circle').attr('data-shape', 'circle').attr('r', 1e-6).style({ opacity: .5, transform: 'translate(-5px, -12px)'}).attr('class', 'stroked')
+			nodeEnterCollapsed.append('circle').attr('data-shape', 'circle').attr('r', 1e-6).style({ opacity: .5, transform: 'translate(-5px, -12px)' }).attr('class', 'stroked')
 			nodeEnterCollapsed.append('circle').attr('data-shape', 'circle').attr('r', 1e-6).style({ opacity: .5, transform: 'translate(7px, -8px)' }).attr('class', 'stroked')
 
 			var shapes = {
@@ -569,17 +569,17 @@ class Tree extends React.Component {
 			}
 
 			nodeEnter.append('path')
-			.attr('data-shape', function(d) {
-				d.shape = { danger: 'delta', blocked: 'octogon', rogue: 'octogon' }[d.status || (window.nodes[d.id] || {}).status] || 'circle'
-				return d.shape
-			}).attr('d', function(d) {
-				return shapes[$(this).attr('data-shape')][0]
-			}).attr('class', function (d) {
-				return ((d.type == 'bot' || d.type == 'event' || d.type == 'queue') ? 'stroked' : 'empty') + (d.status === 'danger' ? ' stroked-danger' : '') + (d.is_root ? ' root-node' : '');
-			})
+				.attr('data-shape', function(d) {
+					d.shape = { danger: 'delta', blocked: 'octogon', rogue: 'octogon' }[d.status || (window.nodes[d.id] || {}).status] || 'circle'
+					return d.shape
+				}).attr('d', function(d) {
+					return shapes[$(this).attr('data-shape')][0]
+				}).attr('class', function(d) {
+					return ((d.type == 'bot' || d.type == 'event' || d.type == 'queue') ? 'stroked' : 'empty') + (d.status === 'danger' ? ' stroked-danger' : '') + (d.is_root ? ' root-node' : '');
+				})
 
 			var nodeText = nodeEnter.append("text")
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return 'translate(0,' + (d.is_root ? ICON_SIZE * 1.5 : ICON_SIZE * 1.125) + ')';
 				})
 				.attr('width', ICON_SIZE)
@@ -588,52 +588,52 @@ class Tree extends React.Component {
 					opacity: 1e-6
 				})
 
-			nodeText.tspans2(function (d) {
+			nodeText.tspans2(function(d) {
 				return d3.wordwrap((d.label || '').toString().replace(/_/ig, ' '), 20) //12
 			})
 
 			nodeText.call(me.getBB)
 
-			var nodeQueue = nodeEnter.filter(function (d) {
+			var nodeQueue = nodeEnter.filter(function(d) {
 				return (d.type == 'event' || d.type == 'queue')
 			})
-			var nodeBot = nodeEnter.filter(function (d) {
+			var nodeBot = nodeEnter.filter(function(d) {
 				return (d.type == 'bot' || d.type == 'system')
 			})
 
 			nodeQueue.append('text')
 				.attr("class", 'stat')
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + 0 + "," + ((d.is_root ? ICON_SIZE * 1.5 : ICON_SIZE * 1.125) + d.bbox.height + 0) + ")";
 				})
-				.text(function (d) {
+				.text(function(d) {
 					return d.below || []
 				})
 				.style("opacity", 1e-6)
 
 			var countText = nodeBot.append('text')
 				.attr("class", 'stat')
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + 0 + "," + ((d.is_root ? ICON_SIZE * 1.5 : ICON_SIZE * 1.125) + d.bbox.height + 0) + ")";
 				})
 				.style("opacity", 1e-6)
 
-			countText.tspans2(function (d) {
+			countText.tspans2(function(d) {
 				return d.below || []
 			})
 
 			nodeEnter.append('svg').filter(function(d) { return d.icon })
 				.html(node => NodeImages(node.id, this.dataStore))
-				.attr('x', function (d) {
-					return (d.is_root ? -ICON_SIZE * 2 : -ICON_SIZE * 1.5 ) / 2
+				.attr('x', function(d) {
+					return (d.is_root ? -ICON_SIZE * 2 : -ICON_SIZE * 1.5) / 2
 				})
-				.attr('y', function (d) {
-					return (d.is_root ? -ICON_SIZE * 2 : -ICON_SIZE * 1.5 ) / 2
+				.attr('y', function(d) {
+					return (d.is_root ? -ICON_SIZE * 2 : -ICON_SIZE * 1.5) / 2
 				})
-				.attr('width', function (d) {
+				.attr('width', function(d) {
 					return (d.is_root) ? ICON_SIZE * 2 : ICON_SIZE * 1.5
 				})
-				.attr('height', function (d) {
+				.attr('height', function(d) {
 					return (d.is_root) ? ICON_SIZE * 2 : ICON_SIZE * 1.5
 				})
 				.on('mouseenter', function(d) {
@@ -649,7 +649,7 @@ class Tree extends React.Component {
 				.on('mouseenter', function(d) {
 
 					var clientX = d3.event.clientX
-					,	clientY = d3.event.clientY
+						, clientY = d3.event.clientY
 
 					me.mouseEnterTimeout = setTimeout(() => {
 						clearTimeout(me.mouseEnterTimeout)
@@ -683,7 +683,7 @@ class Tree extends React.Component {
 											text = text.slice(0, 40) + (text.length > 40 ? '...' : '')
 										}
 										if (y < 400) {
-											row.append('tspan').attr({ 'class': 'span', x: x, dx: (dx+10), dy: (!index ? 0 : lineHeight) }).text(text)
+											row.append('tspan').attr({ 'class': 'span', x: x, dx: (dx + 10), dy: (!index ? 0 : lineHeight) }).text(text)
 											y += lineHeight
 										}
 									})
@@ -717,36 +717,36 @@ class Tree extends React.Component {
 			rotators.forEach((r, index) => {
 
 				rotatorG.append('g')
-				.attr('class', 'div')
-				.append('g')
-				.attr('class', 'i')
-				.each(function(data) {
-					var bubble = d3.select(this)
+					.attr('class', 'div')
+					.append('g')
+					.attr('class', 'i')
+					.each(function(data) {
+						var bubble = d3.select(this)
 
-					var input = (data.parent ? data.parent.payload : undefined)
-					var output = (data.children && data.children[0] ? data.children[0].payload : undefined)
+						var input = (data.parent ? data.parent.payload : undefined)
+						var output = (data.children && data.children[0] ? data.children[0].payload : undefined)
 
-					data.has_parents = (data.parents ? data.parents.length : 0)
-					data.has_kids = (data.kids ? data.kids.length : 0)
-					data.input = (which.name == 'left' ? output : input)
-					data.output = (which.name == 'left' ? input : output)
+						data.has_parents = (data.parents ? data.parents.length : 0)
+						data.has_kids = (data.kids ? data.kids.length : 0)
+						data.input = (which.name == 'left' ? output : input)
+						data.output = (which.name == 'left' ? input : output)
 
-					var rotator
-					if (rotators[index] && (rotator = rotators[index](data, which, me))) {
-						bubble.append('circle')
-						bubble.append('text').html(
-							{
-								'icon-target': '&#xE80E;',
-								'icon-cog': '&#xE828;',
-								'icon-left-open': '&#xE822;',
-								'icon-right-open': '&#xE823;',
-								'icon-plus': '&#xE800;',
-								'icon-exclamation': '&#xF12A;'
-							}[Object.keys(rotator)[0]]
-						)
-						bubble.on('click', rotator[Object.keys(rotator)[0]])
-					}
-				})
+						var rotator
+						if (rotators[index] && (rotator = rotators[index](data, which, me))) {
+							bubble.append('circle')
+							bubble.append('text').html(
+								{
+									'icon-target': '&#xE80E;',
+									'icon-cog': '&#xE828;',
+									'icon-left-open': '&#xE822;',
+									'icon-right-open': '&#xE823;',
+									'icon-plus': '&#xE800;',
+									'icon-exclamation': '&#xF12A;'
+								}[Object.keys(rotator)[0]]
+							)
+							bubble.on('click', rotator[Object.keys(rotator)[0]])
+						}
+					})
 
 			})
 
@@ -761,28 +761,28 @@ class Tree extends React.Component {
 			var foreignObject = rotatorG.filter(function(d) {
 				return d.payload
 			}).append('foreignObject')
-				.attr('x', function (d) { return (d.is_root ? -ICON_SIZE * 1.5 : -ICON_SIZE) })
-				.attr('y', function (d) { return (d.is_root ? -ICON_SIZE * 1.5 : -ICON_SIZE) })
-				.attr('width', function (d) { return (d.is_root ? ICON_SIZE * 3 : ICON_SIZE * 2) })
-				.attr('height', function (d) { return (d.is_root ? ICON_SIZE * 3 : ICON_SIZE * 2) })
+				.attr('x', function(d) { return (d.is_root ? -ICON_SIZE * 1.5 : -ICON_SIZE) })
+				.attr('y', function(d) { return (d.is_root ? -ICON_SIZE * 1.5 : -ICON_SIZE) })
+				.attr('width', function(d) { return (d.is_root ? ICON_SIZE * 3 : ICON_SIZE * 2) })
+				.attr('height', function(d) { return (d.is_root ? ICON_SIZE * 3 : ICON_SIZE * 2) })
 
-			.append('xhtml:div')
+				.append('xhtml:div')
 				.attr('class', function(d) {
 					return 'rollover-info rollover-' + (d.is_root ? 'is-root' : 'not-root')
 				})
 				.append('div')
-					.text('payload')
-					.append('pre')
-						.text(function(d) {
-							return JSON.stringify(d.payload, null, 4)
-						})
+				.text('payload')
+				.append('pre')
+				.text(function(d) {
+					return JSON.stringify(d.payload, null, 4)
+				})
 
 			// Transition nodes to their new position.
 			var nodeUpdate = node
 				.transition()
 				.delay(me.duration / 2)
 				.duration(me.duration)
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 
 					if (d.is_root) {
 						me.rootX = flip * d.y
@@ -791,34 +791,34 @@ class Tree extends React.Component {
 
 					return "translate(" + (flip * d.y) + "," + d.x + ")";
 				})
-				.attr("class", function (d) {
+				.attr("class", function(d) {
 					let collapsedSide = window.dataStore.urlObj.collapsed.right.indexOf(d.id);
-                    if (window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
-                        collapsedSide = false;
-                    }
-                    if (which.name === 'left') {
-                        collapsedSide = window.dataStore.urlObj.collapsed.left.indexOf(d.id);
-                        if (window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
-                            collapsedSide = false;
-                        }
-                    }
-                    return 'node' + (d.is_root ? ' center' : '') + (me.selected.join('-') == d.id ? ' active' : '') + (collapsedSide ? ' collapsed' : '') + (d.status == "paused" ? ' paused' : '')
-                })
+					if (window.dataStore.urlObj.expanded.right.indexOf(d.id) !== -1) {
+						collapsedSide = false;
+					}
+					if (which.name === 'left') {
+						collapsedSide = window.dataStore.urlObj.collapsed.left.indexOf(d.id);
+						if (window.dataStore.urlObj.expanded.left.indexOf(d.id) !== -1) {
+							collapsedSide = false;
+						}
+					}
+					return 'node' + (d.is_root ? ' center' : '') + (me.selected.join('-') == d.id ? ' active' : '') + (collapsedSide ? ' collapsed' : '') + (d.status == "paused" ? ' paused' : '')
+				})
 
 			nodeUpdate.selectAll('circle')
-				.attr('r', function (d) {
+				.attr('r', function(d) {
 					return (d.is_root) ? ICON_SIZE : ICON_SIZE * .7
 				})
 
-			for(var shape in shapes) {
-				nodeUpdate.selectAll('path[data-shape="'+shape+'"]')
+			for (var shape in shapes) {
+				nodeUpdate.selectAll('path[data-shape="' + shape + '"]')
 					.attr('d', function(d) {
 						return shapes[shape][d.is_root ? 2 : 1]
 					})
 			}
 
 			nodeUpdate.select('text')
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return 'translate(0,' + (d.is_root ? ICON_SIZE * 1.5 : ICON_SIZE * 1.125) + ')';
 				})
 
@@ -827,28 +827,28 @@ class Tree extends React.Component {
 
 			// Transition exiting nodes to the parent's new position.
 			var nodeExit = node.exit()
-				.transition().duration(function (d) {
+				.transition().duration(function(d) {
 					return (me.selected.join('-') == d.id && me.clickedSide === which.name ? me.duration : 0)
 				})
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + (flip * source.y) + "," + source.x + ")";
 				})
 				.remove();
 
-///////////////////////////////// LINKS
+			///////////////////////////////// LINKS
 
 			// Update the links…
 			var link = which.g.selectAll('g.link')
-				.data(links, function (d) {
+				.data(links, function(d) {
 					return d.target.node_index;
 				});
 
 			// Enter any new links at the parent's previous position.
 			var linkEnter = link.enter().insert('g', 'g')
-				.attr('data-id', function (d) {
+				.attr('data-id', function(d) {
 					return d.target.id + '-' + d.source.id
 				})
-				.attr('class', function (d, index) {
+				.attr('class', function(d, index) {
 					return 'link' + (me.selected.indexOf(d.target.id) != -1 && me.selected.indexOf(d.source.id) != -1 ? ' active' : '')
 				})
 				.on('mouseenter', function(d, index) {
@@ -865,7 +865,7 @@ class Tree extends React.Component {
 
 			linkEnter.append('path')
 				.attr('data-line', 'solid')
-				.attr('class', function (d) {
+				.attr('class', function(d) {
 					return ((d.target.relation || {}).fill || 'stroked') + (d.target.relation.status === 'danger' ? ' stroked-danger' : '')
 				})
 				.attr('stroke-dasharray', function(d) {
@@ -876,7 +876,7 @@ class Tree extends React.Component {
 						solid: '1,0'
 					}[d.target.relation.line || 'solid']
 				})
-				.attr("d", function (d) {
+				.attr("d", function(d) {
 					var o = {
 						x: me.height / 2,
 						y: 0
@@ -898,13 +898,13 @@ class Tree extends React.Component {
 
 			// link text
 			var linkTextEnter = link.enter().insert('g', 'g.node')
-				.attr('data-id', function (d) {
+				.attr('data-id', function(d) {
 					return d.target.id + '-' + d.source.id
 				})
-				.attr('class', function (d, index) {
+				.attr('class', function(d, index) {
 					return 'link' + (me.selected.indexOf(d.target.id) != -1 && me.selected.indexOf(d.source.id) != -1 ? ' active' : '')
 				})
-				.on('mousedown', function (d) {
+				.on('mousedown', function(d) {
 					me.selected = [d.target.id, d.source.id]
 					thisComponent.props.onLinkClick && thisComponent.props.onLinkClick([d.target.id, d.source.id], d)
 				})
@@ -923,7 +923,7 @@ class Tree extends React.Component {
 			linkTextEnter.append('path')
 				.attr('data-line', 'solid')
 				.attr('class', 'unstroked')
-				.attr('d', function (d) {
+				.attr('d', function(d) {
 					var o = {
 						x: me.height / 2,
 						y: 0
@@ -934,128 +934,128 @@ class Tree extends React.Component {
 					});
 				});
 
-			var linkRead = linkTextEnter.filter(function (d) {
+			var linkRead = linkTextEnter.filter(function(d) {
 				return d.target.relation && d.target.relation.type == "read";
 			})
 
-			var linkWrite = linkTextEnter.filter(function (d) {
+			var linkWrite = linkTextEnter.filter(function(d) {
 				return d.target.relation && d.target.relation.type == "write";
 			})
 
 			var linkText = linkRead.append('text')
 				.attr("class", 'stat')
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + (flip * d.source.y) + "," + d.source.x + ")";
 				})
 				.attr('y', '-1em')
 				.style("opacity", 1e-6)
 
-			linkText.tspans2(function (d) {
+			linkText.tspans2(function(d) {
 				return d.target.relation.above || []
 			})
 			linkText.call(me.getBB)
 
 			linkRead.insert('rect', 'text').filter(function(d) {
-					return (d.target.relation && d.target.relation.above != null && d.target.relation.above != '' && d.target.relation.above != [])
-				})
+				return (d.target.relation && d.target.relation.above != null && d.target.relation.above != '' && d.target.relation.above != [])
+			})
 				.attr('class', function(d) {
 					return 'rect ' + (d.target.relation.fill || 'stroked')
 				})
 				.attr('rx', 6).attr('ry', 6)
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + (flip * d.source.y) + "," + d.source.x + ")";
 				})
-				.attr('x', function (d) { return d.bbox.x - TEXT_H_PADDING })
-				.attr('y', function (d) { return d.bbox.y - TEXT_V_PADDING })
-				.attr('width', function (d) { return d.bbox.width + TEXT_H_PADDING * 2 })
-				.attr('height', function (d) { return d.bbox.height + TEXT_V_PADDING * 2 })
+				.attr('x', function(d) { return d.bbox.x - TEXT_H_PADDING })
+				.attr('y', function(d) { return d.bbox.y - TEXT_V_PADDING })
+				.attr('width', function(d) { return d.bbox.width + TEXT_H_PADDING * 2 })
+				.attr('height', function(d) { return d.bbox.height + TEXT_V_PADDING * 2 })
 				.style("opacity", 1e-6)
 
 			var linkText = linkWrite.append('text')
 				.attr("class", 'stat')
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + (flip * d.source.y) + "," + d.source.x + ")";
 				})
 				.attr('y', '-1em')
 				.style("opacity", 1e-6)
 
-			linkText.tspans2(function (d) {
+			linkText.tspans2(function(d) {
 				return d.target.relation.above || []
 			})
 			linkText.call(me.getBB)
 
 			linkWrite.insert('rect', 'text').filter(function(d) {
-					return (d.target.relation && d.target.relation.above != null && d.target.relation.above != '' && d.target.relation.above != [])
-				})
+				return (d.target.relation && d.target.relation.above != null && d.target.relation.above != '' && d.target.relation.above != [])
+			})
 				.attr('class', function(d) {
 					return 'rect ' + (d.target.relation.fill || 'stroked')
 				})
 				.attr('rx', 6).attr('ry', 6)
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + (flip * d.source.y) + "," + d.source.x + ")";
 				})
-				.attr('x', function (d) { return d.bbox.x - TEXT_H_PADDING })
-				.attr('y', function (d) { return d.bbox.y - TEXT_V_PADDING })
-				.attr('width', function (d) { return d.bbox.width + TEXT_H_PADDING * 2 })
-				.attr('height', function (d) { return d.bbox.height + TEXT_V_PADDING * 2 })
+				.attr('x', function(d) { return d.bbox.x - TEXT_H_PADDING })
+				.attr('y', function(d) { return d.bbox.y - TEXT_V_PADDING })
+				.attr('width', function(d) { return d.bbox.width + TEXT_H_PADDING * 2 })
+				.attr('height', function(d) { return d.bbox.height + TEXT_V_PADDING * 2 })
 				.style("opacity", 1e-6)
 
 			if (!this.props.hideLinkBelow) {
 
 				var lagText = linkRead.append('text')
-					.attr('class', function (d) {
+					.attr('class', function(d) {
 						return 'stat' + (d.target.relation.status === 'danger' ? ' stat-danger' : '')
 					})
-					.attr("transform", function (d) {
+					.attr("transform", function(d) {
 						return "translate(" + (flip * d.source.y) + "," + d.source.x + ")";
 					})
 					.attr('y', '1.5em')
 					.style("opacity", 1e-6)
 
-				lagText.tspans2(function (d) {
+				lagText.tspans2(function(d) {
 					return d.target.relation.below || []
 				})
 				lagText.call(me.getBB)
 
 				linkRead.insert('rect', 'text').filter(function(d) {
-						return (d.target.relation && d.target.relation.below != null && d.target.relation.below != '' && d.target.relation.below != [])
-					})
-					.attr('class', function (d) {
+					return (d.target.relation && d.target.relation.below != null && d.target.relation.below != '' && d.target.relation.below != [])
+				})
+					.attr('class', function(d) {
 						return 'rect ' + (d.target.relation.fill || 'stroked') + (d.target.relation.status === 'danger' ? ' stroked-danger' : '')
 					})
 					.attr('rx', 6).attr('ry', 6)
-					.attr("transform", function (d) { return "translate(" + (flip * d.source.y) + "," + d.source.x + ")" })
-					.attr('x', function (d) { return d.bbox.x - TEXT_H_PADDING })
-					.attr('y', function (d) { return d.bbox.y - TEXT_V_PADDING })
-					.attr('width', function (d) { return d.bbox.width + TEXT_H_PADDING * 2 })
-					.attr('height', function (d) { return d.bbox.height + TEXT_V_PADDING * 2 })
+					.attr("transform", function(d) { return "translate(" + (flip * d.source.y) + "," + d.source.x + ")" })
+					.attr('x', function(d) { return d.bbox.x - TEXT_H_PADDING })
+					.attr('y', function(d) { return d.bbox.y - TEXT_V_PADDING })
+					.attr('width', function(d) { return d.bbox.width + TEXT_H_PADDING * 2 })
+					.attr('height', function(d) { return d.bbox.height + TEXT_V_PADDING * 2 })
 					.style("opacity", 1e-6)
 
 				var lagText = linkWrite.append('text')
 					.attr("class", 'stat')
-					.attr("transform", function (d) {
+					.attr("transform", function(d) {
 						return "translate(" + (flip * d.source.y) + "," + d.source.x + ")";
 					})
 					.attr('y', '1.5em')
 					.style("opacity", 1e-6)
 
-				lagText.tspans2(function (d) {
+				lagText.tspans2(function(d) {
 					return d.target.relation ? d.target.relation.below : []
 				})
 				lagText.call(me.getBB)
 
 				linkWrite.insert('rect', 'text').filter(function(d) {
-						return (d.target.relation && d.target.relation.below != null && d.target.relation.below != '' && d.target.relation.below != [])
-					})
+					return (d.target.relation && d.target.relation.below != null && d.target.relation.below != '' && d.target.relation.below != [])
+				})
 					.attr('class', function(d) {
 						return 'rect ' + (d.target.relation.fill || 'stroked')
 					})
 					.attr('rx', 6).attr('ry', 6)
-					.attr("transform", function (d) { return "translate(" + (flip * d.source.y) + "," + d.source.x + ")" })
-					.attr('x', function (d) { return d.bbox.x - TEXT_H_PADDING })
-					.attr('y', function (d) { return d.bbox.y - TEXT_V_PADDING })
-					.attr('width', function (d) { return d.bbox.width + TEXT_H_PADDING * 2 })
-					.attr('height', function (d) { return d.bbox.height + TEXT_V_PADDING * 2 })
+					.attr("transform", function(d) { return "translate(" + (flip * d.source.y) + "," + d.source.x + ")" })
+					.attr('x', function(d) { return d.bbox.x - TEXT_H_PADDING })
+					.attr('y', function(d) { return d.bbox.y - TEXT_V_PADDING })
+					.attr('width', function(d) { return d.bbox.width + TEXT_H_PADDING * 2 })
+					.attr('height', function(d) { return d.bbox.height + TEXT_V_PADDING * 2 })
 					.style("opacity", 1e-6)
 			}
 
@@ -1067,7 +1067,7 @@ class Tree extends React.Component {
 				.attr("d", which.diagonal)
 
 			linkUpdate.selectAll('text, rect')
-				.attr("transform", function (d) {
+				.attr("transform", function(d) {
 					return "translate(" + (((flip * d.source.y) + (flip * d.target.y)) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
 				})
 				.style("opacity", 1)
@@ -1139,8 +1139,8 @@ class Tree extends React.Component {
 			zoom: me.zoom
 		}, true))
 
-        this.dataStore.changeZoomAndOffset(me.zoom, me.offsetDistance);
-    }
+		this.dataStore.changeZoomAndOffset(me.zoom, me.offsetDistance);
+	}
 
 
 	zoomOut(focus) {
@@ -1167,9 +1167,9 @@ class Tree extends React.Component {
 
 	constructor(props) {
 		super(props)
-        this.dataStore = this.props.dataStore;
+		this.dataStore = this.props.dataStore;
 
-        this.state = {
+		this.state = {
 			zoom: this.props.settings.zoom || 1
 		}
 
@@ -1186,65 +1186,69 @@ class Tree extends React.Component {
 
 		this.rotators = this.props.rotators
 
-        if (this.rotators[2] === 'tree-collapse-right') {
-            this.rotators[2] = function(data, which, me) {
-                return (
-                    (which.name === 'right' || data.is_root) && data.has_kids
-                        ? {[((window.dataStore.urlObj.collapsed.right.indexOf(data.id) === -1 || window.dataStore.urlObj.expanded.right.indexOf(data.id) !== -1) ? 'icon-left-open' : 'icon-right-open')]: function(data, which, me) {
-                            return function() {
-                                if (window.dataStore.urlObj.collapsed.right.indexOf(data.id) === -1) {
-                                    if (window.collapsedStart.indexOf(data.id) !== -1) {
-                                        if (window.dataStore.urlObj.expanded.right.indexOf(data.id) !== -1) {
-                                            window.dataStore.urlObj.expanded.right.splice(window.dataStore.urlObj.expanded.left.indexOf(data.id), 1)
-                                        }
-                                    }
-                                    window.dataStore.urlObj.collapsed.right.push(data.id);
-                                } else {
-                                    if (window.collapsedStart.indexOf(data.id) !== -1) {
-                                        if (window.dataStore.urlObj.expanded.right.indexOf(data.id) === -1) {
-                                            window.dataStore.urlObj.expanded.right.push(data.id);
-                                        }
-                                    }
-                                    window.dataStore.urlObj.collapsed.right.splice(window.dataStore.urlObj.collapsed.right.indexOf(data.id), 1);
-                                }
-                                me.updateDiagram(me.root, true);
-                                thisComponent.props.onCollapse && thisComponent.props.onCollapse({ left: window.dataStore.urlObj.collapsed.left, right: window.dataStore.urlObj.collapsed.right }, {left: window.dataStore.urlObj.expanded.left, right: window.dataStore.urlObj.expanded.right })
-                            }
-                        }(data, which, me)}
-                        : false
-                )
-            }
-        }
-
-        if (this.rotators[5] === 'tree-collapse-left') {
-            this.rotators[5] = function(data, which, me) {
-                return (
-                    (which.name === 'left' || data.is_root) && data.has_parents
-                        ? {[((window.dataStore.urlObj.collapsed.left.indexOf(data.id) === -1 || window.dataStore.urlObj.expanded.left.indexOf(data.id) !== -1) ? 'icon-right-open' : 'icon-left-open')]: function(data, which, me) {
-                            return function() {
-                                if (window.dataStore.urlObj.collapsed.left.indexOf(data.id) === -1) {
-                                    if (window.collapsedStart.indexOf(data.id) !== -1) {
-                                        if (window.dataStore.urlObj.expanded.left.indexOf(data.id) !== -1) {
-                                            window.dataStore.urlObj.expanded.left.splice(window.dataStore.urlObj.expanded.left.indexOf(data.id), 1)
-                                        }
-                                    }
-                                    window.dataStore.urlObj.collapsed.left.push(data.id);
-                                } else {
-                                    if (window.collapsedStart.indexOf(data.id) !== -1) {
-                                        if (window.dataStore.urlObj.expanded.left.indexOf(data.id) === -1) {
-                                            window.dataStore.urlObj.expanded.left.push(data.id);
-                                        }
-                                    }
-                                    window.dataStore.urlObj.collapsed.left.splice(window.dataStore.urlObj.collapsed.left.indexOf(data.id), 1);
+		if (this.rotators[2] === 'tree-collapse-right') {
+			this.rotators[2] = function(data, which, me) {
+				return (
+					(which.name === 'right' || data.is_root) && data.has_kids
+						? {
+							[((window.dataStore.urlObj.collapsed.right.indexOf(data.id) === -1 || window.dataStore.urlObj.expanded.right.indexOf(data.id) !== -1) ? 'icon-left-open' : 'icon-right-open')]: function(data, which, me) {
+								return function() {
+									if (window.dataStore.urlObj.collapsed.right.indexOf(data.id) === -1) {
+										if (window.collapsedStart.indexOf(data.id) !== -1) {
+											if (window.dataStore.urlObj.expanded.right.indexOf(data.id) !== -1) {
+												window.dataStore.urlObj.expanded.right.splice(window.dataStore.urlObj.expanded.left.indexOf(data.id), 1)
+											}
+										}
+										window.dataStore.urlObj.collapsed.right.push(data.id);
+									} else {
+										if (window.collapsedStart.indexOf(data.id) !== -1) {
+											if (window.dataStore.urlObj.expanded.right.indexOf(data.id) === -1) {
+												window.dataStore.urlObj.expanded.right.push(data.id);
+											}
+										}
+										window.dataStore.urlObj.collapsed.right.splice(window.dataStore.urlObj.collapsed.right.indexOf(data.id), 1);
+									}
+									me.updateDiagram(me.root, true);
+									thisComponent.props.onCollapse && thisComponent.props.onCollapse({ left: window.dataStore.urlObj.collapsed.left, right: window.dataStore.urlObj.collapsed.right }, { left: window.dataStore.urlObj.expanded.left, right: window.dataStore.urlObj.expanded.right })
 								}
-                                me.updateDiagram(me.root, true);
-                                thisComponent.props.onCollapse && thisComponent.props.onCollapse({ left: window.dataStore.urlObj.collapsed.left, right: window.dataStore.urlObj.collapsed.right }, {left: window.dataStore.urlObj.expanded.left, right: window.dataStore.urlObj.expanded.right })
-                            }
-                        }(data, which, me)}
-                        : false
-                )
-            }
-        }
+							}(data, which, me)
+						}
+						: false
+				)
+			}
+		}
+
+		if (this.rotators[5] === 'tree-collapse-left') {
+			this.rotators[5] = function(data, which, me) {
+				return (
+					(which.name === 'left' || data.is_root) && data.has_parents
+						? {
+							[((window.dataStore.urlObj.collapsed.left.indexOf(data.id) === -1 || window.dataStore.urlObj.expanded.left.indexOf(data.id) !== -1) ? 'icon-right-open' : 'icon-left-open')]: function(data, which, me) {
+								return function() {
+									if (window.dataStore.urlObj.collapsed.left.indexOf(data.id) === -1) {
+										if (window.collapsedStart.indexOf(data.id) !== -1) {
+											if (window.dataStore.urlObj.expanded.left.indexOf(data.id) !== -1) {
+												window.dataStore.urlObj.expanded.left.splice(window.dataStore.urlObj.expanded.left.indexOf(data.id), 1)
+											}
+										}
+										window.dataStore.urlObj.collapsed.left.push(data.id);
+									} else {
+										if (window.collapsedStart.indexOf(data.id) !== -1) {
+											if (window.dataStore.urlObj.expanded.left.indexOf(data.id) === -1) {
+												window.dataStore.urlObj.expanded.left.push(data.id);
+											}
+										}
+										window.dataStore.urlObj.collapsed.left.splice(window.dataStore.urlObj.collapsed.left.indexOf(data.id), 1);
+									}
+									me.updateDiagram(me.root, true);
+									thisComponent.props.onCollapse && thisComponent.props.onCollapse({ left: window.dataStore.urlObj.collapsed.left, right: window.dataStore.urlObj.collapsed.right }, { left: window.dataStore.urlObj.expanded.left, right: window.dataStore.urlObj.expanded.right })
+								}
+							}(data, which, me)
+						}
+						: false
+				)
+			}
+		}
 	}
 
 
@@ -1255,7 +1259,7 @@ class Tree extends React.Component {
 
 		window.addEventListener('resize', this.nodeTree.windowResized)
 		document.addEventListener('visibilitychange', this.nodeTree.visibilityChange)
-    }
+	}
 
 
 	componentDidUpdate(props, state) {
@@ -1292,7 +1296,7 @@ class Tree extends React.Component {
 
 
 	render() {
-        return (<div id={this.props.id} className="tree-wrapper" onClick={this.hideHover.bind(this)}>
+		return (<div id={this.props.id} className="tree-wrapper" onClick={this.hideHover.bind(this)}>
 			<div className="tree-buttons top-controls">
 				<div>
 					{
@@ -1313,23 +1317,23 @@ class Tree extends React.Component {
 			</div>
 			<svg>
 				<clipPath id="clipCircle30">
-					<circle r="25" cx="0" cy="0"/>
+					<circle r="25" cx="0" cy="0" />
 				</clipPath>
 				<clipPath id="clipCircle21">
-					<circle r="16" cx="0" cy="0"/>
+					<circle r="16" cx="0" cy="0" />
 				</clipPath>
 				<Trunk className="left-side" />
 				<Trunk className="right-side" />
 				<Trunk className="hoverBoard" style={{ filter: 'url(#hoverDropshadow)', display: 'none' }} />
 				<filter id="hoverDropshadow" height="130%">
-					<feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
-					<feOffset dx="2" dy="2" result="offsetblur"/>
+					<feGaussianBlur in="SourceAlpha" stdDeviation="4" />
+					<feOffset dx="2" dy="2" result="offsetblur" />
 					<feMerge>
-						<feMergeNode/>
-						<feMergeNode in="SourceGraphic"/>
+						<feMergeNode />
+						<feMergeNode in="SourceGraphic" />
 					</feMerge>
 				</filter>
-				<NoSource root={this.nodeTree.root} transform={'translate(' + (this.nodeTree.width/2) + ',' + (this.nodeTree.height/2+125) + ')'} />
+				<NoSource root={this.nodeTree.root} transform={'translate(' + (this.nodeTree.width / 2) + ',' + (this.nodeTree.height / 2 + 125) + ')'} />
 			</svg>
 		</div>)
 

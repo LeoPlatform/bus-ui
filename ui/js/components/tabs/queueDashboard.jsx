@@ -1,6 +1,6 @@
-import React, {Component} from 'react'
+import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import {inject, observer} from 'mobx-react'
+import { inject, observer } from 'mobx-react'
 
 import NodeCharts from '../elements/nodeCharts.jsx'
 import NodeChart from '../elements/nodeChart.jsx'
@@ -10,7 +10,7 @@ import TimePicker from '../elements/timePicker.jsx'
 var reloadTimeout;
 var currentRequest;
 
-var timePeriods = { 'minute_15':'15m', 'hour':'1h', 'hour_6':'6h', 'day':'1d', 'week':'1w'}
+var timePeriods = { 'minute_15': '15m', 'hour': '1h', 'hour_6': '6h', 'day': '1d', 'week': '1w' }
 
 @inject('dataStore')
 @observer
@@ -39,8 +39,9 @@ class QueueDashboard extends React.Component {
 			this.setState({
 				data: result
 			});
-		}).always((xhr, status)=>{
-			if(status !== "abort") {
+		}).always((xhr, status) => {
+			currentRequest = null;
+			if (status !== "abort" && status != "canceled") {
 				clearTimeout(reloadTimeout);
 				reloadTimeout = setTimeout(this.refreshData, 10000);
 			}
@@ -83,7 +84,7 @@ class QueueDashboard extends React.Component {
 				<div className="clear-fix flex-row flex-spread">
 
 					<div className="node-name">
-						<small> Last event written { nodeData.latest_write ? moment(nodeData.latest_write).fromNow() : ': unknown' }</small>
+						<small> Last event written {nodeData.latest_write ? moment(nodeData.latest_write).fromNow() : ': unknown'}</small>
 					</div>
 
 					<div className="flex-grow"></div>
@@ -92,7 +93,7 @@ class QueueDashboard extends React.Component {
 
 				</div>
 
-				<div className="flex-row overflow-auto flex-grow flex-wrap flex-shrink position-relative" style={{ maxHeight: 'calc(100% - 210px)'}}>
+				<div className="flex-row overflow-auto flex-grow flex-wrap flex-shrink position-relative" style={{ maxHeight: 'calc(100% - 210px)' }}>
 
 					<div className="flex-grow">
 
@@ -101,61 +102,61 @@ class QueueDashboard extends React.Component {
 							<thead>
 								{
 									!this.state.data || Object.keys(this.state.data.bots.write).length == 0
-									? <tr><td/></tr>
-									: (<tr>
-										<th>Bots</th>
-										<th></th>
-										<th></th>
-										<th>Events Written</th>
-									</tr>)
+										? <tr><td /></tr>
+										: (<tr>
+											<th>Bots</th>
+											<th></th>
+											<th></th>
+											<th>Events Written</th>
+										</tr>)
 								}
 							</thead>
 							<tbody>
 								{
 									!this.state.data || Object.keys(this.state.data.bots.write).length == 0
-									? (<tr>
-										<td colSpan="5" className="text-center">No Sources</td>
-									</tr>)
-									: Object.keys(this.state.data.bots.write).map((botId) => {
-										var bot = this.state.data.bots.write[botId]
-
-										if (!this.dataStore.nodes[bot.id] || this.dataStore.nodes[bot.id].status === 'archived' || this.dataStore.nodes[bot.id].archived) {
-											return false
-										}
-
-										var eventsWritten = bot.values.reduce(function(total, value) {
-											return total + (value.value || 0)
-										}, 0)
-
-										return (<tr key={botId} className="theme-tool-tip-wrapper">
-											<td className="no-wrap">
-												<NodeIcon node={bot.id} />
-												<a onClick={() => {
-													this.props.onClose && this.props.onClose()
-													window.nodeSettings({
-														id: bot.id,
-														label: this.dataStore.nodes[bot.id].label,
-														server_id: botId,
-														type: 'bot'
-													})
-												}}>{this.dataStore.nodes[bot.id].label}</a>
-											</td>
-											<td onClick={window.jumpToNode.bind(this, bot.id, this.props.onClose)}>
-												<a><i className="icon-flow-branch"></i></a>
-											</td>
-											<td className="position-relative">
-												<div className="theme-tool-tip">
-													<span>{this.dataStore.nodes[bot.id].label}</span>
-													<div>
-														<label>Events Written</label>
-														<span>{eventsWritten}</span>
-													</div>
-												</div>
-												<NodeChart data={bot.values} chartKey="Events Written" interval={this.state.interval} className="width-1-1" />
-											</td>
-											<td>{eventsWritten}</td>
+										? (<tr>
+											<td colSpan="5" className="text-center">No Sources</td>
 										</tr>)
-									})
+										: Object.keys(this.state.data.bots.write).map((botId) => {
+											var bot = this.state.data.bots.write[botId]
+
+											if (!this.dataStore.nodes[bot.id] || this.dataStore.nodes[bot.id].status === 'archived' || this.dataStore.nodes[bot.id].archived) {
+												return false
+											}
+
+											var eventsWritten = bot.values.reduce(function(total, value) {
+												return total + (value.value || 0)
+											}, 0)
+
+											return (<tr key={botId} className="theme-tool-tip-wrapper">
+												<td className="no-wrap">
+													<NodeIcon node={bot.id} />
+													<a onClick={() => {
+														this.props.onClose && this.props.onClose()
+														window.nodeSettings({
+															id: bot.id,
+															label: this.dataStore.nodes[bot.id].label,
+															server_id: botId,
+															type: 'bot'
+														})
+													}}>{this.dataStore.nodes[bot.id].label}</a>
+												</td>
+												<td onClick={window.jumpToNode.bind(this, bot.id, this.props.onClose)}>
+													<a><i className="icon-flow-branch"></i></a>
+												</td>
+												<td className="position-relative">
+													<div className="theme-tool-tip">
+														<span>{this.dataStore.nodes[bot.id].label}</span>
+														<div>
+															<label>Events Written</label>
+															<span>{eventsWritten}</span>
+														</div>
+													</div>
+													<NodeChart data={bot.values} chartKey="Events Written" interval={this.state.interval} className="width-1-1" />
+												</td>
+												<td>{eventsWritten}</td>
+											</tr>)
+										})
 								}
 							</tbody>
 						</table>
@@ -163,8 +164,8 @@ class QueueDashboard extends React.Component {
 
 					{
 						!this.state.data
-						? <div className="theme-spinner-large"></div>
-						: <div className="margin-10 mobile-hide">&nbsp;</div>
+							? <div className="theme-spinner-large"></div>
+							: <div className="margin-10 mobile-hide">&nbsp;</div>
 					}
 
 					<div className="flex-grow">
@@ -173,86 +174,86 @@ class QueueDashboard extends React.Component {
 							<thead>
 								{
 									!this.state.data || Object.keys(this.state.data.bots.read).length == 0
-									? (<tr><td/></tr>)
-									: (<tr>
-										<th>Bots</th>
-										<th></th>
-										<th></th>
-										<th>Events Read</th>
-										<th>Last Read</th>
-										<th>Lag Time</th>
-										<th>Lag Events</th>
-									</tr>)
+										? (<tr><td /></tr>)
+										: (<tr>
+											<th>Bots</th>
+											<th></th>
+											<th></th>
+											<th>Events Read</th>
+											<th>Last Read</th>
+											<th>Lag Time</th>
+											<th>Lag Events</th>
+										</tr>)
 								}
 							</thead>
 							<tbody>
 								{
 									!this.state.data || Object.keys(this.state.data.bots.read).length == 0
-									? (<tr>
-										<td colSpan="8" className="text-center">No Destinations</td>
-									</tr>)
-									: Object.keys(this.state.data.bots.read).map((botId) => {
-										var bot = this.state.data.bots.read[botId]
-
-										if (!this.dataStore.nodes[bot.id] || this.dataStore.nodes[bot.id].status == 'archived' || this.dataStore.nodes[bot.id].archived) {
-											return false
-										}
-
-										var eventsRead = bot.values.reduce(function(total, value) {
-											return total + (value.value || 0)
-										}, 0)
-
-										var lastReadLag = bot.last_read_lag ? (moment.duration(bot.last_read_lag).humanize() + " ago").replace("a few ", "") : ""
-
-										var lagTime = bot.last_event_source_timestamp_lag?(moment.duration(bot.last_event_source_timestamp_lag).humanize() + " ago").replace("a few ", "") : ""
-
-										return (<tr key={botId}>
-											<td className="no-wrap" className="theme-tool-tip-wrapper">
-												<NodeIcon node={bot.id} />
-												<a onClick={() => {
-													this.props.onClose && this.props.onClose()
-													window.nodeSettings({
-														id: bot.id,
-														label: this.dataStore.nodes[bot.id].label,
-														server_id: botId,
-														type: 'bot'
-													})
-												}}>{this.dataStore.nodes[bot.id].label}</a>
-											</td>
-											<td onClick={window.jumpToNode.bind(this, bot.id, this.props.onClose)}>
-												<a><i className="icon-flow-branch"></i></a>
-											</td>
-
-											<td className="position-relative">
-
-												<div className="theme-tool-tip">
-													<span>{this.dataStore.nodes[bot.id].label}</span>
-													<div>
-														<label>Events Read</label>
-														<span>{eventsRead}</span>
-													</div>
-													<div>
-														<label>Last Read</label>
-														<span>{lastReadLag}</span>
-													</div>
-													<div>
-														<label>Lag Time</label>
-														<span>{lagTime}</span>
-													</div>
-													<div>
-														<label>Lag Events</label>
-														<span>{bot.lagEvents}</span>
-													</div>
-												</div>
-
-												<NodeChart data={bot.values} chartKey="Events In Queue" interval={this.state.interval} className="width-1-1" lastRead={bot.last_read || 0} />
-											</td>
-											<td>{eventsRead}</td>
-											<td>{lastReadLag}</td>
-											<td>{lagTime}</td>
-											<td>{bot.lagEvents}</td>
+										? (<tr>
+											<td colSpan="8" className="text-center">No Destinations</td>
 										</tr>)
-									})
+										: Object.keys(this.state.data.bots.read).map((botId) => {
+											var bot = this.state.data.bots.read[botId]
+
+											if (!this.dataStore.nodes[bot.id] || this.dataStore.nodes[bot.id].status == 'archived' || this.dataStore.nodes[bot.id].archived) {
+												return false
+											}
+
+											var eventsRead = bot.values.reduce(function(total, value) {
+												return total + (value.value || 0)
+											}, 0)
+
+											var lastReadLag = bot.last_read_lag ? (moment.duration(bot.last_read_lag).humanize() + " ago").replace("a few ", "") : ""
+
+											var lagTime = bot.last_event_source_timestamp_lag ? (moment.duration(bot.last_event_source_timestamp_lag).humanize() + " ago").replace("a few ", "") : ""
+
+											return (<tr key={botId}>
+												<td className="no-wrap" className="theme-tool-tip-wrapper">
+													<NodeIcon node={bot.id} />
+													<a onClick={() => {
+														this.props.onClose && this.props.onClose()
+														window.nodeSettings({
+															id: bot.id,
+															label: this.dataStore.nodes[bot.id].label,
+															server_id: botId,
+															type: 'bot'
+														})
+													}}>{this.dataStore.nodes[bot.id].label}</a>
+												</td>
+												<td onClick={window.jumpToNode.bind(this, bot.id, this.props.onClose)}>
+													<a><i className="icon-flow-branch"></i></a>
+												</td>
+
+												<td className="position-relative">
+
+													<div className="theme-tool-tip">
+														<span>{this.dataStore.nodes[bot.id].label}</span>
+														<div>
+															<label>Events Read</label>
+															<span>{eventsRead}</span>
+														</div>
+														<div>
+															<label>Last Read</label>
+															<span>{lastReadLag}</span>
+														</div>
+														<div>
+															<label>Lag Time</label>
+															<span>{lagTime}</span>
+														</div>
+														<div>
+															<label>Lag Events</label>
+															<span>{bot.lagEvents}</span>
+														</div>
+													</div>
+
+													<NodeChart data={bot.values} chartKey="Events In Queue" interval={this.state.interval} className="width-1-1" lastRead={bot.last_read || 0} />
+												</td>
+												<td>{eventsRead}</td>
+												<td>{lastReadLag}</td>
+												<td>{lagTime}</td>
+												<td>{bot.lagEvents}</td>
+											</tr>)
+										})
 								}
 							</tbody>
 						</table>
@@ -261,8 +262,8 @@ class QueueDashboard extends React.Component {
 
 				{
 					!this.state.data
-					? false
-					: <NodeCharts className="node-charts" data={this.state.data} nodeType="queue" interval={this.state.interval} showHeader="true" />
+						? false
+						: <NodeCharts className="node-charts" data={this.state.data} nodeType="queue" interval={this.state.interval} showHeader="true" />
 				}
 
 			</div>
