@@ -1,0 +1,33 @@
+{
+	"name": "event_trace_api",
+	"version": "1.0.0",
+	"description": "This is a sample ApiGateway Description",
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"scripts": {
+		"test": "nodemon --ignore test/out/* --exec \"mocha --recursive\"",
+		"debug": "mocha --debug --recursive"
+	},
+	"config": {
+		"leo": {
+			"type": "resource",
+			"uri": "GET:/api/trace/{queue}/{id}",
+			"name": "Leo_Botmon_api_eventTrace",
+			"handler": "handler",
+			"secure": true,
+			"role": null,
+			"memory": 512,
+			"timeout": 30,
+			"env": {
+				"Resources": {
+					"LeoStats": "${LeoStats}"
+				}
+			}
+		}
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}
