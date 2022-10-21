@@ -62,12 +62,12 @@ class EventViewer extends React.Component {
 			this.clipboard.destroy()
 		}
 		this.clipboard = new Clipboard('.copy-button', {
-			text: function (trigger) {
+			text: function(trigger) {
 				return $('pre#data-to-copy').text()
 			}
-		}).on('success', function (e) {
+		}).on('success', function(e) {
 			window.messageLogNotify('Payload copied')
-		}).on('error', function (e) {
+		}).on('error', function(e) {
 			window.messageLogNotify('Error copying payload', 'error')
 		})
 
@@ -126,6 +126,8 @@ class EventViewer extends React.Component {
 			var nodeId = (Object.keys(this.dataStore.nodes).filter(node => this.dataStore.nodes[node].id === (this.dataStore.nodes[node].type + ':' + source)) || [])[0]
 			window.messageLogModal('Failure starting trace on ' + (this.dataStore.nodes[nodeId] || {}).type + ' "' + (this.dataStore.nodes[nodeId] || {}).label + '"', 'error', result)
 			$('.event-viewer > div').removeClass('theme-spinner-large')
+		}).always(() => {
+			this.currentRequest = null;
 		})
 	}
 
@@ -244,9 +246,9 @@ class EventViewer extends React.Component {
 							</svg>
 						</div>)
 
-						: (<div className="flex-row height-1-1 flex-wrap overflow-auto">
+						: (<div className="flex-row height-1-1 flex-wrap">
 
-							<div className="flex-auto width-1-2 mobile-height-1-2">
+							<div style={{ height: 'calc(100% - 59px)' }} className="flex-auto width-1-2 mobile-height-1-2">
 
 								<div className="theme-table-fixed-header theme-table-overflow-hidden">
 									<table className="infiniteScroll" onScroll={this.continueSearch.bind(this)}>
@@ -275,7 +277,7 @@ class EventViewer extends React.Component {
 															<td className="two-icons">
 																<div>
 																	{
-																		detail.correlation_id
+																		true || detail.correlation_id
 																			? (<a onClick={this.startTrace.bind(this, detail.event, detail.eid, index)} className="event-viewer-action-button" title="trace">
 																				<i className="icon-flash" style={{ fontSize: '1.25em' }}></i>
 																			</a>)
@@ -317,11 +319,11 @@ class EventViewer extends React.Component {
 
 							</div>
 
-							<div className="width-1-2 flex-column position-relative mobile-height-1-2">
+							<div style={{ height: 'calc(100% - 59px)' }} className="width-1-2 flex-column position-relative mobile-height-1-2">
 
 								<div className="theme-table-column-header width-1-1">
 									Payload
-							</div>
+								</div>
 
 								<div className="flex-auto">
 									{
