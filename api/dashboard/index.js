@@ -190,8 +190,8 @@ function botDashboard(refObject, data, callback) {
 	var request_timestamp = data.request_timestamp;
 	var prevCompareTimestamp = data.prevCompareTimestamp;
 	var currentCompareTimestamp = data.currentCompareTimestamp;
-	var selfProcessor = function (ref, done) {
-		dynamodb.docClient.query({
+	var selfProcessor = function(ref, done) {
+		leo.aws.dynamodb.query({
 			TableName: STATS_TABLE,
 			KeyConditionExpression: "#id = :id and #bucket between :bucket and :endBucket",
 			ExpressionAttributeNames: {
@@ -204,150 +204,152 @@ function botDashboard(refObject, data, callback) {
 				":id": ref.refId()
 			},
 			"ReturnConsumedCapacity": 'TOTAL'
-		}, (err, bucketStats) => {
-			console.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length)
+		}, { mb: 100 })
+			.catch(callback)
+			.then(bucketStats => {
+				console.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length)
 
-			var node = {
-				executions: buckets.map((time) => {
-					return {
-						value: 0,
-						time: time
-					}
-				}),
-				errors: buckets.map((time) => {
-					return {
-						value: 0,
-						time: time
-					}
-				}),
-				duration: buckets.map((time) => {
-					return {
-						value: 0,
-						total: 0,
-						min: 0,
-						max: 0,
-						time: time
-					}
-				}),
-				queues: {
-					read: {},
-					write: {}
-				},
-				compare: {
-					executions: {
-						prev: 0,
-						current: 0,
-						change: 0
+				var node = {
+					executions: buckets.map((time) => {
+						return {
+							value: 0,
+							time: time
+						}
+					}),
+					errors: buckets.map((time) => {
+						return {
+							value: 0,
+							time: time
+						}
+					}),
+					duration: buckets.map((time) => {
+						return {
+							value: 0,
+							total: 0,
+							min: 0,
+							max: 0,
+							time: time
+						}
+					}),
+					queues: {
+						read: {},
+						write: {}
 					},
-					errors: {
-						prev: 0,
-						current: 0,
-						change: 0
-					},
-					duration: {
-						prev: 0,
-						current: 0,
-						change: 0
+					compare: {
+						executions: {
+							prev: 0,
+							current: 0,
+							change: 0
+						},
+						errors: {
+							prev: 0,
+							current: 0,
+							change: 0
+						},
+						duration: {
+							prev: 0,
+							current: 0,
+							change: 0
+						}
 					}
-				}
-			};
-			bucketStats.Items.map(stat => {
-				var index = bucketArrayIndex[stat.time]
-				//console.log(stat.id, stat.bucket);
-				if (stat.current.execution) {
-					let exec = stat.current.execution;
-					node.executions[index].value = exec.units;
-					node.errors[index].value = exec.errors; //Math.max(exec.errors, exec.units - exec.completions);
-					node.duration[index] = {
-						value: exec.duration / exec.units,
-						total: exec.duration,
-						max: exec.max_duration,
-						min: exec.min_duration,
-						time: stat.time
-					};
-					if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
-						node.compare.executions.prev += node.executions[index].value;
-						node.compare.errors.prev += node.errors[index].value;
-						node.compare.duration.prev += node.duration[index].total;
-					} else if (stat.time >= currentCompareTimestamp) {
-						node.compare.executions.current += node.executions[index].value;
-						node.compare.errors.current += node.errors[index].value;
-						node.compare.duration.current += node.duration[index].total;
+				};
+				bucketStats.Items.map(stat => {
+					var index = bucketArrayIndex[stat.time]
+					//console.log(stat.id, stat.bucket);
+					if (stat.current.execution) {
+						let exec = stat.current.execution;
+						node.executions[index].value = exec.units;
+						node.errors[index].value = exec.errors; //Math.max(exec.errors, exec.units - exec.completions);
+						node.duration[index] = {
+							value: exec.duration / exec.units,
+							total: exec.duration,
+							max: exec.max_duration,
+							min: exec.min_duration,
+							time: stat.time
+						};
+						if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
+							node.compare.executions.prev += node.executions[index].value;
+							node.compare.errors.prev += node.errors[index].value;
+							node.compare.duration.prev += node.duration[index].total;
+						} else if (stat.time >= currentCompareTimestamp) {
+							node.compare.executions.current += node.executions[index].value;
+							node.compare.errors.current += node.errors[index].value;
+							node.compare.duration.current += node.duration[index].total;
+						}
 					}
+					["read", "write"].map(type => {
+						var typeS = `${type}s`;
+						if (stat.current[type] != undefined) {
+							Object.keys(stat.current[type]).forEach((key, k) => {
+								var link = stat.current[type][key];
+								if (!(key in node.queues[type])) {
+									node.queues[type][key] = queueData(key, type, link, request_timestamp, buckets);
+								}
+								var queue = node.queues[type][key];
+
+								queue.lags[index].value += (link.timestamp - link.source_timestamp) || 0;
+								if (type === "write") {
+									queue.values[index].value += parseInt(link.units);
+								} else {
+									queue[`${typeS}`][index].value += parseInt(link.units);
+								}
+
+								if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
+									queue.compare[`${typeS}`].prev += parseInt(link.units);
+									queue.compare[`${type}_lag`].prev += (link.timestamp - link.source_timestamp) || 0;
+									queue.compare[`${type}_lag`].prevCount++;
+								} else if (stat.time >= currentCompareTimestamp) {
+									queue.compare[`${typeS}`].current += parseInt(link.units);
+									queue.compare[`${type}_lag`].current += (link.timestamp - link.source_timestamp) || 0;
+									queue.compare[`${type}_lag`].currentCount++;
+								}
+
+								queue[`last_${type}`] = link.timestamp;
+								queue[`last_${type}_event_timestamp`] = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0);
+								queue.last_event_source_timestamp = link.source_timestamp;
+								queue[`last_${type}_lag`] = request_timestamp.diff(moment(link.timestamp));
+								queue.last_event_source_timestamp_lag = request_timestamp.diff(moment(link.source_timestamp));
+
+								queue.checkpoint = link.checkpoint;
+								queue.timestamp = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0)
+							})
+						}
+					});
+				});
+
+				if (node.compare.executions.current) {
+					node.compare.duration.current /= node.compare.executions.current;
 				}
+				if (node.compare.executions.prev) {
+					node.compare.duration.prev /= node.compare.executions.prev;
+				}
+				node.compare.executions.change = calcChange(node.compare.executions.current, node.compare.executions.prev);
+				node.compare.errors.change = calcChange(node.compare.errors.current, node.compare.errors.prev);
+				node.compare.duration.change = calcChange(node.compare.duration.current, node.compare.duration.prev);
+
 				["read", "write"].map(type => {
 					var typeS = `${type}s`;
-                    if (stat.current[type] != undefined) {
-                        Object.keys(stat.current[type]).forEach((key, k) => {
-                            var link = stat.current[type][key];
-                            if (!(key in node.queues[type])) {
-                                node.queues[type][key] = queueData(key, type, link, request_timestamp, buckets);
-                            }
-                            var queue = node.queues[type][key];
+					Object.keys(node.queues[type]).map(key => {
+						let link = node.queues[type][key];
 
-                            queue.lags[index].value += (link.timestamp - link.source_timestamp) || 0;
-                            if (type === "write") {
-                                queue.values[index].value += parseInt(link.units);
-                            } else {
-                                queue[`${typeS}`][index].value += parseInt(link.units);
-                            }
+						if (link.compare[`${type}_lag`].currentCount) {
+							link.compare[`${type}_lag`].current /= link.compare[`${type}_lag`].currentCount;
+						}
+						if (link.compare[`${type}_lag`].prevCount) {
+							link.compare[`${type}_lag`].prev /= link.compare[`${type}_lag`].prevCount;
+						}
 
-                            if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
-                                queue.compare[`${typeS}`].prev += parseInt(link.units);
-                                queue.compare[`${type}_lag`].prev += (link.timestamp - link.source_timestamp) || 0;
-                                queue.compare[`${type}_lag`].prevCount++;
-                            } else if (stat.time >= currentCompareTimestamp) {
-                                queue.compare[`${typeS}`].current += parseInt(link.units);
-                                queue.compare[`${type}_lag`].current += (link.timestamp - link.source_timestamp) || 0;
-                                queue.compare[`${type}_lag`].currentCount++;
-                            }
+						link.compare[`${type}_lag`].change = calcChange(link.compare[`${type}_lag`].current, link.compare[`${type}_lag`].prev);
+						link.compare[`${typeS}`].change = calcChange(link.compare[`${typeS}`].current, link.compare[`${typeS}`].prev);
 
-                            queue[`last_${type}`] = link.timestamp;
-                            queue[`last_${type}_event_timestamp`] = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0);
-                            queue.last_event_source_timestamp = link.source_timestamp;
-                            queue[`last_${type}_lag`] = request_timestamp.diff(moment(link.timestamp));
-                            queue.last_event_source_timestamp_lag = request_timestamp.diff(moment(link.source_timestamp));
-
-                            queue.checkpoint = link.checkpoint;
-                            queue.timestamp = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0)
-                        })
-                    }
+					});
 				});
+
+				done(null, node);
 			});
-
-			if (node.compare.executions.current) {
-				node.compare.duration.current /= node.compare.executions.current;
-			}
-			if (node.compare.executions.prev) {
-				node.compare.duration.prev /= node.compare.executions.prev;
-			}
-			node.compare.executions.change = calcChange(node.compare.executions.current, node.compare.executions.prev);
-			node.compare.errors.change = calcChange(node.compare.errors.current, node.compare.errors.prev);
-			node.compare.duration.change = calcChange(node.compare.duration.current, node.compare.duration.prev);
-
-			["read", "write"].map(type => {
-				var typeS = `${type}s`;
-				Object.keys(node.queues[type]).map(key => {
-					let link = node.queues[type][key];
-
-					if (link.compare[`${type}_lag`].currentCount) {
-						link.compare[`${type}_lag`].current /= link.compare[`${type}_lag`].currentCount;
-					}
-					if (link.compare[`${type}_lag`].prevCount) {
-						link.compare[`${type}_lag`].prev /= link.compare[`${type}_lag`].prevCount;
-					}
-
-					link.compare[`${type}_lag`].change = calcChange(link.compare[`${type}_lag`].current, link.compare[`${type}_lag`].prev);
-					link.compare[`${typeS}`].change = calcChange(link.compare[`${typeS}`].current, link.compare[`${typeS}`].prev);
-
-				});
-			});
-
-			done(err, node);
-		});
 	};
 
-	var botProcessor = function (ref, done) {
+	var botProcessor = function(ref, done) {
 		dynamodb.get(CRON_TABLE, ref.id, (err, bot) => {
 			done(err, bot);
 		});
@@ -364,7 +366,7 @@ function botDashboard(refObject, data, callback) {
 
 		Object.keys(self.queues && self.queues.read || {}).map(key => {
 			tasks.push((done) => {
-				dynamodb.docClient.query({
+				leo.aws.dynamodb.query({
 					TableName: STATS_TABLE,
 					KeyConditionExpression: "#id = :id and #bucket between :bucket and :endBucket",
 					ExpressionAttributeNames: {
@@ -377,49 +379,51 @@ function botDashboard(refObject, data, callback) {
 						":id": util.ref(key).queue().refId()
 					},
 					"ReturnConsumedCapacity": 'TOTAL'
-				}, (err, bucketStats) => {
+				}, { mb: 100 })
+					.catch(done)
+					.then(bucketStats => {
 
-					var isBehind = false;
-					var isBehindOnLast = false;
-					var isBehindOnFirst = false;
-					bucketStats.Items.map(stat => {
-						var time = stat.time || moment.utc(stat.bucket.replace(/^.*_/, ""), "").valueOf()
-						var index = bucketArrayIndex[time];
-						var queue = self.queues.read[stat.id];
-						Object.keys(stat.current.write).map(key => {
-							let link = stat.current.write[key]
-							queue.values[index].value += parseInt(link.units);
-							queue.latestWriteCheckpoint = maxString(queue.latestWriteCheckpoint, link.checkpoint);
-							if (link.timestamp > queue.last_read_event_timestamp || link.checkpoint && queue.checkpoint < link.checkpoint) {
-								queue.lagEvents += parseInt(link.units);
-								if (!isBehind) { //Then we found our first one that is behind
-									queue.values[index].marked = true;
+						var isBehind = false;
+						var isBehindOnLast = false;
+						var isBehindOnFirst = false;
+						bucketStats.Items.map(stat => {
+							var time = stat.time || moment.utc(stat.bucket.replace(/^.*_/, ""), "").valueOf()
+							var index = bucketArrayIndex[time];
+							var queue = self.queues.read[stat.id];
+							Object.keys(stat.current.write || {}).map(key => {
+								let link = stat.current.write[key]
+								queue.values[index].value += parseInt(link.units);
+								queue.latestWriteCheckpoint = maxString(queue.latestWriteCheckpoint, link.checkpoint);
+								if (link.timestamp > queue.last_read_event_timestamp || link.checkpoint && queue.checkpoint < link.checkpoint) {
+									queue.lagEvents += parseInt(link.units);
+									if (!isBehind) { //Then we found our first one that is behind
+										queue.values[index].marked = true;
+									}
+									isBehind = true;
+									if (index == 0) {
+										isBehindOnFirst = true;
+									} else if (index == buckets.length) {
+										isBehindOnLast = true;
+									}
 								}
-								isBehind = true;
-								if (index == 0) {
-									isBehindOnFirst = true;
-								} else if (index == buckets.length) {
-									isBehindOnLast = true;
+
+								if (!queue.compare.writes) {
+									queue.compare.writes = {
+										prev: 0,
+										current: 0,
+										change: 0
+									};
 								}
-							}
+								if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
+									queue.compare[`writes`].prev += parseInt(link.units);
+								} else if (stat.time >= currentCompareTimestamp) {
+									queue.compare[`writes`].current += parseInt(link.units);
+								}
 
-							if (!queue.compare.writes) {
-								queue.compare.writes = {
-									prev: 0,
-									current: 0,
-									change: 0
-								};
-							}
-							if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
-								queue.compare[`writes`].prev += parseInt(link.units);
-							} else if (stat.time >= currentCompareTimestamp) {
-								queue.compare[`writes`].current += parseInt(link.units);
-							}
-
+							});
 						});
+						done();
 					});
-					done();
-				});
 			})
 		});
 
@@ -464,7 +468,7 @@ function botDashboard(refObject, data, callback) {
 					value: null
 				};
 				var latestWriteCheckpoint = link.latestWriteCheckpoint;
-				link.lags.map(function (v) {
+				link.lags.map(function(v) {
 					if (last.value !== null && v.value === null && link.checkpoint < latestWriteCheckpoint) {
 						v.value = last.value + (v.time - last.time);
 					}
@@ -544,8 +548,8 @@ function queueDashboard(refObject, data, callback) {
 	var prevCompareTimestamp = data.prevCompareTimestamp;
 	var currentCompareTimestamp = data.currentCompareTimestamp;
 
-	var selfProcessor = function (done) {
-		dynamodb.docClient.query({
+	var selfProcessor = function(done) {
+		leo.aws.dynamodb.query({
 			TableName: STATS_TABLE,
 			KeyConditionExpression: "#id = :id and #bucket between :bucket and :endBucket",
 			ExpressionAttributeNames: {
@@ -558,194 +562,196 @@ function queueDashboard(refObject, data, callback) {
 				":id": refObject.queue().refId()
 			},
 			"ReturnConsumedCapacity": 'TOTAL'
-		}, (err, bucketStats) => {
-			console.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length);
+		}, { mb: 100 })
+			.catch(done)
+			.then(bucketStats => {
+				console.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length);
 
-			var node = {
-				reads: buckets.map((time) => {
-					return {
-						value: 0,
-						time: time
-					}
-				}),
-				writes: buckets.map((time) => {
-					return {
-						value: 0,
-						time: time
-					}
-				}),
-				read_lag: buckets.map((time) => {
-					return {
-						value: 0,
-						total: 0,
-						min: null,
-						max: 0,
-						time: time
-					}
-				}),
-				write_lag: buckets.map((time) => {
-					return {
-						value: 0,
-						total: 0,
-						min: null,
-						max: 0,
-						time: time
-					}
-				}),
-				bots: {
-					read: {},
-					write: {}
-				},
-				compare: {
-					reads: {
-						prev: 0,
-						current: 0,
-						change: 0
+				var node = {
+					reads: buckets.map((time) => {
+						return {
+							value: 0,
+							time: time
+						}
+					}),
+					writes: buckets.map((time) => {
+						return {
+							value: 0,
+							time: time
+						}
+					}),
+					read_lag: buckets.map((time) => {
+						return {
+							value: 0,
+							total: 0,
+							min: null,
+							max: 0,
+							time: time
+						}
+					}),
+					write_lag: buckets.map((time) => {
+						return {
+							value: 0,
+							total: 0,
+							min: null,
+							max: 0,
+							time: time
+						}
+					}),
+					bots: {
+						read: {},
+						write: {}
 					},
-					writes: {
-						prev: 0,
-						current: 0,
-						change: 0
-					},
-					read_lag: {
-						prev: 0,
-						current: 0,
-						prevCount: 0,
-						currentCount: 0
-					},
-					write_lag: {
-						prev: 0,
-						current: 0,
-						prevCount: 0,
-						currentCount: 0
+					compare: {
+						reads: {
+							prev: 0,
+							current: 0,
+							change: 0
+						},
+						writes: {
+							prev: 0,
+							current: 0,
+							change: 0
+						},
+						read_lag: {
+							prev: 0,
+							current: 0,
+							prevCount: 0,
+							currentCount: 0
+						},
+						write_lag: {
+							prev: 0,
+							current: 0,
+							prevCount: 0,
+							currentCount: 0
+						}
 					}
-				}
-			};
-			bucketStats.Items.map(stat => {
-				var index = bucketArrayIndex[stat.time];
-				//console.log(stat.id, stat.bucket, stat.time);
+				};
+				bucketStats.Items.map(stat => {
+					var index = bucketArrayIndex[stat.time];
+					//console.log(stat.id, stat.bucket, stat.time);
 
-				//console.log(stat);
+					//console.log(stat);
+					["read", "write"].map(type => {
+						var typeS = `${type}s`;
+						if (stat.current[type] != undefined) {
+							Object.keys(stat.current[type]).forEach((key, k) => {
+								var link = stat.current[type][key];
+								if (!(key in node.bots[type])) {
+									node.bots[type][key] = botData(key, type, link, request_timestamp, buckets);
+									node.bots[type][key].event = refObject.refId();
+								}
+								node[`${typeS}`][index].value += parseInt(link.units);
+								node[`max_${type}_checkpoint`] = maxString(node[`${typeS}_checkpoint`], link.checkpoint);
+
+								var bot = node.bots[type][key];
+								bot.values[index].value = parseInt(link.units);
+								var linkLag = (link.timestamp - link.source_timestamp) || 0;
+								bot.lags[index].value += linkLag;
+
+								var lag = node[`${type}_lag`][index];
+								//node[`${typeS}_lag`][index].value += parseInt(link.units);
+								lag.count++;
+								lag.total += linkLag;
+								//lag.value += parseInt(link.units);
+								lag.min = lag.min != null ? Math.min(lag.min, linkLag) : linkLag;
+								lag.max = Math.max(lag.max, linkLag);
+
+								if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
+									bot.compare[`${typeS}`].prev += parseInt(link.units);
+									bot.compare[`${type}_lag`].prev += (link.timestamp - link.source_timestamp) || 0;
+									bot.compare[`${type}_lag`].prevCount++;
+								} else if (stat.time >= currentCompareTimestamp) {
+									bot.compare[`${typeS}`].current += parseInt(link.units);
+									bot.compare[`${type}_lag`].current += (link.timestamp - link.source_timestamp) || 0;
+									bot.compare[`${type}_lag`].currentCount++;
+								}
+
+								bot[`last_${type}`] = link.timestamp;
+								bot[`last_${type}_event_timestamp`] = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0);
+								bot.last_event_source_timestamp = link.source_timestamp;
+								bot[`last_${type}_lag`] = request_timestamp.diff(moment(link.timestamp));
+								bot.last_event_source_timestamp_lag = request_timestamp.diff(moment(link.source_timestamp));
+
+								bot.checkpoint = link.checkpoint;
+								bot.timestamp = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0)
+							})
+						}
+					});
+				});
+
 				["read", "write"].map(type => {
-                    var typeS = `${type}s`;
-                    if (stat.current[type] != undefined) {
-                        Object.keys(stat.current[type]).forEach((key, k) => {
-                            var link = stat.current[type][key];
-                            if (!(key in node.bots[type])) {
-                                node.bots[type][key] = botData(key, type, link, request_timestamp, buckets);
-                                node.bots[type][key].event = refObject.refId();
-                            }
-                            node[`${typeS}`][index].value += parseInt(link.units);
-                            node[`max_${type}_checkpoint`] = maxString(node[`${typeS}_checkpoint`], link.checkpoint);
+					var typeS = `${type}s`;
+					Object.keys(node.bots[type]).map(key => {
+						let link = node.bots[type][key];
 
-                            var bot = node.bots[type][key];
-                            bot.values[index].value = parseInt(link.units);
-                            var linkLag = (link.timestamp - link.source_timestamp) || 0;
-                            bot.lags[index].value += linkLag;
+						if (link.compare[`${type}_lag`].currentCount) {
+							link.compare[`${type}_lag`].current /= link.compare[`${type}_lag`].currentCount;
+						}
+						if (link.compare[`${type}_lag`].prevCount) {
+							link.compare[`${type}_lag`].prev /= link.compare[`${type}_lag`].prevCount;
+						}
 
-                            var lag = node[`${type}_lag`][index];
-                            //node[`${typeS}_lag`][index].value += parseInt(link.units);
-                            lag.count++;
-                            lag.total += linkLag;
-                            //lag.value += parseInt(link.units);
-                            lag.min = lag.min != null ? Math.min(lag.min, linkLag) : linkLag;
-                            lag.max = Math.max(lag.max, linkLag);
+						link.compare[`${type}_lag`].change = calcChange(link.compare[`${type}_lag`].current, link.compare[`${type}_lag`].prev);
+						link.compare[`${typeS}`].change = calcChange(link.compare[`${typeS}`].current, link.compare[`${typeS}`].prev);
 
-                            if (stat.time >= prevCompareTimestamp && stat.time < currentCompareTimestamp) {
-                                bot.compare[`${typeS}`].prev += parseInt(link.units);
-                                bot.compare[`${type}_lag`].prev += (link.timestamp - link.source_timestamp) || 0;
-                                bot.compare[`${type}_lag`].prevCount++;
-                            } else if (stat.time >= currentCompareTimestamp) {
-                                bot.compare[`${typeS}`].current += parseInt(link.units);
-                                bot.compare[`${type}_lag`].current += (link.timestamp - link.source_timestamp) || 0;
-                                bot.compare[`${type}_lag`].currentCount++;
-                            }
-
-                            bot[`last_${type}`] = link.timestamp;
-                            bot[`last_${type}_event_timestamp`] = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0);
-                            bot.last_event_source_timestamp = link.source_timestamp;
-                            bot[`last_${type}_lag`] = request_timestamp.diff(moment(link.timestamp));
-                            bot.last_event_source_timestamp_lag = request_timestamp.diff(moment(link.source_timestamp));
-
-                            bot.checkpoint = link.checkpoint;
-                            bot.timestamp = parseInt(link.checkpoint && link.checkpoint.split && link.checkpoint.split(/\//).pop().split(/\-/)[0] || 0)
-                        })
-                    }
+					});
 				});
-			});
 
-			["read", "write"].map(type => {
-				var typeS = `${type}s`;
-				Object.keys(node.bots[type]).map(key => {
-					let link = node.bots[type][key];
-
-					if (link.compare[`${type}_lag`].currentCount) {
-						link.compare[`${type}_lag`].current /= link.compare[`${type}_lag`].currentCount;
+				node.reads.forEach((e) => {
+					if (e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
+						node.compare.reads.prev += e.value;
+					} else if (e.time >= currentCompareTimestamp) {
+						node.compare.reads.current += e.value;
 					}
-					if (link.compare[`${type}_lag`].prevCount) {
-						link.compare[`${type}_lag`].prev /= link.compare[`${type}_lag`].prevCount;
-					}
-
-					link.compare[`${type}_lag`].change = calcChange(link.compare[`${type}_lag`].current, link.compare[`${type}_lag`].prev);
-					link.compare[`${typeS}`].change = calcChange(link.compare[`${typeS}`].current, link.compare[`${typeS}`].prev);
-
 				});
-			});
+				node.writes.forEach((e) => {
+					if (e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
+						node.compare.writes.prev += e.value;
+					} else if (e.time >= currentCompareTimestamp) {
+						node.compare.writes.current += e.value;
+					}
+				});
+				node.read_lag.forEach((e) => {
+					if (e.total && e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
+						node.compare.read_lag.prev += e.total;
+						node.compare.read_lag.prevCount++;
+					} else if (e.total && e.time >= currentCompareTimestamp) {
+						node.compare.read_lag.current += e.total;
+						node.compare.read_lag.currentCount++;
+					}
+				});
+				if (node.compare.read_lag.current) {
+					node.compare.read_lag.current /= node.compare.read_lag.currentCount;
+				}
+				if (node.compare.read_lag.prev) {
+					node.compare.read_lag.prev /= node.compare.read_lag.prevcount;
+				}
 
-			node.reads.forEach((e) => {
-				if (e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
-					node.compare.reads.prev += e.value;
-				} else if (e.time >= currentCompareTimestamp) {
-					node.compare.reads.current += e.value;
+				node.write_lag.forEach((e) => {
+					if (e.total && e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
+						node.compare.write_lag.prev += e.total;
+						node.compare.write_lag.prevCount++;
+					} else if (e.total && e.time >= currentCompareTimestamp) {
+						node.compare.write_lag.current += e.total;
+						node.compare.write_lag.currentCount++;
+					}
+				});
+				if (node.compare.write_lag.current) {
+					node.compare.write_lag.current /= node.compare.write_lag.currentCount;
 				}
-			});
-			node.writes.forEach((e) => {
-				if (e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
-					node.compare.writes.prev += e.value;
-				} else if (e.time >= currentCompareTimestamp) {
-					node.compare.writes.current += e.value;
+				if (node.compare.write_lag.prev) {
+					node.compare.write_lag.prev /= node.compare.write_lag.prevCount;
 				}
-			});
-			node.read_lag.forEach((e) => {
-				if (e.total && e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
-					node.compare.read_lag.prev += e.total;
-					node.compare.read_lag.prevCount++;
-				} else if (e.total && e.time >= currentCompareTimestamp) {
-					node.compare.read_lag.current += e.total;
-					node.compare.read_lag.currentCount++;
-				}
-			});
-			if (node.compare.read_lag.current) {
-				node.compare.read_lag.current /= node.compare.read_lag.currentCount;
-			}
-			if (node.compare.read_lag.prev) {
-				node.compare.read_lag.prev /= node.compare.read_lag.prevcount;
-			}
+				node.compare.reads.change = calcChange(node.compare.reads.current, node.compare.reads.prev);
+				node.compare.writes.change = calcChange(node.compare.writes.current, node.compare.writes.prev);
+				node.compare.read_lag.change = calcChange(node.compare.read_lag.current, node.compare.read_lag.prev);
+				node.compare.write_lag.change = calcChange(node.compare.write_lag.current, node.compare.write_lag.prev);
 
-			node.write_lag.forEach((e) => {
-				if (e.total && e.time >= prevCompareTimestamp && e.time < currentCompareTimestamp) {
-					node.compare.write_lag.prev += e.total;
-					node.compare.write_lag.prevCount++;
-				} else if (e.total && e.time >= currentCompareTimestamp) {
-					node.compare.write_lag.current += e.total;
-					node.compare.write_lag.currentCount++;
-				}
+				done(null, node);
 			});
-			if (node.compare.write_lag.current) {
-				node.compare.write_lag.current /= node.compare.write_lag.currentCount;
-			}
-			if (node.compare.write_lag.prev) {
-				node.compare.write_lag.prev /= node.compare.write_lag.prevCount;
-			}
-			node.compare.reads.change = calcChange(node.compare.reads.current, node.compare.reads.prev);
-			node.compare.writes.change = calcChange(node.compare.writes.current, node.compare.writes.prev);
-			node.compare.read_lag.change = calcChange(node.compare.read_lag.current, node.compare.read_lag.prev);
-			node.compare.write_lag.change = calcChange(node.compare.write_lag.current, node.compare.write_lag.prev);
-
-			done(err, node);
-		});
 	};
-	var botsProcessor = function (done) {
+	var botsProcessor = function(done) {
 		dynamodb.scan(CRON_TABLE, null, (err, bots) => {
 			if (err) {
 				done(err)
@@ -787,7 +793,7 @@ function queueDashboard(refObject, data, callback) {
 				value: null
 			};
 
-			link.lags.map(function (v) {
+			link.lags.map(function(v) {
 				if (last.value !== null && v.value === null && link.checkpoint < latestWriteCheckpoint) {
 					v.value = last.value + (v.time - last.time);
 				}
@@ -819,7 +825,7 @@ function queueDashboard(refObject, data, callback) {
 	});
 }
 
-function systemDashboard() {}
+function systemDashboard() { }
 
 function smartMergeStats(s, r) {
 	if (r.source_timestamp !== undefined) {
