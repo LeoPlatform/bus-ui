@@ -5,6 +5,7 @@
 # Run local
 
 ## Add a file test/process.js
+```
    module.exports = {
 	   env: {
 			leoauthsdk: {
@@ -30,6 +31,7 @@
 			StackName:""
 	   }
    }
+```
 
 ## Run npm start - test/process.js will be loaded into environment variables
 
