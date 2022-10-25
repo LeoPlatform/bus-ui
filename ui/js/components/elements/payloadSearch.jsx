@@ -178,6 +178,22 @@ export default class PayloadSearch extends React.Component {
 			getSearchText = searchText.replace(token, '')
 		}
 
+		
+		if (resumptionToken.match(/^z\/\d{4}-/)) {
+			let startTime = moment.utc(resumptionToken.replace(/^z\//, ""));
+			if (!startTime.isValid()){
+				window.messageLogNotify('Invalid ISO 8601 date', 'error', resumptionToken.replace(/^z\//, ""));
+				this.setState({
+					isSearching: false,
+				});
+				return;
+			}
+			console.log(`before ${resumptionToken}`);
+			resumptionToken = 'z' + startTime.format('/YYYY/MM/DD/HH/mm/') + startTime;
+			console.log(`after ${resumptionToken}`);
+		}
+		
+
 		this.currentRequest = $.get('api/search/' + encodeURIComponent(serverId) + '/' + encodeURIComponent(resumptionToken) + '/' + encodeURIComponent(getSearchText) + (agg ? `?agg=${encodeURIComponent(JSON.stringify(agg || {}))}` : ""), (result) => {
 			var events = (this.state.events || []).concat(result.results)
 			var searchedEventsCount = (this.state.searchedEventsCount || 0) + result.count;
@@ -194,7 +210,7 @@ export default class PayloadSearch extends React.Component {
 					agg: result.agg,
 				}, () => {
 					this.returnEvents(events)
-				})
+				});
 			} else if (returnedEventsCount < 30) {
 				this.setState({
 					events: events,
@@ -210,7 +226,7 @@ export default class PayloadSearch extends React.Component {
 						this.runPayloadSearch(serverId, searchText, result.resumptionToken, result.agg)
 					}
 					this.returnEvents(events)
-				})
+				});
 			} else {
 				this.setState({
 					events: events,
@@ -223,7 +239,7 @@ export default class PayloadSearch extends React.Component {
 					agg: result.agg
 				}, () => {
 					this.returnEvents(events)
-				})
+				});
 			}
 
 		}).fail((result, status) => {
