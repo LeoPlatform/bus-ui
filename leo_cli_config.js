@@ -8,7 +8,7 @@ module.exports = {
 		public: true,
 		staticAssets: "s3://leomicro-leos3bucket-196kh64k036gk/leo_botmon"
 	}
-	, {
+		, {
 		leoaws: {
 			profile: 'leo',
 			region: 'us-east-1'

@@ -1,4 +1,4 @@
-import {observable, computed, action} from 'mobx';
+import { observable, computed, action } from 'mobx';
 import autoBind from 'react-autobind';
 import _ from 'lodash';
 import moment from 'moment';
@@ -6,55 +6,56 @@ import refUtil from "leo-sdk/lib/reference.js";
 
 export default class DataStore {
 
-    @observable action              = {};
-    @observable active              = null;
-    @observable activeBotCount      = 0;
-    @observable alarmed             = [];
-    @observable alarmedCount        = 0;
-    @observable availableTags       = {};
-    @observable authenticated       = null;
-    @observable bots                = [];
-    @observable config              = null;
-    @observable changeLog           = null;
-    @observable checksums           = {};
-    @observable cronInfo            = null;
-    @observable dashboard           = null;
-    @observable displayState        = null;
-    @observable eventSettings       = null;
-    @observable fetchTimeout        = undefined;
-    @observable fetchTimeout2       = undefined;
-    @observable filterByTag         = '';
+    @observable action = {};
+    @observable active = null;
+    @observable activeBotCount = 0;
+    @observable alarmed = [];
+    @observable alarmedCount = 0;
+    @observable availableTags = {};
+    @observable authenticated = null;
+    @observable bots = [];
+    @observable config = null;
+    @observable changeLog = null;
+    @observable checksums = {};
+    @observable cronInfo = null;
+    @observable dashboard = null;
+    @observable displayState = null;
+    @observable eventSettings = null;
+    @observable fetchTimeout = undefined;
+    @observable fetchTimeout2 = undefined;
+    @observable filterByTag = '';
     @observable gotInitialChangeLog = false;
-    @observable hasData             = false;
-    @observable logDetails          = null;
-    @observable logId               = null;
-    @observable logSettings         = null;
-    @observable logs                = null;
-    @observable nodes               = {};
-    @observable queues              = [];
-    @observable rangeCount          = null;
-    @observable refreshDashboard    = true;
-    @observable reloadTimeout       = null;
-    @observable runNow              = null;
-    @observable savedSettings       = null;
-    @observable sdkConfig           = {};
-    @observable sdkPick             = 'node';
-    @observable settings            = null;
-    @observable sortBy              = '';
-    @observable sortDir             = 'desc';
-    @observable tableData           = null;
-    @observable tags                = [];
-    @observable tagCards            = JSON.parse(localStorage.getItem('tagCards') || '{}');
-    @observable topicInfo       = {};
-    @observable totalEvents         = null;
-    @observable updatingStats       = false;
-    @observable urlObj              = {"timePeriod":{"interval":"minute_15"},"selected":[],"view":"dashboard", "collapsed": {"left": [], "right": []}, "expanded": {"left": [], "right": []}};
-    @observable stats               = null;
-    @observable systemTypes         = null;
-    @observable systems             = [];
+    @observable hasData = false;
+    @observable logDetails = null;
+    @observable logId = null;
+    @observable logSettings = null;
+    @observable logs = null;
+    @observable nodes = {};
+    @observable queues = [];
+    @observable rangeCount = null;
+    @observable refreshDashboard = true;
+    @observable reloadTimeout = null;
+    @observable runNow = null;
+    @observable savedSettings = null;
+    @observable sdkConfig = {};
+    @observable sdkPick = 'node';
+    @observable settings = null;
+    @observable sortBy = '';
+    @observable sortDir = 'desc';
+    @observable tableData = null;
+    @observable tags = [];
+    @observable tagCards = JSON.parse(localStorage.getItem('tagCards') || '{}');
+    @observable topicInfo = {};
+    @observable totalEvents = null;
+    @observable updatingStats = false;
+    @observable urlObj = { "timePeriod": { "interval": "minute_15" }, "selected": [], "view": "dashboard", "collapsed": { "left": [], "right": [] }, "expanded": { "left": [], "right": [] } };
+    @observable stats = null;
+    @observable systemTypes = null;
+    @observable systems = [];
 
     constructor() {
         autoBind(this);
+        window.dataStore = this;
     }
 
     @action
@@ -87,10 +88,10 @@ export default class DataStore {
             end: end,
             interval: interval
         });
-        if(this.urlObj.timePeriod.begin === undefined) {
+        if (this.urlObj.timePeriod.begin === undefined) {
             delete this.urlObj.timePeriod.begin;
         }
-        if(this.urlObj.timePeriod.end === undefined) {
+        if (this.urlObj.timePeriod.end === undefined) {
             delete this.urlObj.timePeriod.end;
         }
     };
@@ -114,7 +115,7 @@ export default class DataStore {
 
     @action
     resetState = () => {
-        this.urlObj = {"timePeriod":{"interval":"minute_15"},"selected":[]};
+        this.urlObj = { "timePeriod": { "interval": "minute_15" }, "selected": [] };
     };
 
     @action
@@ -131,10 +132,10 @@ export default class DataStore {
             zoom: zoom,
             offset: offset
         });
-        if(this.urlObj.zoom === undefined) {
+        if (this.urlObj.zoom === undefined) {
             delete this.urlObj.zoom;
         }
-        if(this.urlObj.offset === undefined) {
+        if (this.urlObj.offset === undefined) {
             delete this.urlObj.offset;
         }
     };
@@ -149,35 +150,35 @@ export default class DataStore {
             node: node,
             details: details
         });
-        if(this.urlObj.timePeriod === undefined) {
+        if (this.urlObj.timePeriod === undefined) {
             delete this.urlObj.timePeriod;
         }
-        if(_.has(this.urlObj, 'timeperiod.begin')) {
-            if(this.urlObj.timePeriod.begin === undefined) {
+        if (_.has(this.urlObj, 'timeperiod.begin')) {
+            if (this.urlObj.timePeriod.begin === undefined) {
                 delete this.urlObj.timePeriod.begin;
             }
         }
-        if(_.has(this.urlObj, 'timeperiod.end')) {
-            if(this.urlObj.timePeriod.end === undefined) {
+        if (_.has(this.urlObj, 'timeperiod.end')) {
+            if (this.urlObj.timePeriod.end === undefined) {
                 delete this.urlObj.timePeriod.end;
             }
         }
-        if(this.urlObj.offset === undefined) {
+        if (this.urlObj.offset === undefined) {
             delete this.urlObj.offset;
         }
-        if(this.urlObj.node === undefined) {
+        if (this.urlObj.node === undefined) {
             delete this.urlObj.node;
         }
-        if(this.urlObj.zoom === undefined) {
+        if (this.urlObj.zoom === undefined) {
             delete this.urlObj.zoom;
         }
-        if(this.urlObj.view === undefined) {
+        if (this.urlObj.view === undefined) {
             delete this.urlObj.view;
         }
-        if(this.urlObj.details === undefined) {
+        if (this.urlObj.details === undefined) {
             delete this.urlObj.details;
         }
-        if(this.urlObj.selected === undefined) {
+        if (this.urlObj.selected === undefined) {
             delete this.urlObj.selected;
         }
     };
@@ -206,7 +207,7 @@ export default class DataStore {
         $.get('api/search/' + encodeURIComponent('queue:BotChangeLog') + '/' + encodeURIComponent(this.timestamp), (result) => {
             this.changeLog = result.results;
         }).fail((result, status) => {
-            if (status !== "abort") {
+            if (status !== "abort" && status != "canceled") {
                 window.messageLogNotify('Failure searching events on "' + this.nodes["queue:BotChangeLog"].label + '"', 'error', result);
             }
         }).always(() => {
@@ -214,17 +215,17 @@ export default class DataStore {
                 clearTimeout(this.fetchTimeout2);
                 this.fetchTimeout2 = false
             }
-            this.fetchTimeout2 = setTimeout(this.getChangeLog, (timePeriodMinutes*60000));
+            this.fetchTimeout2 = setTimeout(this.getChangeLog, (timePeriodMinutes * 60000));
         });
     }
 
     @action
     getChecksums(nodeData, nodes) {
-        let botIds = {ids:[]};
-        if(nodeData.type === 'system') {
+        let botIds = { ids: [] };
+        if (nodeData.type === 'system') {
             _.map(this.nodes, (node) => {
                 let system = node.system || false;
-                if(system && system === nodeData.id) {
+                if (system && system === nodeData.id) {
                     botIds.ids.push(refUtil.botRef(node.id).id);
                 }
             });
@@ -233,9 +234,9 @@ export default class DataStore {
             botIds.ids.push(refUtil.botRef(nodeData.id).id)
         }
         $.post("api/bot", JSON.stringify(botIds), (response) => {
-            if(nodeData.type === 'system') {
+            if (nodeData.type === 'system') {
                 let checksums = {};
-                for(let x in response) {
+                for (let x in response) {
                     checksums[response[x].id] = response[x].checksum;
                 }
                 for (let i in checksums) {
@@ -243,7 +244,7 @@ export default class DataStore {
                     checksums[i].bot_id = i;
                     checksums[i].log = checksums[i].log || {};
                     checksums[i].totals = checksums[i].totals || {};
-                    checksums[i].sample = checksums[i].sample || {'extra':[],'missing':[],'incorrect':[]};
+                    checksums[i].sample = checksums[i].sample || { 'extra': [], 'missing': [], 'incorrect': [] };
                     if (checksums[i].bot_id === this.runNow) {
                         if (['running', 'initializing'].indexOf(checksums[i].status) !== -1) {
                             this.runNow = false
@@ -277,13 +278,13 @@ export default class DataStore {
 
     @action
     getDashboard(id, range_count, timestamp) {
-        if(this.refreshDashboard === false) {
+        if (this.refreshDashboard === false) {
             return;
         }
         $.get(`api/dashboard/${id}?range=${range_count[0]}&count=${range_count[1] || 1}&timestamp=${timestamp}`, (result) => {
             this.dashboard = result;
-        }).always((xhr, status)=>{
-            if(status !== "abort") {
+        }).always((xhr, status) => {
+            if (status !== "abort" && status != "canceled") {
                 clearTimeout(this.refreshDashboard);
                 this.refreshDashboard = setTimeout(this.getDashboard, 1000);
             }
@@ -294,8 +295,10 @@ export default class DataStore {
     getCron(id) {
         $.get(`api/cron/${encodeURIComponent(id)}`, (result) => {
             this.cronInfo = result || {};
-        }).fail((result) => {
-            window.messageLogModal('Failure retrieving settings ' + props.nodeData.label, 'warning', result)
+        }).fail((result, status) => {
+            if (status !== "abort" && status != "canceled") {
+                window.messageLogModal('Failure retrieving settings ' + this.nodes[id].label, 'warning', result)
+            }
         })
     }
 
@@ -309,10 +312,10 @@ export default class DataStore {
     }
 
     @action
-    getLogs(botId,result, customTimeFrame) {
+    getLogs(botId, result, customTimeFrame) {
         let settings = result || {};
         this.logSettings = result || {};
-        this.logId = settings.lambdaName || (settings.templateId !== 'Leo_core_custom_lambda_bot'? settings.templateId : null) || refUtil.botRef(botId).id;
+        this.logId = settings.lambdaName || (settings.templateId !== 'Leo_core_custom_lambda_bot' ? settings.templateId : null) || refUtil.botRef(botId).id;
         this.logs = false;
         let timeFrame = '5m';
 
@@ -381,7 +384,7 @@ export default class DataStore {
             }
         });
 
-        statsPromise.abort = ()=>{
+        statsPromise.abort = () => {
             call.abort();
         };
 
@@ -396,7 +399,7 @@ export default class DataStore {
             this.fetchTimeout = setTimeout(this.getStats, 10000)
         });
 
-        Promise.all([statsPromise]).then((result)=>{
+        Promise.all([statsPromise]).then((result) => {
             let data = result[0];
             let thisnodes = Object.assign({}, data.nodes.bot, data.nodes.queue, data.nodes.system);
 
@@ -426,7 +429,7 @@ export default class DataStore {
             this.bots = Object.keys(data.nodes.bot);
             this.queues = Object.keys(data.nodes.queue);
             this.systems = Object.keys(data.nodes.system);
-            this.updateStatsDashboard(this.bots,this.nodes);
+            this.updateStatsDashboard(this.bots, this.nodes);
             if (!this.gotInitialChangeLog) {
                 this.getChangeLog();
             }
@@ -469,7 +472,7 @@ export default class DataStore {
                     node.status = 'blocked';
                     node.errored = true;
                 }
-                if(node.rogue === true) {
+                if (node.rogue === true) {
                     node.status = 'rogue';
                     node.errored = true;
                 }
@@ -485,7 +488,7 @@ export default class DataStore {
                 node.logs.errors = node.logs.errors || [];
 
                 let errors = {};
-                if(node.logs.errors.length !== 0) {
+                if (node.logs.errors.length !== 0) {
                     errors = node.logs.errors[0];
                 }
 
@@ -502,21 +505,21 @@ export default class DataStore {
 
                     system: node.system,
 
-                    template: window.templates && node.templateId ? (window.templates[node.templateId] ||{}).name : undefined,
+                    template: window.templates && node.templateId ? (window.templates[node.templateId] || {}).name : undefined,
 
                     executions: node.executions || undefined,
                     errors: node.errors || undefined,
                     message: node.message || undefined,
                     error_message: (errors).msg
-                    || (errors).message
-                    || node.logs.errors.toString().trim()
-                    || undefined,
+                        || (errors).message
+                        || node.logs.errors.toString().trim()
+                        || undefined,
                     error_stack: node.logs.errors.length > 0 ? node.logs.errors[0].stack : undefined
                 };
 
-                switch(node.type) {
+                switch (node.type) {
                     case "bot":
-                        if(node.owner === 'leo' && (node.tags ? node.tags.indexOf('leo-core') === -1 : true)) {
+                        if (node.owner === 'leo' && (node.tags ? node.tags.indexOf('leo-core') === -1 : true)) {
                             node.tags = node.tags ? node.tags + ', leo-core' : 'leo-core';
                         }
                         node.display = {
@@ -526,7 +529,7 @@ export default class DataStore {
                                 errors: node.errors
                             }]
                         };
-                        if(node.isAlarmed && (node.status === 'running' || node.status === 'paused')) {
+                        if (node.isAlarmed && (node.status === 'running' || node.status === 'paused')) {
                             node.status = 'danger';
                         }
                         break;
@@ -551,7 +554,7 @@ export default class DataStore {
                                 above: [`${units}`],
                                 below: [`N/A`]
                             };
-                        } else if (node.event_source_lag < 100 /*ms*/ ) {
+                        } else if (node.event_source_lag < 100 /*ms*/) {
                             node.display = {
                                 above: [`${units}`],
                                 below: [`-`]
@@ -573,12 +576,12 @@ export default class DataStore {
                         break;
 
                     case "event": case 'queue':
-                    node.type = 'queue';
-                    node.display = {
-                        above: [],
-                        below: []
-                    };
-                    break;
+                        node.type = 'queue';
+                        node.display = {
+                            above: [],
+                            below: []
+                        };
+                        break;
 
                     case "system":
                         node.display = {
@@ -615,7 +618,7 @@ export default class DataStore {
             if (this.sortDir === 'asc') {
                 [a, b] = [b, a]
             }
-            switch(this.sortBy) {
+            switch (this.sortBy) {
                 case 'tags':
                     if (a.tags.toString() === '') {
                         return 1
@@ -648,7 +651,7 @@ export default class DataStore {
     @action
     updateStatsDashboard(bots, nodes) {
 
-        for(let tag in this.tagCards) {
+        for (let tag in this.tagCards) {
             this.tagCards[tag] = {
                 alarmed: 0,
                 active: 0
@@ -747,7 +750,7 @@ export default class DataStore {
                                 tags: (bot.tags || '').toString().split(/,\s*/).sort().filter(tag => tag),
                                 label: bot.label
                             });
-                        } else if(bot.health.mute >= moment.now()) {
+                        } else if (bot.health.mute >= moment.now()) {
                             this.alarmed.push({
                                 id: bot.id,
                                 type: bot.type,
@@ -759,7 +762,7 @@ export default class DataStore {
                 }
             });
             this.alarmed = this.sortAlarmed(this.alarmed);
-        } catch(e){}
+        } catch (e) { }
 
         this.tags.sort().forEach((tag) => {
             this.availableTags[tag] = tag
@@ -770,8 +773,8 @@ export default class DataStore {
     @action
     formatTime(timestamp, baseTime) {
         let milliseconds = (baseTime
-                ? moment(timestamp).diff(baseTime)
-                : moment().diff(timestamp)
+            ? moment(timestamp).diff(baseTime)
+            : moment().diff(timestamp)
         );
 
         return [

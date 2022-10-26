@@ -79,7 +79,7 @@ function go(allEvents, callback) {
 			stats[bucket] = {};
 		}
 	}
-	dynamodb.batchGetTable(STATS_TABLE, keys, function (err, records) {
+	dynamodb.batchGetTable(STATS_TABLE, keys, function(err, records) {
 		for (var i = 0; i < records.length; i++) {
 			var r = records[i];
 			if (r.start_eid == startEid) { //Then we need to undo the last update, because we are redoing it
@@ -138,7 +138,7 @@ function go(allEvents, callback) {
 			}
 		});
 		var batchWrite = dynamodb.createTableWriteStream(STATS_TABLE, {
-			concurrency: 1,
+			concurrency: 10,
 			retry: 10,
 			retryDelay: 1500,
 			record_size: 30000
@@ -155,7 +155,7 @@ function go(allEvents, callback) {
 			}
 		}
 
-		batchWrite.end(function (err) {
+		batchWrite.end(function(err) {
 			if (err) {
 				console.log(err);
 				callback(err);

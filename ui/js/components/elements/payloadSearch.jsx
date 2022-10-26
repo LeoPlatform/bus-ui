@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import {observer, inject} from 'mobx-react';
+import { observer, inject } from 'mobx-react';
 import TimePicker from '../elements/timePicker.jsx';
 
 var timeFormat = '/YYYY/MM/DD/HH/mm/';
@@ -18,8 +18,8 @@ export default class PayloadSearch extends React.Component {
 
 	init(props) {
 		let timestamp = '';
-        let timeFrame = props.timeFrames ? props.timeFrames[0] : '5m';
-        let searchText = '';
+		let timeFrame = props.timeFrames ? props.timeFrames[0] : '5m';
+		let searchText = '';
 
 		if (props.eventId) {
 			timestamp = searchText = props.eventId;
@@ -83,8 +83,8 @@ export default class PayloadSearch extends React.Component {
 	selectTimeFrame(timeFrame) {
 		this.setState({
 			timeFrame: timeFrame,
-            searchEndTime: moment(),
-            timestamp: undefined
+			searchEndTime: moment(),
+			timestamp: undefined
 		}, () => {
 			this.startPayloadSearch()
 		})
@@ -95,7 +95,7 @@ export default class PayloadSearch extends React.Component {
 		customTime = moment.utc(customTime, 'MM/DD/YYYY h:mm A')
 		this.setState({
 			timestamp: 'z' + customTime.format(timeFormat) + customTime.valueOf(),
-            searchEndTime: moment.utc(customTime),
+			searchEndTime: moment.utc(customTime),
 			timeFrame: ''
 		}, () => {
 			this.startPayloadSearch()
@@ -127,9 +127,9 @@ export default class PayloadSearch extends React.Component {
 		if (event.keyCode == 13) {
 			event.preventDefault()
 			var searchText = event.currentTarget.value.trim()
-            if (searchText.match(/(z\/.*?)(?:$|\s)/g)) {
+			if (searchText.match(/(z\/.*?)(?:$|\s)/g)) {
 				let token = searchText.match(/(z\/.*?)(?:$|\s)/g)[0];
-                token = token.replace(/\s/g, '');
+				token = token.replace(/\s/g, '');
 				this.setState({
 					timestamp: token,
 					timeFrame: ''
@@ -147,7 +147,7 @@ export default class PayloadSearch extends React.Component {
 
 	startPayloadSearch() {
 		if (this.props.serverId) {
-			this.setState({ events: false, searchedEventsCount: 0, eventIndex: -1, isSearching: true, resumptionToken: undefined, searchAttempts: 0 }, () => {
+			this.setState({ events: false, searchedEventsCount: 0, eventIndex: -1, isSearching: true, resumptionToken: undefined, searchAttempts: 0, returnedEventsCount: 0 }, () => {
 				this.returnEvents([])
 			})
 			if (this.state.timestamp) {
@@ -170,42 +170,87 @@ export default class PayloadSearch extends React.Component {
 	}
 
 
-	runPayloadSearch(serverId, searchText, resumptionToken) {
+	runPayloadSearch(serverId, searchText, resumptionToken, agg) {
 		var getSearchText = (searchText === resumptionToken || searchText.match(/^z\/\d{4}\//)) ? '' : searchText;
 
-        if (searchText.match(/(^z\/.*?)(?:$|\s)/g)) {
-            let token = searchText.match(/(^z\/.*?)(?:$|\s)/g)[0];
-            getSearchText = searchText.replace(token, '')
-        }
+		if (searchText.match(/(^z\/.*?)(?:$|\s)/g)) {
+			let token = searchText.match(/(^z\/.*?)(?:$|\s)/g)[0];
+			getSearchText = searchText.replace(token, '')
+		}
 
-		this.currentRequest = $.get('api/search/' + encodeURIComponent(serverId) + '/' + encodeURIComponent(resumptionToken) + '/' + encodeURIComponent(getSearchText), (result) => {
+		
+		if (resumptionToken.match(/^z\/\d{4}-/)) {
+			let startTime = moment.utc(resumptionToken.replace(/^z\//, ""));
+			if (!startTime.isValid()){
+				window.messageLogNotify('Invalid ISO 8601 date', 'error', resumptionToken.replace(/^z\//, ""));
+				this.setState({
+					isSearching: false,
+				});
+				return;
+			}
+			console.log(`before ${resumptionToken}`);
+			resumptionToken = 'z' + startTime.format('/YYYY/MM/DD/HH/mm/') + startTime;
+			console.log(`after ${resumptionToken}`);
+		}
+		
+
+		this.currentRequest = $.get('api/search/' + encodeURIComponent(serverId) + '/' + encodeURIComponent(resumptionToken) + '/' + encodeURIComponent(getSearchText) + (agg ? `?agg=${encodeURIComponent(JSON.stringify(agg || {}))}` : ""), (result) => {
 			var events = (this.state.events || []).concat(result.results)
-			var searchedEventsCount = (this.state.searchedEventsCount || 0) + result.count
+			var searchedEventsCount = (this.state.searchedEventsCount || 0) + result.count;
+			var returnedEventsCount = (this.state.returnedEventsCount || 0) + result.results.length;
 			var searchAttempts = this.state.searchAttempts + 1
-			if (searchAttempts > 20) {
-				this.setState({ events: events, searchedEventsCount: searchedEventsCount, resumptionToken: result.resumptionToken || false, isSearching: false }, () => {
+			if (searchAttempts >= 6) {
+				this.setState({
+					events: events,
+					searchedEventsCount: searchedEventsCount,
+					resumptionToken: result.resumptionToken || false,
+					isSearching: false,
+					searchAttempts: 0,
+					returnedEventsCount: 0,
+					agg: result.agg,
+				}, () => {
 					this.returnEvents(events)
-				})
-			} else if (searchedEventsCount < 30) {
-				this.setState({ events: events, searchedEventsCount: searchedEventsCount, resumptionToken: result.resumptionToken || false, isSearching: !!result.resumptionToken, searchEndTime: result.last_time, searchAttempts: searchAttempts }, () => {
+				});
+			} else if (returnedEventsCount < 30) {
+				this.setState({
+					events: events,
+					searchedEventsCount: searchedEventsCount,
+					resumptionToken: result.resumptionToken || false,
+					isSearching: !!result.resumptionToken,
+					searchEndTime: result.last_time,
+					searchAttempts: searchAttempts,
+					returnedEventsCount: returnedEventsCount,
+					agg: result.agg
+				}, () => {
 					if (result.resumptionToken) {
-						this.runPayloadSearch(serverId, searchText, result.resumptionToken)
+						this.runPayloadSearch(serverId, searchText, result.resumptionToken, result.agg)
 					}
 					this.returnEvents(events)
-				})
+				});
 			} else {
-				this.setState({ events: events, searchedEventsCount: searchedEventsCount, searchEndTime: result.last_time, isSearching: false, resumptionToken: result.resumptionToken || false }, () => {
+				this.setState({
+					events: events,
+					searchedEventsCount: searchedEventsCount,
+					searchEndTime: result.last_time,
+					isSearching: false,
+					resumptionToken: result.resumptionToken || false,
+					searchAttempts: 0,
+					returnedEventsCount: 0,
+					agg: result.agg
+				}, () => {
 					this.returnEvents(events)
-				})
+				});
 			}
 
 		}).fail((result, status) => {
 			if (result.responseText === 'invalid filter expression') {
-                window.messageLogNotify('Invalid Filter Expression', 'error', result);
-            } else if (status !== "abort") {
+				window.messageLogNotify('Invalid Filter Expression', 'error', result);
+			} else if (status !== "abort" && status !== "canceled") {
 				result.call = 'api/search/' + encodeURIComponent(serverId) + '/' + encodeURIComponent(resumptionToken) + '/' + encodeURIComponent(getSearchText);
 				window.messageLogNotify('Failure searching events on "' + this.dataStore.nodes[this.props.serverId].label + '"', 'error', result);
 			}
+		}).always(() => {
+			this.currentRequest = null;
 		})
 	}
 
@@ -218,18 +263,18 @@ export default class PayloadSearch extends React.Component {
 
 
 	resumeSearch() {
-		this.setState({ isSearching: true, searchAttempts: 0 }, () => {
+		this.setState({ isSearching: true, searchAttempts: 0, returnedEventsCount: 0 }, () => {
 			this.returnEvents()
 		})
-		this.runPayloadSearch(this.props.serverId, this.state.searchText, this.state.resumptionToken)
+		this.runPayloadSearch(this.props.serverId, this.state.searchText, this.state.resumptionToken, this.state.agg)
 	}
 
 
 	findRecent() {
 		var timestamp = moment.utc(this.props.lastWrite).subtract(5, 'minutes')
-		,   customTimeFrame = timestamp.format()//'YYYY-MM-DDTHH:MM:SS')
+			, customTimeFrame = timestamp.format()//'YYYY-MM-DDTHH:MM:SS')
 		timestamp = 'z' + timestamp.format(timeFormat) + timestamp.valueOf()
-		this.setState({ customTimeFrame: customTimeFrame, timeFrame: '', timestamp: timestamp}, this.startPayloadSearch)
+		this.setState({ customTimeFrame: customTimeFrame, timeFrame: '', timestamp: timestamp }, this.startPayloadSearch)
 	}
 
 
@@ -243,27 +288,27 @@ export default class PayloadSearch extends React.Component {
 			}
 				{
 					this.state.isSearching
-					? (<span>
-						{(this.state.searchEndTime ? ' and ' : '')}
-						searching <span className="theme-spinner-tiny margin-30" />
-					</span>)
-					: (
-						this.state.resumptionToken
-						? <button type="button" className="theme-button" onClick={this.resumeSearch.bind(this)}>Continue</button>
-						: false
-					)
+						? (<span>
+							{(this.state.searchEndTime ? ' and ' : '')}
+							searching <span className="theme-spinner-tiny margin-30" />
+						</span>)
+						: (
+							this.state.resumptionToken
+								? <button type="button" className="theme-button" onClick={this.resumeSearch.bind(this)}>Continue</button>
+								: false
+						)
 				}
 			</div>
 			: (
 				events.length
-				? <div>No more events found</div>
-				: (
-					this.props.lastWrite
-					? <div>
-						<button type="button" className="theme-button" onClick={this.findRecent.bind(this)}>Find most recent events</button>
-					</div>
-					: <div>No events found</div>
-				)
+					? <div>No more events found</div>
+					: (
+						this.props.lastWrite
+							? <div>
+								<button type="button" className="theme-button" onClick={this.findRecent.bind(this)}>Find most recent events</button>
+							</div>
+							: <div>No events found</div>
+					)
 			)
 		);
 
@@ -276,15 +321,15 @@ export default class PayloadSearch extends React.Component {
 		return (<div className="timeframe-search-bar">
 			{
 				this.props.hideSearch
-				? <div className="left-side"></div>
-				: (<div className="left-side">
-					<input name="search" placeholder="search" value={this.state.searchText} onChange={this.saveSearchText.bind(this)} onKeyDown={this.runPayloadSearchOnEnter.bind(this)} onBlur={this.runPayloadSearchOnEnter.bind(this)} autoComplete="off" />
-					{
-						this.state.searchText
-						? <i className="icon-cancel clear-search-text" onClick={this.clearPayloadSearch.bind(this)} />
-						: false
-					}
-				</div>)
+					? <div className="left-side"></div>
+					: (<div className="left-side">
+						<input name="search" placeholder="search" value={this.state.searchText} onChange={this.saveSearchText.bind(this)} onKeyDown={this.runPayloadSearchOnEnter.bind(this)} onBlur={this.runPayloadSearchOnEnter.bind(this)} autoComplete="off" />
+						{
+							this.state.searchText
+								? <i className="icon-cancel clear-search-text" onClick={this.clearPayloadSearch.bind(this)} />
+								: false
+						}
+					</div>)
 			}
 			<div className="right-side">
 

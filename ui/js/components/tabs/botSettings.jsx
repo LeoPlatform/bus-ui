@@ -1,5 +1,5 @@
-import React, {Component} from 'react';
-import {inject, observer} from 'mobx-react'
+import React, { Component } from 'react';
+import { inject, observer } from 'mobx-react'
 
 import DynamicForm from '../elements/dynamicForm.jsx'
 import NodeIcon from '../elements/nodeIcon.jsx'
@@ -12,7 +12,7 @@ class BotSettings extends React.Component {
 	requiredFields = {}
 
 	codeMirrorJSONOptions = {
-		mode:  { name: "javascript", json: true },
+		mode: { name: "javascript", json: true },
 		//mode:  { name: "javascript" },
 		lineWrapping: true,
 		lineNumbers: true,
@@ -42,40 +42,40 @@ class BotSettings extends React.Component {
 		this.state = {
 			settingsId: settingsId,
 			defaults: {},
-            archived: (this.dataStore.nodes[(props.nodeData || {}).id] || {}).archived,
-			source_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.source_lag/60/1000) || ''),
-            old_source_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.source_lag)),
-            write_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.write_lag/60/1000) || ''),
-            old_write_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.write_lag)),
-            error_limit: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.error_limit*100) || ''),
-            old_error_limit: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.error_limit)),
-            consecutive_errors: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.consecutive_errors) || ''),
-            old_consecutive_errors: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.consecutive_errors)),
+			archived: (this.dataStore.nodes[(props.nodeData || {}).id] || {}).archived,
+			source_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.source_lag / 60 / 1000) || ''),
+			old_source_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.source_lag)),
+			write_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.write_lag / 60 / 1000) || ''),
+			old_write_lag: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.write_lag)),
+			error_limit: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.error_limit * 100) || ''),
+			old_error_limit: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.error_limit)),
+			consecutive_errors: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.consecutive_errors) || ''),
+			old_consecutive_errors: ((this.dataStore.nodes[props.nodeData.id] && this.dataStore.nodes[props.nodeData.id].health && this.dataStore.nodes[props.nodeData.id].health.consecutive_errors)),
 			check1: false,
-            check2: false,
-            check3: false,
-            check4: false
-        };
+			check2: false,
+			check3: false,
+			check4: false
+		};
 
 		this.handle1 = this.handle1.bind(this);
-        this.handle2 = this.handle2.bind(this);
-        this.handle3 = this.handle3.bind(this);
-        this.handle4 = this.handle4.bind(this);
-        this.check1 = this.check1.bind(this);
-        this.check2 = this.check2.bind(this);
-        this.check3 = this.check3.bind(this);
-        this.check4 = this.check4.bind(this);
-    }
+		this.handle2 = this.handle2.bind(this);
+		this.handle3 = this.handle3.bind(this);
+		this.handle4 = this.handle4.bind(this);
+		this.check1 = this.check1.bind(this);
+		this.check2 = this.check2.bind(this);
+		this.check3 = this.check3.bind(this);
+		this.check4 = this.check4.bind(this);
+	}
 
-    resetOverrides() {
+	resetOverrides() {
 		this.setState({
 			source_lag: undefined,
 			write_lag: undefined,
 			error_limit: undefined,
-            consecutive_errors: undefined,
+			consecutive_errors: undefined,
 			dirty: true
 		});
-    }
+	}
 
 
 	componentWillReceiveProps() {
@@ -100,13 +100,13 @@ class BotSettings extends React.Component {
 				dirty: true
 			})
 		}
-        if (this.state.old_consecutive_errors !== this.dataStore.nodes[this.props.nodeData.id].health.consecutive_errors) {
-            this.setState({
-                consecutive_errors: ((this.dataStore.nodes[this.props.nodeData.id].health.consecutive_errors) || ''),
-                old_consecutive_errors: this.dataStore.nodes[this.props.nodeData.id].health.consecutive_errors,
-                dirty: true
-            })
-        }
+		if (this.state.old_consecutive_errors !== this.dataStore.nodes[this.props.nodeData.id].health.consecutive_errors) {
+			this.setState({
+				consecutive_errors: ((this.dataStore.nodes[this.props.nodeData.id].health.consecutive_errors) || ''),
+				old_consecutive_errors: this.dataStore.nodes[this.props.nodeData.id].health.consecutive_errors,
+				dirty: true
+			})
+		}
 	}
 
 
@@ -117,9 +117,9 @@ class BotSettings extends React.Component {
 
 		if (this.props.action == 'create') {
 			this.modal = LeoKit.modal($('.BotSettings'), {
-					Save: this.onSave.bind(this),
-					cancel: false
-				},
+				Save: this.onSave.bind(this),
+				cancel: false
+			},
 				'Create ' + (this.props.data.group || this.props.data.groups[0]).capitalize(),
 				this.props.onClose
 			)
@@ -132,7 +132,7 @@ class BotSettings extends React.Component {
 
 		this.isUnmounting = true
 
-		for(var instanceName in this.codeMirrorInstances) {
+		for (var instanceName in this.codeMirrorInstances) {
 			this.codeMirrorInstances[instanceName].toTextArea()
 			delete this.codeMirrorInstances[instanceName]
 		}
@@ -143,7 +143,7 @@ class BotSettings extends React.Component {
 	onReset(callback) {
 		callback = (typeof callback == 'function' ? callback : false)
 
-		for(var instanceName in this.codeMirrorInstances) {
+		for (var instanceName in this.codeMirrorInstances) {
 			this.codeMirrorInstances[instanceName].toTextArea()
 			delete this.codeMirrorInstances[instanceName]
 		}
@@ -178,7 +178,7 @@ class BotSettings extends React.Component {
 
 			var settings = ((response.lambda || {}).settings || [])[0] || {}
 
-			var triggerSource = (this.dataStore.nodes[ (this.props.data || {}).id || 'e_' + settings.source] || this.dataStore.nodes['s_' + settings.source] || {}).id
+			var triggerSource = (this.dataStore.nodes[(this.props.data || {}).id || 'e_' + settings.source] || this.dataStore.nodes['s_' + settings.source] || {}).id
 			if (this.props.action == 'create' && !response.triggers && triggerSource) {
 				response.triggers = [triggerSource]
 			}
@@ -210,8 +210,8 @@ class BotSettings extends React.Component {
 			var destinationNodeTypes = 'systems|queues|new'
 
 			if (templateId) {
-                var template = window.templates && window.templates[templateId] ? window.templates[templateId] : {};
-                if (template && template.matches) {
+				var template = window.templates && window.templates[templateId] ? window.templates[templateId] : {};
+				if (template && template.matches) {
 					if (template.matches.source) {
 						if (template.matches.source.slice(0, 5) == 'queue') {
 							sourceNodeTypes = 'queues|new'
@@ -262,7 +262,7 @@ class BotSettings extends React.Component {
 			formData = $('.BotSettings').closest('form').serializeObject()
 		}
 
-        var errors = [];
+		var errors = [];
 		var settings = formData.templateId ? (this.templates && this.templates[formData.templateId] || {}).settings || {} : {};
 
 		Object.keys(this.requiredFields).forEach((fieldName) => {
@@ -277,7 +277,7 @@ class BotSettings extends React.Component {
 				if (field.type == 'json') {
 					try {
 						var test = JSON.parse(formData[fieldName])
-					} catch(errorMsg) {
+					} catch (errorMsg) {
 						errors.push(field.label.replace(/_/g, ' ').capitalize() + ' ' + errorMsg)
 					}
 				}
@@ -307,7 +307,7 @@ class BotSettings extends React.Component {
 						if ((subsetting.type || subsetting) == 'json') {
 							try {
 								formData[subsettingName] = JSON.parse(formData[subsettingName])
-							} catch(e) {
+							} catch (e) {
 								errors.push(subsetting.label.capitalize() + ' - ' + e)
 							}
 						}
@@ -318,7 +318,7 @@ class BotSettings extends React.Component {
 				if ((setting.type || setting) == 'json') {
 					try {
 						formData[settingName] = JSON.parse(formData[settingName])
-					} catch(e) {
+					} catch (e) {
 						errors.push(setting.label.capitalize() + ' - ' + e)
 					}
 				}
@@ -348,36 +348,36 @@ class BotSettings extends React.Component {
 		data.templateId = formData.templateId;
 		data.invocationType = formData.invocationType;
 
-        let source_lag = '';
+		let source_lag = '';
 		let write_lag = '';
 		let error_limit = '';
 		let consecutive_errors = '';
 		if (formData.source_lag !== '') {
-			source_lag = formData.source_lag || (this.dataStore.nodes[formData.id] && this.dataStore.nodes[formData.id].health && this.dataStore.nodes[formData.id].health.source_lag/1000/60) || '';
+			source_lag = formData.source_lag || (this.dataStore.nodes[formData.id] && this.dataStore.nodes[formData.id].health && this.dataStore.nodes[formData.id].health.source_lag / 1000 / 60) || '';
 		}
 		if (formData.write_lag !== '') {
-			write_lag = formData.write_lag || (this.dataStore.nodes[formData.id] && this.dataStore.nodes[formData.id].health && this.dataStore.nodes[formData.id].health.write_lag/1000/60) || '';
-        }
-        if (formData.error_limit !== '') {
-			error_limit = formData.error_limit || (this.dataStore.nodes[formData.id] && this.dataStore.nodes[formData.id].health && this.dataStore.nodes[formData.id].health.error_limit*100) || '';
-        }
-        if (formData.consecutive_errors !== '') {
+			write_lag = formData.write_lag || (this.dataStore.nodes[formData.id] && this.dataStore.nodes[formData.id].health && this.dataStore.nodes[formData.id].health.write_lag / 1000 / 60) || '';
+		}
+		if (formData.error_limit !== '') {
+			error_limit = formData.error_limit || (this.dataStore.nodes[formData.id] && this.dataStore.nodes[formData.id].health && this.dataStore.nodes[formData.id].health.error_limit * 100) || '';
+		}
+		if (formData.consecutive_errors !== '') {
 			consecutive_errors = formData.consecutive_errors || (this.dataStore.nodes[formData.id] && this.dataStore.nodes[formData.id].health && this.dataStore.nodes[formData.id].health.consecutive_errors) || '';
-        }
+		}
 
 		if (typeof source_lag === 'number') {
-            source_lag = 1000 * 60 * source_lag;
+			source_lag = 1000 * 60 * source_lag;
 		}
 		if (typeof write_lag === 'number') {
-            write_lag = 1000 * 60 * write_lag;
+			write_lag = 1000 * 60 * write_lag;
 		}
 		if (typeof error_limit === 'number') {
-            error_limit = error_limit/100;
+			error_limit = error_limit / 100;
 		}
 
-        data.health = Object.assign({}, this.state.health, {source_lag: source_lag, write_lag: write_lag, error_limit: error_limit, consecutive_errors: consecutive_errors});
+		data.health = Object.assign({}, this.state.health, { source_lag: source_lag, write_lag: write_lag, error_limit: error_limit, consecutive_errors: consecutive_errors });
 
-        if (formData.templateId) {
+		if (formData.templateId) {
 			data.lambdaName = formData.lambdaName || (this.templates && this.templates[formData.templateId] || {}).lambda || formData.templateId
 			data.lambda = lambda
 		}
@@ -388,16 +388,16 @@ class BotSettings extends React.Component {
 		if (this.state.sourceId) {
 			lambda.settings[0].source = (
 				((this.dataStore.nodes[this.state.sourceId] || {}).type === 'system')
-				? 'system.'
-				: ''
+					? 'system.'
+					: ''
 			) + ((this.dataStore.nodes[this.state.sourceId] || {}).id || this.state.sourceId)
 		}
 
 		if (this.state.destinationId) {
 			lambda.settings[0].destination = (
 				((this.dataStore.nodes[this.state.destinationId] || {}).type === 'system')
-				? 'system.'
-				: ''
+					? 'system.'
+					: ''
 			) + ((this.dataStore.nodes[this.state.destinationId] || {}).id || this.state.destinationId)
 		}
 
@@ -421,35 +421,35 @@ class BotSettings extends React.Component {
 			}
 		}
 
-       	if (!formData.error_limit) {
-            formData.error_limit = '';
+		if (!formData.error_limit) {
+			formData.error_limit = '';
 		}
 
 
 		if (formData.error_limit > -1 && formData.error_limit < 101) {
-            $.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
-                window.messageLogNotify('Bot settings saved successfully for ' + data.name)
-                if (this.props.onSave) { //add
-                    if (typeof response == 'object') {
-                        response.label = data.name
-                    }
-                    this.props.onSave(response)
-                } else if (this.props.nodeData) { //update
-                    window.nodeTree.updateDiagram && window.nodeTree.updateDiagram(null, true)
-                }
-                (this.props.data || {}).onSave && this.props.data.onSave(response)
-                if (this.props.action != 'create') {
-                    this.setState({dirty: false})
-                    this.props.setDirtyState && this.props.setDirtyState(false)
-                }
-                callback && callback()
-            }).fail((result) => {
-                window.messageLogModal('Error saving bot ' + data.name, 'error', result)
-                return false
-            })
-        } else {
-            window.messageLogModal('Errors Per Executions must be between 0 and 100', 'error')
-        }
+			$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
+				window.messageLogNotify('Bot settings saved successfully for ' + data.name)
+				if (this.props.onSave) { //add
+					if (typeof response == 'object') {
+						response.label = data.name
+					}
+					this.props.onSave(response)
+				} else if (this.props.nodeData) { //update
+					window.nodeTree.updateDiagram && window.nodeTree.updateDiagram(null, true)
+				}
+				(this.props.data || {}).onSave && this.props.data.onSave(response)
+				if (this.props.action != 'create') {
+					this.setState({ dirty: false })
+					this.props.setDirtyState && this.props.setDirtyState(false)
+				}
+				callback && callback()
+			}).fail((result) => {
+				window.messageLogModal('Error saving bot ' + data.name, 'error', result)
+				return false
+			})
+		} else {
+			window.messageLogModal('Errors Per Executions must be between 0 and 100', 'error')
+		}
 
 	}
 
@@ -554,18 +554,22 @@ class BotSettings extends React.Component {
 			System: () => {
 				(
 					(type == 'destination')
-					? window.createSystem({ label: id, onSave: (data) => {
-						var defaults = this.state.defaults
-						defaults.destination = 'system.' + data.response.id
-						var destinationKey = 'system' + ':' + data.settings.system + ':' + data.label
-						this.setState({ destinationId: data.response.id, desourceKey: destinationKey, defaults: defaults }, this.filterTemplates.bind(this))
-					}})
-					: window.createSystem({ label: id, onSave: (data) => {
-						var defaults = this.state.defaults
-						defaults.source = 'system.' + data.response.id
-						var sourceKey = 'system' + ':' + data.settings.system + ':' + data.label
-						this.setState({ sourceId: data.response.id, sourceKey: sourceKey, defaults: defaults }, this.filterTemplates.bind(this))
-					}})
+						? window.createSystem({
+							label: id, onSave: (data) => {
+								var defaults = this.state.defaults
+								defaults.destination = 'system.' + data.response.id
+								var destinationKey = 'system' + ':' + data.settings.system + ':' + data.label
+								this.setState({ destinationId: data.response.id, desourceKey: destinationKey, defaults: defaults }, this.filterTemplates.bind(this))
+							}
+						})
+						: window.createSystem({
+							label: id, onSave: (data) => {
+								var defaults = this.state.defaults
+								defaults.source = 'system.' + data.response.id
+								var sourceKey = 'system' + ':' + data.settings.system + ':' + data.label
+								this.setState({ sourceId: data.response.id, sourceKey: sourceKey, defaults: defaults }, this.filterTemplates.bind(this))
+							}
+						})
 				)
 			}
 		}, false)
@@ -596,42 +600,42 @@ class BotSettings extends React.Component {
 					if (template.matches && template.matches) {
 
 						if (template.matches.source) {
-							switch(template.matches.source.split(':')[0]) {
+							switch (template.matches.source.split(':')[0]) {
 								case 'queue':
 									sourceNodeTypes['queues'] = true
 									sourceNodeTypes['new'] = true
-								break
+									break
 
 								case 'system':
 									sourceNodeTypes['systems'] = true
 									sourceNodeTypes['new'] = true
-								break
+									break
 
 								case '.*':
 									sourceNodeTypes['queues'] = true
 									sourceNodeTypes['systems'] = true
 									sourceNodeTypes['new'] = true
-								break
+									break
 							}
 						}
 
 						if (template.matches.destination) {
-							switch(template.matches.destination.split(':')[0]) {
+							switch (template.matches.destination.split(':')[0]) {
 								case 'queue':
 									destinationNodeTypes['queues'] = true
 									destinationNodeTypes['new'] = true
-								break
+									break
 
 								case 'system':
 									destinationNodeTypes['systems'] = true
 									destinationNodeTypes['new'] = true
-								break
+									break
 
 								case '.*':
 									destinationNodeTypes['queues'] = true
 									destinationNodeTypes['systems'] = true
 									destinationNodeTypes['new'] = true
-								break
+									break
 							}
 						}
 
@@ -639,7 +643,7 @@ class BotSettings extends React.Component {
 
 				}
 
-			} catch(e) {
+			} catch (e) {
 				window.messageLogNotify('Error in regex matching source and destination to template: ' + template.name, 'error', e)
 			}
 
@@ -649,7 +653,7 @@ class BotSettings extends React.Component {
 
 		this.setState({
 			templates: templates,
-			templateId: (Object.keys(templates).indexOf(this.state.templateId) != -1 ? this.state.templateId :  undefined),
+			templateId: (Object.keys(templates).indexOf(this.state.templateId) != -1 ? this.state.templateId : undefined),
 			sourceNodeTypes: Object.keys(sourceNodeTypes).join('|') || 'systems|queues|new',
 			destinationNodeTypes: Object.keys(destinationNodeTypes).join('|') || 'systems|queues|new'
 		}, () => {
@@ -685,63 +689,63 @@ class BotSettings extends React.Component {
 
 	handle1(e) {
 		this.setState({
-            source_lag: e.target.value,
-            dirty: true
+			source_lag: e.target.value,
+			dirty: true
 		});
 	}
 
-    handle2(e) {
-        this.setState({
-            write_lag: e.target.value,
-            dirty: true
-        });
-    }
-
-    handle3(e) {
-        this.setState({
-            error_limit: e.target.value,
-            dirty: true
-        });
+	handle2(e) {
+		this.setState({
+			write_lag: e.target.value,
+			dirty: true
+		});
 	}
 
-    handle4(e) {
-        this.setState({
-            consecutive_errors: e.target.value,
-            dirty: true
-        });
-    }
+	handle3(e) {
+		this.setState({
+			error_limit: e.target.value,
+			dirty: true
+		});
+	}
 
-    check1() {
-        this.setState({
-            check1: !this.state.check1
-        });
-    }
+	handle4(e) {
+		this.setState({
+			consecutive_errors: e.target.value,
+			dirty: true
+		});
+	}
 
-    check2() {
-        this.setState({
-            check2: !this.state.check2
-        });
-    }
+	check1() {
+		this.setState({
+			check1: !this.state.check1
+		});
+	}
 
-    check3() {
-        this.setState({
-            check3: !this.state.check3
-        });
-    }
+	check2() {
+		this.setState({
+			check2: !this.state.check2
+		});
+	}
 
-    check4() {
-        this.setState({
-            check4: !this.state.check4
-        });
-    }
+	check3() {
+		this.setState({
+			check3: !this.state.check3
+		});
+	}
+
+	check4() {
+		this.setState({
+			check4: !this.state.check4
+		});
+	}
 
 
 	setJSONText(textArea) {
 		this.setState((currentState) => {
 			try {
 				currentState.defaults[textArea.name] = JSON.parse(textArea.value)
-			} catch(e) {
-				console.log('e',e)
+			} catch (e) {
+				console.log('e', e)
 				currentState.defaults[textArea.name] = textArea.value
 			}
 			return currentState
@@ -772,7 +776,7 @@ class BotSettings extends React.Component {
 
 	setTemplate(event) {
 		this.requiredFields = {}
-		this.setState({ templateId: event.currentTarget.value, time: this.templates[event.currentTarget.value].time || this.state.time  }, this.initCodeAreas.bind(this))
+		this.setState({ templateId: event.currentTarget.value, time: this.templates[event.currentTarget.value].time || this.state.time }, this.initCodeAreas.bind(this))
 	}
 
 
@@ -828,7 +832,7 @@ class BotSettings extends React.Component {
 		if (this.state.defaults.source || this.state.defaults.destination) {
 			sourceName = this.state.defaults.source
 			destinationName = this.state.defaults.destination
-			for(var id in this.dataStore.nodes) {
+			for (var id in this.dataStore.nodes) {
 				if (this.dataStore.nodes[id].type !== 'bot') {
 					if (this.dataStore.nodes[id].id === this.state.defaults.source) {
 						sourceId = id
@@ -973,7 +977,7 @@ class BotSettings extends React.Component {
 
 		if (this.state.templates && Object.keys(this.state.templates).length > 0) {
 			var values = {}
-			for(var tId in this.state.templates) {
+			for (var tId in this.state.templates) {
 				values[tId] = (this.templates && this.templates[tId] || {}).name || tId
 			}
 
@@ -1071,33 +1075,33 @@ class BotSettings extends React.Component {
 		};
 
 		/* BOT OVERRIDES */
-        form.overrides = { section: {} };
+		form.overrides = { section: {} };
 
 		form.overrides.section.source_lag = {
 			label: 'Source Lag (Minutes)',
 			value: this.state.source_lag,
 			required: false,
 			type: 'textoverrides',
-            type2: 'checkbox',
-            style: this.state.check1 ? {} : {backgroundColor: '#d3d3d3'},
-            style2: {margin: '12px 5px 0px 0px'},
-            onChange: this.handle1,
-            onClick: this.check1,
+			type2: 'checkbox',
+			style: this.state.check1 ? {} : { backgroundColor: '#d3d3d3' },
+			style2: { margin: '12px 5px 0px 0px' },
+			onChange: this.handle1,
+			onClick: this.check1,
 			disabled: this.state.check1
-        };
+		};
 
 		form.overrides.section.write_lag = {
 			label: 'Write Lag (Minutes)',
 			value: this.state.write_lag,
 			required: false,
 			type: 'textoverrides',
-            type2: 'checkbox',
-            style: this.state.check2 ? {} : {backgroundColor: '#d3d3d3'},
-            style2: {margin: '12px 5px 0px 0px'},
-            onChange: this.handle2,
-            onClick: this.check2,
-            disabled: this.state.check2
-        };
+			type2: 'checkbox',
+			style: this.state.check2 ? {} : { backgroundColor: '#d3d3d3' },
+			style2: { margin: '12px 5px 0px 0px' },
+			onChange: this.handle2,
+			onClick: this.check2,
+			disabled: this.state.check2
+		};
 
 		form.overrides.section.error_limit = {
 			label: 'Errors Per Executions',
@@ -1105,26 +1109,26 @@ class BotSettings extends React.Component {
 			required: false,
 			min: "1",
 			type: 'errorpercent',
-            type2: 'checkbox',
-            valueType: 'number',
-            style: this.state.check3 ? {} : {backgroundColor: '#d3d3d3'},
-            style2: {margin: '12px 5px 0px 0px'},
-            onChange: this.handle3,
-            onClick: this.check3,
-            disabled: this.state.check3
-        };
+			type2: 'checkbox',
+			valueType: 'number',
+			style: this.state.check3 ? {} : { backgroundColor: '#d3d3d3' },
+			style2: { margin: '12px 5px 0px 0px' },
+			onChange: this.handle3,
+			onClick: this.check3,
+			disabled: this.state.check3
+		};
 
 		form.overrides.section.consecutive_errors = {
 			label: 'Consecutive Errors Allowed',
 			value: this.state.consecutive_errors,
 			required: false,
 			type: 'textoverrides',
-            type2: 'checkbox',
-            style: this.state.check4 ? {} : {backgroundColor: '#d3d3d3'},
-            style2: {margin: '12px 5px 0px 0px'},
-            onChange: this.handle4,
-            onClick: this.check4,
-            disabled: this.state.check4
+			type2: 'checkbox',
+			style: this.state.check4 ? {} : { backgroundColor: '#d3d3d3' },
+			style2: { margin: '12px 5px 0px 0px' },
+			onChange: this.handle4,
+			onClick: this.check4,
+			disabled: this.state.check4
 		};
 
 
@@ -1150,12 +1154,12 @@ class BotSettings extends React.Component {
 						<div>
 							<DynamicForm className="theme-form" id={theid} resetOverrides={() => this.resetOverrides()} form={form} defaults={this.state.defaults} setRequiredFields={this.setRequiredFields.bind(this)} toggleAdvanced={this.toggleAdvanced.bind(this)} onChange={this.setDirty.bind(this)} />
 							<div>
-                                {
-                                    localStorage.getItem('enableBetaFeatures')
-                                        ?
-										<textarea style={{width:'600px', height:'600px'}} defaultValue={JSON.stringify(this.dataStore.cronInfo, undefined, 4)}/>
-                                        : false
-                                }
+								{
+									localStorage.getItem('enableBetaFeatures')
+										?
+										(<textarea style={{ width: '600px', height: '600px' }} defaultValue={JSON.stringify(this.dataStore.cronInfo, null, 2)} className="codeMirror" />)
+										: false
+								}
 							</div>
 						</div>
 
@@ -1167,12 +1171,12 @@ class BotSettings extends React.Component {
 							<div className="flow-icons">
 								{
 									sourceId
-									? (<div className="display-inline-block text-middle text-center">
-										<NodeIcon className="smaller" node={sourceId} />
-										<i className="icon-right-fat"></i>
-										<div>{sourceName}</div>
-									</div>)
-									: false
+										? (<div className="display-inline-block text-middle text-center">
+											<NodeIcon className="smaller" node={sourceId} />
+											<i className="icon-right-fat"></i>
+											<div>{sourceName}</div>
+										</div>)
+										: false
 								}
 
 								<NodeIcon className="text-middle" node={{
@@ -1186,12 +1190,12 @@ class BotSettings extends React.Component {
 
 								{
 									destinationId
-									? (<div className="display-inline-block text-middle text-center">
-										<i className="icon-right-fat"></i>
-										<NodeIcon className="smaller" node={destinationId} />
-										<div>{destinationName}</div>
-									</div>)
-									: false
+										? (<div className="display-inline-block text-middle text-center">
+											<i className="icon-right-fat"></i>
+											<NodeIcon className="smaller" node={destinationId} />
+											<div>{destinationName}</div>
+										</div>)
+										: false
 								}
 							</div>
 
@@ -1199,18 +1203,18 @@ class BotSettings extends React.Component {
 
 						{
 							this.props.action != 'create'
-							? <div className="form-button-bar mobile-hide">
-								<button type="button" className="theme-button" onClick={this.onReset.bind(this, false)} disabled={!this.state.dirty}>Discard Changes</button>
-								<button type="button" className="theme-button-primary" onClick={this.onSave.bind(this, false)} disabled={!this.state.dirty || false}>Save Changes</button>
-								<button type="button" className="theme-button pull-right" onClick={this.archiveBot.bind(this)}>
-									{
-										this.state.archived
-										? <i className="icon-unarchive"> Unarchive</i>
-										: <i className="icon-archive"> Archive</i>
-									}
-								</button>
-							</div>
-							: false
+								? <div className="form-button-bar mobile-hide">
+									<button type="button" className="theme-button" onClick={this.onReset.bind(this, false)} disabled={!this.state.dirty}>Discard Changes</button>
+									<button type="button" className="theme-button-primary" onClick={this.onSave.bind(this, false)} disabled={!this.state.dirty || false}>Save Changes</button>
+									<button type="button" className="theme-button pull-right" onClick={this.archiveBot.bind(this)}>
+										{
+											this.state.archived
+												? <i className="icon-unarchive"> Unarchive</i>
+												: <i className="icon-archive"> Archive</i>
+										}
+									</button>
+								</div>
+								: false
 						}
 
 					</div>
