@@ -188,9 +188,7 @@ export default class PayloadSearch extends React.Component {
 				});
 				return;
 			}
-			console.log(`before ${resumptionToken}`);
 			resumptionToken = 'z' + startTime.format('/YYYY/MM/DD/HH/mm/') + startTime;
-			console.log(`after ${resumptionToken}`);
 		}
 		
 
