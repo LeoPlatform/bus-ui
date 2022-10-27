@@ -25,9 +25,7 @@ class Logs extends React.Component {
 		if (this.dataStore.cronInfo === null) {
 			this.dataStore.getCron(props.nodeData.id);
 		}
-		currentRequest = this.dataStore.getLogs(props.nodeData.id, this.dataStore.cronInfo).always(() => {
-			currentRequest = null;
-		});
+		currentRequest = this.dataStore.getLogs(props.nodeData.id, this.dataStore.cronInfo);
 	}
 
 
