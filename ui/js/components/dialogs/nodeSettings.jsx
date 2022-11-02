@@ -453,6 +453,9 @@ class Settings extends React.Component {
 								{
 									(this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && this.dataStore.cronInfo.scheduledTrigger && this.dataStore.cronInfo.scheduledTrigger > Date.now()) ? <span className="bot-invoke-backoff">Backoff Until: {moment(this.dataStore.cronInfo.scheduledTrigger).format("MMM D, Y h:mm:ss a")}</span> : false
 								}
+								{
+									(this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && leoAws && this.dataStore.cronInfo.lambdaName && leoAws.region) ? <a className="bot-aws-link" onClick = {() => {window.open(`https://${leoAws.region}.console.aws.amazon.com/lambda/home?region=${leoAws.region}#/functions/${this.dataStore.cronInfo.lambdaName}`)}}>aws console</a>: false
+								}
 							</div>
 
 						</div>
