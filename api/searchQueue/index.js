@@ -83,6 +83,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
     }, 10000);
 
     var timeout;
+    let size = 0;
     readable.pipe(ls.write((obj, done) => {
         if (exiting) {
             return done();
@@ -93,13 +94,16 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 
         if (filter(obj.payload, obj, response.agg)) {
             response.results.push(Object.assign({}, obj));
+
+            size += obj.size || Buffer.byteLength(JSON.stringify(obj));
+
             if (!timeout) {
                 timeout = setTimeout(function() {
                     readable.destroy();
                     exiting = true;
                 }, 1000);
             }
-            if (response.results.length >= requestedCount) {
+            if (response.results.length >= requestedCount || size >= (1024 * 1024 * 4)) {
                 readable.destroy();
                 exiting = true;
             }
