@@ -4,6 +4,7 @@ let request = require("leo-auth");
 let stats = require("../../lib/stats.js");
 require("moment-round");
 var zlib = require("zlib");
+let logger = require("leo-logger")("stats-api");
 
 let compressionThreshold = 100000; // 100k
 
@@ -32,7 +33,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
             }
         } else if (objType === 'string') {
             if (obj.length > 1024) {
-                console.log(`string stored at '${prefix}' is larger than 1024 bytes (length=${obj.length}): '${obj}'`);
+                logger.log(`string stored at '${prefix}' is larger than 1024 bytes (length=${obj.length}): '${obj}'`);
             }
         }
     }
@@ -41,7 +42,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
         let stats = (data || {}).stats;
         if (stats) {
             let responseBody = JSON.stringify(stats);
-            console.log(`response body length = ${responseBody.length}`);
+            logger.log(`response body length = ${responseBody.length}`);
             if (responseBody.length > 6000000) {
                 findBigStrings(stats);
             }
@@ -51,7 +52,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
                 'Access-Control-Allow-Credentials': true,
                 'Access-Control-Allow-Origin': '*',
             };
-            console.log('event.headers', event.headers);
+            logger.log('event.headers', event.headers);
             for (const headerName of Object.keys(event.headers)) {
                 if (headerName.toLowerCase() === 'accept-encoding') {
                     if (event.headers[headerName].indexOf('gzip') !== -1) {
@@ -62,11 +63,11 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
             }
 
             if (willAcceptGzip && responseBody.length > compressionThreshold) {
-                console.log(`compressing response,  size = ${responseBody.length}`);
+                logger.log(`compressing response,  size = ${responseBody.length}`);
                 responseBody = zlib.gzipSync(responseBody).toString('base64');
                 responseHeaders['Content-Encoding'] = 'gzip';
                 isBase64Encoded = true;
-                console.log(`after compression, response size = ${responseBody.length}`)
+                logger.log(`after compression, response size = ${responseBody.length}`)
             }
             callback(undefined, {
                 body: responseBody,
