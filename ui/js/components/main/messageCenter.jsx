@@ -1,4 +1,4 @@
-import React, {Component} from 'react'
+import React, { Component } from 'react'
 
 
 export default class MessageCenter extends React.Component {
@@ -34,7 +34,7 @@ export default class MessageCenter extends React.Component {
 			var messages = sessionStorage.getItem('messageQueue') || '[]'
 			try {
 				messages = JSON.parse(messages)
-			} catch(e) {
+			} catch (e) {
 				messages = []
 			}
 			messages.push(message)
@@ -52,7 +52,7 @@ export default class MessageCenter extends React.Component {
 			window.messageModal(message, priority, details)
 		}
 
-		window.messageModal = (message, priority, details) => {
+		window.messageModal = (message, priority, details, opts = {}) => {
 			if (typeof message == 'object') {
 				message = message.map(line => line.htmlEncode()).join('<br/>')
 			} else {
@@ -60,9 +60,9 @@ export default class MessageCenter extends React.Component {
 			}
 
 			if (details) {
-				message += `<details class="message-details">
+				message += `<details class="message-details" ${opts.open ? 'open' : ''}>
 					<summary></summary>
-					<pre>` + JSON.stringify(details || {}, null, 4) + `</pre>
+					<pre>` + (typeof details === "string" ? details : JSON.stringify(details || {}, null, 4)) + `</pre>
 				</details>`
 			}
 
@@ -96,14 +96,14 @@ export default class MessageCenter extends React.Component {
 		return (<div className="message-center message-list">
 			{
 				this.state.currentMessage
-				? (<div className={'message ' + (this.state.currentMessage.priority || 'success')}>
-				{
-					this.state.currentMessage.message.map((text, key) => {
-						return (<div key={key}>{text}</div>)
-					})
-				}
-				</div>)
-				: false
+					? (<div className={'message ' + (this.state.currentMessage.priority || 'success')}>
+						{
+							this.state.currentMessage.message.map((text, key) => {
+								return (<div key={key}>{text}</div>)
+							})
+						}
+					</div>)
+					: false
 			}
 		</div>)
 

@@ -73,6 +73,8 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
+		"ajv": "^8.11.0",
+		"ajv-formats": "^2.1.1",
 		"babel-plugin-transform-decorators-legacy": "^1.3.4",
 		"babel-preset-es2015": "^6.24.1",
 		"babel-preset-react": "^6.24.1",

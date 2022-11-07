@@ -301,6 +301,16 @@ export default class DataStore {
             }
         })
     }
+    @action
+    getQueue(id) {
+        $.get(`api/queueSchema/${encodeURIComponent(id)}`, (result) => {
+            this.queueInfo = result || {};
+        }).fail((result, status) => {
+            if (status !== "abort" && status != "canceled") {
+                window.messageLogModal('Failure retrieving settings ' + this.nodes[id].label, 'warning', result)
+            }
+        })
+    }
 
     @action
     getEventSettings() {
