@@ -6,6 +6,8 @@ import EventReplay from '../dialogs/eventReplay.jsx'
 import PayloadSearch from '../elements/payloadSearch.jsx'
 import NoSource from '../elements/noSource.jsx'
 import NodeSearch from '../elements/nodeSearch.jsx'
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
 
 var timeFormat = '/YYYY/MM/DD/HH/mm/'
 
@@ -105,7 +107,8 @@ class EventViewer extends React.Component {
 	}
 
 
-	startReplay(detail, index) {
+	startReplay(detail, index, event) {
+		event.stopPropagation()
 		this.setState({ replay: detail })
 	}
 
@@ -131,6 +134,72 @@ class EventViewer extends React.Component {
 		})
 	}
 
+	validateEvent(detail, index, event) {
+		event.stopPropagation()
+		let version = detail.version || Object.keys(this.dataStore.queueInfo)[0];
+		let message;
+		let type;
+		let details;
+		let valid = detail.is_valid;
+		let validate = {
+			errors: detail.validation_errors
+		}
+		if (valid) {
+			message = "Event is valid";
+			details = "No validation errors";
+			type = "info";
+		}
+		else {
+			message = "Errors";
+			details = validate.errors.join("\n");
+			type = "error";
+		}
+
+
+		let node = this.state.node;
+		window.messageModal(`${node.label}@${version}` + " - " + message + " : " + detail.eid, type, details, { open: true });
+	}
+
+	validateEvents(events) {
+		if (!this.dataStore.queueInfo) {
+			return;
+		}
+		let defaultVersion = Object.keys(this.dataStore.queueInfo || {})[0];
+		let ajvs = {};
+		events.forEach((event) => {
+			if (event.is_valid == null) {
+				let version = event.version || defaultVersion;
+				event.version = version;
+				if (!ajvs[version]) {
+					const ajv = new Ajv({ allErrors: true, strict: false });
+					addFormats(ajv);
+					let { schema, definitionsSchema } = (this.dataStore.queueInfo || {})[version] || {}
+					const validate = ajv.addSchema(definitionsSchema || {}).compile(schema || {});
+					ajvs[version] = validate;
+				}
+
+				const validate = ajvs[version];
+				const valid = validate(event.payload);
+
+				event.is_valid = valid;
+				if (!valid) {
+					let errors = validate.errors;
+					let options = options || {};
+					var dataVar = "payload";
+
+					let errorMessages = [];
+					for (var i = 0; i < errors.length; i++) {
+						var e = errors[i];
+						if (e) {
+							errorMessages.push(dataVar + (e.instancePath || e.dataPath) + ' ' + e.message);
+						}
+					}
+
+					event.validation_errors = errorMessages;
+				}
+			}
+		});
+	}
 
 	continueSearch(event) {
 		var scrollTop = $(event.currentTarget).scrollTop()
@@ -148,6 +217,7 @@ class EventViewer extends React.Component {
 
 	returnEvents(events, status) {
 		if (events) {
+			this.validateEvents(events);
 			this.setState({ events: events, status: status })
 		} else {
 			this.setState({ status: status })
@@ -290,6 +360,13 @@ class EventViewer extends React.Component {
 																			</a>
 																			: false
 																	}
+																	{
+																		Object.keys(this.dataStore.queueInfo || {}).length
+																			? <a onClick={this.validateEvent.bind(this, detail, index)} className="event-viewer-action-button" title="validate">
+																				<i className={detail.is_valid ? "icon-ok" : "icon-attention"} style={{ fontSize: '1.25em' }} />
+																			</a>
+																			: false
+																	}
 																</div>
 															</td>
 														</tr>)
@@ -365,7 +442,6 @@ class EventViewer extends React.Component {
 				}
 
 			</div>
-			}
 
 			{
 				this.state.replay

@@ -18,7 +18,8 @@ config.registry.tabs = Object.assign({
 	Checksum: require("../tabs/checksum.jsx").default,
 	Cron: require("../tabs/cron.jsx").default,
 	Webhooks: require("../tabs/webhooks.jsx").default,
-	SystemSettings: require("../tabs/systemSettings.jsx").default
+	SystemSettings: require("../tabs/systemSettings.jsx").default,
+	QueueSchema: require("../tabs/queueSchema.jsx").default,
 }, config.registry.tabs);
 
 
@@ -56,7 +57,8 @@ class Settings extends React.Component {
 		EventQueue: {
 			Dashboard: 'QueueDashboard',
 			Events: 'EventViewer',
-			Settings: 'QueueSettings'
+			Settings: 'QueueSettings',
+			Schema: "QueueSchema"
 		},
 
 		System: {
@@ -240,6 +242,8 @@ class Settings extends React.Component {
 	componentWillMount() {
 		if (this.props.data.type === 'bot') {
 			this.dataStore.getCron(this.props.data.id);
+		} else if (this.props.data.type === 'queue') {
+			this.dataStore.getQueue(this.props.data.id);
 		}
 	}
 
@@ -313,13 +317,18 @@ class Settings extends React.Component {
 	}
 
 
-	runNow() {
-		var data = { id: this.state.nodeData.id, executeNow: true }
+	runNow(trueForce = false) {
+		var data = { id: this.state.nodeData.id, executeNow: true };
+		if (trueForce) {
+			// data.executeNowClear = true;
+		}
 		$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
 			window.messageLogNotify('Run triggered for bot ' + (this.props.data.label || ''), 'info')
 			window.fetchData()
-		}).fail((result) => {
-			window.messageLogModal('Failed attempting to run bot ' + (this.props.data.label || ''), 'error', result)
+		}).fail((result, status) => {
+			if (status !== "abort" && status != "canceled") {
+				window.messageLogModal('Failed attempting to run bot ' + (this.props.data.label || ''), 'error', result)
+			}
 		})
 	}
 
@@ -593,7 +602,12 @@ class Settings extends React.Component {
 								? (<ul className="dropdown">
 									<div className="mask" onClick={this.toggleDropdown.bind(this)} />
 									<li onClick={this.resetStream.bind(this, false)}><a>Change Checkpoint</a></li>
-									<li onClick={this.runNow.bind(this)}><a>Force Run</a></li>
+									<li onClick={this.runNow.bind(this, false)}><a>Force Run</a></li>
+									{
+										false && localStorage.getItem('enableBetaFeatures')
+											? <li onClick={this.runNow.bind(this, true)}><a>Force Run (Really)</a></li>
+											: false
+									}
 									<li><a>Replay a range of events (coming soon)</a></li>
 									{
 										(this.state.nodeData.parents || []).length

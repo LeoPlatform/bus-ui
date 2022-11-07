@@ -5,6 +5,7 @@ var leo = require("leo-sdk")
 var dynamodb = leo.aws.dynamodb;
 var statsBuckets = require("../../lib/stats-buckets.js");
 var util = require("leo-sdk/lib/reference.js");
+let logger = require("leo-logger")("dashboard-api");
 
 var moment = require("moment");
 require("moment-round");
@@ -71,8 +72,8 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 	}
 	var startBucket = bucket.transform(startTime);
 	var endBucket = bucket.transform(endTime);
-	console.log("RAW", moment(startTime).format(), moment(endTime).format(), request_timestamp.format());
-	console.log("NEW", startBucket, endBucket);
+	logger.log("RAW", moment(startTime).format(), moment(endTime).format(), request_timestamp.format());
+	logger.log("NEW", startBucket, endBucket);
 
 	var buckets = [];
 	var bucketArrayIndex = {};
@@ -207,7 +208,7 @@ function botDashboard(refObject, data, callback) {
 		}, { mb: 100 })
 			.catch(callback)
 			.then(bucketStats => {
-				console.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length)
+				logger.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length)
 
 				var node = {
 					executions: buckets.map((time) => {
@@ -255,7 +256,7 @@ function botDashboard(refObject, data, callback) {
 				};
 				bucketStats.Items.map(stat => {
 					var index = bucketArrayIndex[stat.time]
-					//console.log(stat.id, stat.bucket);
+					//logger.log(stat.id, stat.bucket);
 					if (stat.current.execution) {
 						let exec = stat.current.execution;
 						node.executions[index].value = exec.units;
@@ -454,7 +455,7 @@ function botDashboard(refObject, data, callback) {
 		});
 
 		async.parallel(tasks, (err, results) => {
-			//console.log(JSON.stringify(bot, null, 2));
+			//logger.log(JSON.stringify(bot, null, 2));
 
 			// Make reads lags grow over time if not reading
 			Object.keys(self.queues.read).map(key => {
@@ -565,7 +566,7 @@ function queueDashboard(refObject, data, callback) {
 		}, { mb: 100 })
 			.catch(done)
 			.then(bucketStats => {
-				console.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length);
+				logger.log(period, bucketStats.LastEvaluatedKey, bucketStats.ConsumedCapacity, bucketStats.Items.length);
 
 				var node = {
 					reads: buckets.map((time) => {
@@ -629,9 +630,9 @@ function queueDashboard(refObject, data, callback) {
 				};
 				bucketStats.Items.map(stat => {
 					var index = bucketArrayIndex[stat.time];
-					//console.log(stat.id, stat.bucket, stat.time);
+					//logger.log(stat.id, stat.bucket, stat.time);
 
-					//console.log(stat);
+					//logger.log(stat);
 					["read", "write"].map(type => {
 						var typeS = `${type}s`;
 						if (stat.current[type] != undefined) {
@@ -779,7 +780,7 @@ function queueDashboard(refObject, data, callback) {
 		self: selfProcessor,
 	}, (err, results) => {
 		if (err) {
-			console.log(err);
+			logger.log(err);
 			return callback(err);
 		}
 		var self = results.self;
