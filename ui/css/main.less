@@ -3065,6 +3065,67 @@ input+div .field-description {
 	margin-left: .5em;
 }
 
+.diff-legend {
+	border: solid #505050;
+	border-radius: .4em;
+	border-width: .1em;
+	// background: transparent;
+	width: 20em;
+	display: flexbox;
+	overflow: hidden;
+	margin-top: 1em;
+	
+	&-accepted{
+		left: 2em;
+		display: inline-flex;
+		padding-top: .2em;
+		width: 90%;
+		// border: solid;
+		&-box{
+			height: 1em;
+			width: 1em;
+			background-color: green;
+			margin-left: 1em;
+			margin-right: 1em;
+		}
+		&-text {
+			display: inline-flex;
+			// border: solid;
+		}
+	}
+	&-removed {
+		left: 2em;
+		display: inline-flex;
+		padding-top: .2em;
+		width: 75%;
+		// border: solid;
+		&-box {
+			height: 1em;
+			width: 1em;
+			background-color: red;
+			margin-left: 1em;
+			margin-right: 1em;
+		}
+		&-text {
+			display: inline-block;
+			// border: solid;
+			padding-left: 1em;
+			// margin-right: 1em;
+		}
+	}
+}
+
+
+
+.diff-removed {
+	padding-left: 2em;
+	padding-top: 1em;
+}
+
+.diff-box {
+
+}
+
 .toggle-switch {
 	position: relative;
 	width: 5.5em;

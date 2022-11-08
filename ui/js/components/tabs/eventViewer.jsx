@@ -9,6 +9,7 @@ import NodeSearch from '../elements/nodeSearch.jsx'
 import ToggleSwitch from '../elements/toggleSwitch.jsx'
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
+import DiffLegend from '../elements/diffLegend.jsx'
 
 var timeFormat = '/YYYY/MM/DD/HH/mm/'
 
@@ -369,7 +370,7 @@ class EventViewer extends React.Component {
 														{old_new && <ToggleSwitch id="toggleSwitch" checked={this.state.checked} onChange={this.onChange}/>}
 														{this.state.checked ? 
 														<div key="index" className="current-payload">
-															<h3><span className="green">Green</span> means changed |||| <span className="red">Red</span> means removed</h3>
+															<DiffLegend id="diffLegend"/>
 															<button type="button" id="copy-button" data-clipboard-target="#data-to-copy" className="copy-button theme-button">Copy to Clipboard</button>
 															<pre id="data-to-copy" className="user-selectable pre-wrap">{getOldNewDiff(old_obj, new_obj)}</pre>
 														</div>
