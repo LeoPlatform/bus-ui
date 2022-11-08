@@ -8,6 +8,8 @@ import NoSource from '../elements/noSource.jsx'
 import NodeSearch from '../elements/nodeSearch.jsx'
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
+import ToggleSwitch from '../elements/toggleSwitch.jsx'
+import DiffLegend from '../elements/diffLegend.jsx'
 
 var timeFormat = '/YYYY/MM/DD/HH/mm/'
 
@@ -16,7 +18,6 @@ var timeFormat = '/YYYY/MM/DD/HH/mm/'
 class EventViewer extends React.Component {
 	rowHeight = 55
 	visibleRowCount = 100
-
 	constructor(props) {
 		super(props);
 		this.dataStore = this.props.dataStore;
@@ -24,7 +25,8 @@ class EventViewer extends React.Component {
 		this.state = {
 			eventIndex: 0,
 			node: {},
-			startRow: 0
+			startRow: 0,
+			checked: false,
 		}
 	}
 
@@ -94,6 +96,10 @@ class EventViewer extends React.Component {
 
 		this.payloadSearch = undefined
 
+	}
+
+	onChange = newValue => {
+		this.setState({checked: newValue})
 	}
 
 
@@ -407,6 +413,13 @@ class EventViewer extends React.Component {
 										this.state.events
 											? this.state.events.map((detail, index) => {
 												if (this.state.eventIndex === index) {
+													// check to see if the event is an old-new variant
+													let old_new = detail.payload.old !== undefined && detail.payload.new !== undefined ? true: false;
+													let old_obj = old_new ? (detail.payload.old || {}) : null;
+													let new_obj = old_new ? (detail.payload.new || {}) : null;
+
+													// let [diffElementThingy, setDiffElementThingy] = useState(old_new && old_obj && new_obj ? getOldNewDiff(old_obj, new_obj) : '');
+													
 
 													detail = $('<div/>').text(JSON.stringify(detail, null, 4)).html()
 
@@ -427,9 +440,20 @@ class EventViewer extends React.Component {
 															}
 														})
 
-													return (<div key="index" className="current-payload">
-														<button type="button" id="copy-button" data-clipboard-target="#data-to-copy" className="copy-button theme-button">Copy to Clipboard</button>
-														<pre id="data-to-copy" className="user-selectable pre-wrap" dangerouslySetInnerHTML={{ __html: detailString }}></pre>
+													return (
+													<div key="eventSomethingOrOther">
+														{old_new && <ToggleSwitch id="toggleSwitch" checked={this.state.checked} onChange={this.onChange}/>}
+														{this.state.checked ? 
+														<div key="index" className="current-payload">
+															<DiffLegend id="diffLegend"/>
+															<button type="button" id="copy-button" data-clipboard-target="#data-to-copy" className="copy-button theme-button">Copy to Clipboard</button>
+															<pre id="data-to-copy" className="user-selectable pre-wrap">{getOldNewDiff(old_obj, new_obj)}</pre>
+														</div>
+														:
+														<div key="index" className="current-payload">
+															<button type="button" id="copy-button" data-clipboard-target="#data-to-copy" className="copy-button theme-button">Copy to Clipboard</button>
+															<pre id="data-to-copy" className="user-selectable pre-wrap">{detailString}</pre>
+														</div>}
 													</div>)
 												}
 											})
@@ -456,3 +480,34 @@ class EventViewer extends React.Component {
 }
 
 export default connect(store => store)(EventViewer)
+
+
+function getOldNewDiff(oldData, newData) {
+	const {diffJson, jsonDiff, canonicalize} = require('diff/lib/diff/json');
+
+	// overwrite `castInput` so it uses 4 spaces rather than the default 2 for formatting
+	jsonDiff.castInput = function(value) {  
+		const {undefinedReplacement, stringifyReplacer = (k, v) => typeof v === 'undefined' ? undefinedReplacement : v} = this.options;
+		return typeof value === 'string' ? value : JSON.stringify(canonicalize(value, null, null, stringifyReplacer), stringifyReplacer, '    ');
+	};
+
+	const diff = diffJson(oldData, newData);
+	
+	let uniqueKey = 0;
+	return (
+		<div className="diff">
+		{
+			diff.map((part) => 
+				
+				// const spacer = color === 'green' ? '+++' : color === 'red' ? '---' : '   ';
+				<span key={uniqueKey++} className={part.added ? 'green' :
+				 part.removed ? 'red' : 'grey'}>{part.value}</span>
+			
+					
+		)
+			
+		}
+		</div>
+	);
+	
+}
