@@ -1,6 +1,6 @@
 {
 	"name": "botmon",
-	"version": "3.0.1",
+	"version": "3.0.2",
 	"description": "",
 	"main": "app.js",
 	"scripts": {
@@ -8,7 +8,8 @@
 		"old_start": "leo-cli test .",
 		"test": "mocha --require ./test/bootstrap.js --recursive -w",
 		"debug": "node-debug leo test .",
-		"build": "leo-cli publish . --force all --build --save"
+		"build": "leo-cli publish . --force all --build --save",
+		"publish": "leo-cli publish . --force all"
 	},
 	"config": {
 		"leo": {
