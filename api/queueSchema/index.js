@@ -10,7 +10,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 
 	await request.authorize(event, {
 		lrn: 'lrn:leo:botmon:::',
-		action: "searchQueue"
+		action: "getSchema"
 	});
 	let response = {};
 	let error;
