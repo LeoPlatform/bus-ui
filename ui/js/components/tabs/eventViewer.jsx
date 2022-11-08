@@ -6,6 +6,12 @@ import EventReplay from '../dialogs/eventReplay.jsx'
 import PayloadSearch from '../elements/payloadSearch.jsx'
 import NoSource from '../elements/noSource.jsx'
 import NodeSearch from '../elements/nodeSearch.jsx'
+<<<<<<< Updated upstream
+=======
+import ToggleSwitch from '../elements/toggleSwitch.jsx'
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
+>>>>>>> Stashed changes
 
 var timeFormat = '/YYYY/MM/DD/HH/mm/'
 
@@ -14,7 +20,6 @@ var timeFormat = '/YYYY/MM/DD/HH/mm/'
 class EventViewer extends React.Component {
 	rowHeight = 55
 	visibleRowCount = 100
-
 	constructor(props) {
 		super(props);
 		this.dataStore = this.props.dataStore;
@@ -22,7 +27,8 @@ class EventViewer extends React.Component {
 		this.state = {
 			eventIndex: 0,
 			node: {},
-			startRow: 0
+			startRow: 0,
+			checked: false,
 		}
 	}
 
@@ -92,6 +98,10 @@ class EventViewer extends React.Component {
 
 		this.payloadSearch = undefined
 
+	}
+
+	onChange = newValue => {
+		this.setState({checked: newValue})
 	}
 
 
@@ -330,6 +340,13 @@ class EventViewer extends React.Component {
 										this.state.events
 											? this.state.events.map((detail, index) => {
 												if (this.state.eventIndex === index) {
+													// check to see if the event is an old-new variant
+													let old_new = detail.payload.old && detail.payload.new ? true: false;
+													let old_obj = old_new ? detail.payload.old : null;
+													let new_obj = old_new ? detail.payload.new : null;
+
+													// let [diffElementThingy, setDiffElementThingy] = useState(old_new && old_obj && new_obj ? getOldNewDiff(old_obj, new_obj) : '');
+													
 
 													detail = $('<div/>').text(JSON.stringify(detail, null, 4)).html()
 
@@ -350,9 +367,19 @@ class EventViewer extends React.Component {
 															}
 														})
 
-													return (<div key="index" className="current-payload">
-														<button type="button" id="copy-button" data-clipboard-target="#data-to-copy" className="copy-button theme-button">Copy to Clipboard</button>
-														<pre id="data-to-copy" className="user-selectable pre-wrap" dangerouslySetInnerHTML={{ __html: detailString }}></pre>
+													return (
+													<div key="eventSomethingOrOther">
+														{old_new && <ToggleSwitch id="toggleSwitch" checked={this.state.checked} onChange={this.onChange}/>}
+														{this.state.checked ? 
+														<div key="index" className="current-payload">
+															<h3><span className="green">Green</span> means changed |||| <span className="red">Red</span> means removed</h3>
+															<pre id="data-to-copy" className="user-selectable pre-wrap">{getOldNewDiff(old_obj, new_obj)}</pre>
+														</div>
+														:
+														<div key="index" className="current-payload">
+															<button type="button" id="copy-button" data-clipboard-target="#data-to-copy" className="copy-button theme-button">Copy to Clipboard</button>
+															<pre id="data-to-copy" className="user-selectable pre-wrap">{detailString}</pre>
+														</div>}
 													</div>)
 												}
 											})
@@ -380,3 +407,27 @@ class EventViewer extends React.Component {
 }
 
 export default connect(store => store)(EventViewer)
+
+
+function getOldNewDiff(oldData, newData) {
+	const Diff = require('diff');
+
+	const diff = Diff.diffJson(oldData, newData);
+	let uniqueKey = 0;
+	return (
+		<div className="diff">
+		{
+			diff.map((part) => 
+				
+				// const spacer = color === 'green' ? '+++' : color === 'red' ? '---' : '   ';
+				<span key={uniqueKey++} className={part.added ? 'green' :
+				 part.removed ? 'red' : 'grey'}>{part.value}</span>
+			
+					
+		)
+			
+		}
+		</div>
+	);
+	
+}
