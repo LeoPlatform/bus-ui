@@ -5,6 +5,7 @@ var dynamodb = leo.aws.dynamodb;
 var util = require("leo-sdk/lib/reference.js");
 var diff = require("deep-diff");
 
+
 var CRON_TABLE = leo.configuration.resources.LeoCron;
 var SETTINGS_TABLE = leo.configuration.resources.LeoSettings;
 var SYSTEM_TABLE = leo.configuration.resources.LeoSystem;
@@ -69,7 +70,7 @@ function buildId(doc, done) {
 			id = baseId + `_${tries}`;
 
 			if (tries > randomAt) {
-				id = baseId + `_${("0000" + Math.round(Math.random()*10000)).slice(-4)}`;
+				id = baseId + `_${("0000" + Math.round(Math.random() * 10000)).slice(-4)}`;
 			}
 			if (tries >= uuidAt) {
 				done(null, uuid.v4());
@@ -116,9 +117,11 @@ function save(id, doc, callback) {
 		doc.scheduledTrigger = null;
 	}
 	delete doc.executeNow;
+	let clearCurrentInstance = doc.executeNowClear;
+	delete doc.executeNowClear;
 
 	var newCheckpoint = doc.checkpoint;
-    delete doc.checkpoint; // New version of checkpoint is an object not legacy string
+	delete doc.checkpoint; // New version of checkpoint is an object not legacy string
 
 	var skip = ["checksumReset"];
 
@@ -156,27 +159,27 @@ function save(id, doc, callback) {
 		ReturnValues: 'ALL_NEW',
 	}
 
-
-    dynamodb.get(CRON_TABLE, id, (err, oldData) => {
-    	if (oldData) {
-    		delete oldData.instances;
+	dynamodb.get(CRON_TABLE, id, (err, oldData) => {
+		if (oldData) {
+			delete oldData.instances;
 		}
-		dynamodb.docClient.update(params, function (err, result) {
+		dynamodb.docClient.update(params, function(err, result) {
 			if (err) {
 				callback(err);
 			} else {
 				var done = callback;
 				var data = result.Attributes;
-                var stream = leo.load(BOT_ID, LOG_DESTINATION);
-                var newData = data;
-                delete newData.instances;
+				var stream = leo.load(BOT_ID, LOG_DESTINATION);
+				var newData = data;
+				let hasInstances = !!newData.instances;
+				delete newData.instances;
 
-                callback = (err, d) => {
-                    var diffArray = diff(oldData, newData) || [];
-                    var diffs = (diffArray).map(e => ({[`${e.path.join(".")}`]:{old:e.lhs || (e.item && e.item.lhs) || '', new: e.rhs || (e.item && e.item.rhs) || ''}}));
+				callback = (err, d) => {
+					var diffArray = diff(oldData, newData) || [];
+					var diffs = (diffArray).map(e => ({ [`${e.path.join(".")}`]: { old: e.lhs || (e.item && e.item.lhs) || '', new: e.rhs || (e.item && e.item.rhs) || '' } }));
 					if (diffs.length !== 0) {
-                        stream.write({old: oldData, new: newData, diff: diffs});
-                    }
+						stream.write({ old: oldData, new: newData, diff: diffs });
+					}
 					if (!err) {
 						stream.end(() => {
 							if (!err && data.system) {
@@ -185,15 +188,13 @@ function save(id, doc, callback) {
 								done(err, d)
 							}
 						});
-                    } else {
-                    	done(err, d);
+					} else {
+						done(err, d);
 					}
 				};
 
 				var sets = [];
-				var names = {
-					"#checkpoints": "checkpoints"
-				};
+				var names = {};
 				var attributes = {};
 				var index = 0;
 				if (data.lambda && data.lambda.settings) {
@@ -207,12 +208,13 @@ function save(id, doc, callback) {
 							names[`#w_${index}`] = destination.toString();
 							names["#write"] = "write";
 							attributes[`:w_${index}`] = {};
+							names["#checkpoints"] = "checkpoints";
 						}
 					});
 				}
 
 				if (newCheckpoint) {
-					Object.keys(newCheckpoint).map((key)=> {
+					Object.keys(newCheckpoint).map((key) => {
 						index++;
 						sets.push(`#checkpoints.#read.#r_${index} = :r_${index}`);
 						names[`#r_${index}`] = key.toString();
@@ -220,21 +222,31 @@ function save(id, doc, callback) {
 						attributes[`:r_${index}`] = Object.assign({}, data.checkpoints.read[key], {
 							checkpoint: newCheckpoint[key]
 						});
+						names["#checkpoints"] = "checkpoints";
 					})
 				}
 
-				if (sets.length) {
+				let removes = [];
+				if (clearCurrentInstance && hasInstances) {
+					removes.push(`#instances.#rminstance, #invokeTime`);
+					names["#instances"] = "instances";
+					names["#rminstance"] = "0";
+					names["#invokeTime"] = "invokeTime";
+				}
+
+				if (sets.length || removes.length) {
 					var params = {
 						TableName: CRON_TABLE,
 						Key: {
 							id: id
 						},
-						UpdateExpression: 'set ' + sets.join(", "),
+						UpdateExpression: (sets.length ? 'set ' + sets.join(", ") : "") + (removes.length ? (" remove " + removes.join(", ")) : ""),
 						ExpressionAttributeNames: names,
-						ExpressionAttributeValues: attributes,
+						ExpressionAttributeValues: Object.keys(attributes).length ? attributes : undefined,
 						"ReturnConsumedCapacity": 'TOTAL'
 					};
-					dynamodb.docClient.update(params, function (err, data) {
+
+					dynamodb.docClient.update(params, function(err, data) {
 						console.log(err, data);
 						callback(null, {
 							refId: refId
@@ -247,7 +259,7 @@ function save(id, doc, callback) {
 				}
 			}
 		});
-    });
+	});
 }
 
 function saveSystemEntry(botId, cron, doc) {

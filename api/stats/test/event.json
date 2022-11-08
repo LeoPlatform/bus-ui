@@ -3,10 +3,9 @@
 	"params": {
 		"path": {},
 		"querystring": {
-			"timestamp": "2018-01-18 15:56:55-07:00",
+			"timestamp": "2022-08-01 21:59:59-06:00",
 			"range": "hour",
-			"count": 6
-
+			"count": 1
 		},
 		"header": {}
 	}

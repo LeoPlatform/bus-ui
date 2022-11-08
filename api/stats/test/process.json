@@ -1,9 +1,66 @@
 {
+	"_env": {
+		"leoauthsdk": {
+			"region": "us-west-2",
+			"resources": {
+				"LeoAuth": "DevAuth-LeoAuth-LOG79AKRRTFR",
+				"LeoAuthUser": "DevAuth-LeoAuthUser-VH4EUCCJAUJM",
+				"Region": "us-west-2"
+			}
+		},
+		"leosdk": {
+			"region": "us-west-2",
+			"kinesis": "DevBus-LeoKinesisStream-1LGSWLTEDERND",
+			"s3": "devbus-leos3-1vgbqr50913nz",
+			"firehose": "DevBus-LeoFirehoseStream-WLRD5KQ5ISSP",
+			"resources": {
+				"LeoStream": "DevBus-LeoStream-UY635GZGFIUQ",
+				"LeoCron": "DevBus-LeoCron-1FLNC9Z5KSB72",
+				"LeoEvent": "DevBus-LeoEvent-15BW5AWF2WDL",
+				"LeoSettings": "DevBus-LeoSettings-14HODE41JWL2O",
+				"LeoSystem": "DevBus-LeoSystem-AHQC22IPM23A",
+				"LeoS3": "devbus-leos3-1vgbqr50913nz",
+				"LeoKinesisStream": "DevBus-LeoKinesisStream-1LGSWLTEDERND",
+				"LeoFirehoseStream": "DevBus-LeoFirehoseStream-WLRD5KQ5ISSP",
+				"Region": "us-west-2"
+			}
+		},
+		"Resources": {
+			"CognitoId": "us-west-2:aa1428e4-3b13-4dc2-ac73-e2f8c9e5a3b4",
+			"LeoStats": "DevBotmon-LeoStats-1MCOPFU8F896T",
+			"Region": "us-west-2"
+		},
+		"StackName": "DevBotmon"
+	},
 	"env": {
-		"leoauthsdk": {"region":"us-west-2","resources":{"LeoAuth":"DevAuth-LeoAuth-LOG79AKRRTFR","LeoAuthUser":"DevAuth-LeoAuthUser-VH4EUCCJAUJM","Region":"us-west-2"}},
-		"leosdk" : {"region":"us-west-2","kinesis":"DevBus-LeoKinesisStream-1LGSWLTEDERND","s3":"devbus-leos3-1vgbqr50913nz","firehose":"DevBus-LeoFirehoseStream-WLRD5KQ5ISSP","resources":{"LeoStream":"DevBus-LeoStream-UY635GZGFIUQ","LeoCron":"DevBus-LeoCron-1FLNC9Z5KSB72","LeoEvent":"DevBus-LeoEvent-15BW5AWF2WDL","LeoSettings":"DevBus-LeoSettings-14HODE41JWL2O","LeoSystem":"DevBus-LeoSystem-AHQC22IPM23A","LeoS3":"devbus-leos3-1vgbqr50913nz","LeoKinesisStream":"DevBus-LeoKinesisStream-1LGSWLTEDERND","LeoFirehoseStream":"DevBus-LeoFirehoseStream-WLRD5KQ5ISSP","Region":"us-west-2"}},
-		"Resources" : {"CognitoId":"us-west-2:aa1428e4-3b13-4dc2-ac73-e2f8c9e5a3b4" ,"LeoStats":"DevBotmon-LeoStats-1MCOPFU8F896T", "Region": "us-west-2"},
-		"StackName" : "DevBotmon"
+		"NODE_ENV": "prod",
+		"Resources": {
+			"LeoStats": "ProdStreamBotmon-LeoStats-FO7SB4IFQ4NZ"
+		},
+		"leoauthsdk": {
+			"region": "us-east-1",
+			"resources": {
+				"LeoAuth": "ProdAuth-LeoAuth-1A3VKHYBJ9GLS",
+				"LeoAuthUser": "ProdAuth-LeoAuthUser-SD8EQDNF542U",
+				"Region": "us-east-1"
+			}
+		},
+		"leosdk": {
+			"region": "us-east-1",
+			"kinesis": "ProdStreamBus-LeoKinesisStream-1WQIKD45KPYIZ",
+			"s3": "prodstreambus-leos3-8ho0fqcs6w5a",
+			"firehose": "ProdStreamBus-LeoFirehoseStream-OX07A1GWL2PW",
+			"resources": {
+				"LeoStream": "ProdStreamBus-LeoStream-W2JIHQIJSDBW",
+				"LeoCron": "ProdStreamBus-LeoCron-1QC2GT4QE795",
+				"LeoEvent": "ProdStreamBus-LeoEvent-N4AIRRII8DOH",
+				"LeoSettings": "ProdStreamBus-LeoSettings-1XRHEZ8WJFEXD",
+				"LeoSystem": "ProdStreamBus-LeoSystem-1NOPPW98DBVSO",
+				"LeoS3": "prodstreambus-leos3-8ho0fqcs6w5a",
+				"LeoKinesisStream": "ProdStreamBus-LeoKinesisStream-1WQIKD45KPYIZ",
+				"LeoFirehoseStream": "ProdStreamBus-LeoFirehoseStream-OX07A1GWL2PW",
+				"Region": "us-east-1"
+			}
+		}
 	}
-
 }
