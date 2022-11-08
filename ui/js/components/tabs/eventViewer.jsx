@@ -7,8 +7,6 @@ import PayloadSearch from '../elements/payloadSearch.jsx'
 import NoSource from '../elements/noSource.jsx'
 import NodeSearch from '../elements/nodeSearch.jsx'
 import ToggleSwitch from '../elements/toggleSwitch.jsx'
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
 import DiffLegend from '../elements/diffLegend.jsx'
 
 var timeFormat = '/YYYY/MM/DD/HH/mm/'
