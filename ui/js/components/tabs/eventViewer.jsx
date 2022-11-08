@@ -339,9 +339,9 @@ class EventViewer extends React.Component {
 											? this.state.events.map((detail, index) => {
 												if (this.state.eventIndex === index) {
 													// check to see if the event is an old-new variant
-													let old_new = detail.payload.old && detail.payload.new ? true: false;
-													let old_obj = old_new ? detail.payload.old : null;
-													let new_obj = old_new ? detail.payload.new : null;
+													let old_new = detail.payload.old !== undefined && detail.payload.new !== undefined ? true: false;
+													let old_obj = old_new ? (detail.payload.old || {}) : null;
+													let new_obj = old_new ? (detail.payload.new || {}) : null;
 
 													// let [diffElementThingy, setDiffElementThingy] = useState(old_new && old_obj && new_obj ? getOldNewDiff(old_obj, new_obj) : '');
 													
@@ -408,9 +408,16 @@ export default connect(store => store)(EventViewer)
 
 
 function getOldNewDiff(oldData, newData) {
-	const Diff = require('diff');
+	const {diffJson, jsonDiff, canonicalize} = require('diff/lib/diff/json');
 
-	const diff = Diff.diffJson(oldData, newData);
+	// overwrite `castInput` so it uses 4 spaces rather than the default 2 for formatting
+	jsonDiff.castInput = function(value) {  
+		const {undefinedReplacement, stringifyReplacer = (k, v) => typeof v === 'undefined' ? undefinedReplacement : v} = this.options;
+		return typeof value === 'string' ? value : JSON.stringify(canonicalize(value, null, null, stringifyReplacer), stringifyReplacer, '    ');
+	};
+
+	const diff = diffJson(oldData, newData);
+	
 	let uniqueKey = 0;
 	return (
 		<div className="diff">
