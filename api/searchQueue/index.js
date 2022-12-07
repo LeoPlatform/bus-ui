@@ -112,6 +112,15 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
     })).on("finish", () => {
         clearTimeout(fullTimeout);
         clearTimeout(timeout);
-        callback(null, response)
+        //console.log(queue, "total size:", size, response.results.length);
+        callback(null, {
+            statusCode: 200,
+            headers: {
+                'content-encoding': "gzip",
+                'Content-Type': 'application/json',
+            },
+            body: require("zlib").gzipSync(JSON.stringify(response)).toString("base64"),
+            isBase64Encoded: true
+        });
     });
 });
