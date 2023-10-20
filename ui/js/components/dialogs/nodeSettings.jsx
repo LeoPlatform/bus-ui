@@ -464,6 +464,40 @@ class Settings extends React.Component {
 										
 										: false
 									}
+									{
+										(() => {
+											// Get the repoUrl.  Depending on version of serverless-leo it may be in 1 of 3 spots. top level repoUrl, repo: tag, or in settings 
+											let repoUrl = this.dataStore.cronInfo && (
+												this.dataStore.cronInfo.repoUrl ||
+												(
+													this.dataStore.cronInfo.tags &&
+													(this.dataStore.cronInfo.tags.split(",").find(t => t.match(/^repo:/)) || "").replace(/^repo:/, "")
+												) ||
+												(
+													this.dataStore.cronInfo.lambda &&
+													this.dataStore.cronInfo.lambda.settings &&
+													this.dataStore.cronInfo.lambda.settings[0] &&
+													this.dataStore.cronInfo.lambda.settings[0].repoUrl
+												)
+											);
+											if (repoUrl) {
+												let url = new URL(repoUrl);
+												let hostname = url.hostname;
+												let hostnamesImages = {
+													"github.com": "github-mark.png",
+													"bitbucket.org": "bitbucket-mark.png",
+													"gitlab.com": "gitlab-mark.png",
+													"git": "git.png"
+												};
+												let image = hostnamesImages[hostname] || hostnamesImages.git;
+
+												return <a className="bot-repo-link" onClick={() => { window.open(repoUrl) }}><img className="bot-repo-img" title={hostname} src={window.leostaticcdn + 'images/icons/' + image} /></a>
+											} else {
+												return false
+											}
+										})()
+
+									}
 								</div>
 								{
 									(this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && this.dataStore.cronInfo.scheduledTrigger && this.dataStore.cronInfo.scheduledTrigger > Date.now()) ? <span className="bot-invoke-backoff">Backoff Until: {moment(this.dataStore.cronInfo.scheduledTrigger).format("MMM D, Y h:mm:ss a")}</span> : false
