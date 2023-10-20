@@ -320,7 +320,7 @@ class Settings extends React.Component {
 	runNow(trueForce = false) {
 		var data = { id: this.state.nodeData.id, executeNow: true };
 		if (trueForce) {
-			// data.executeNowClear = true;
+			data.executeNowClear = true;
 		}
 		$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
 			window.messageLogNotify('Run triggered for bot ' + (this.props.data.label || ''), 'info')
@@ -459,10 +459,44 @@ class Settings extends React.Component {
 									}
 									<label>Id</label><span className="user-selectable">{this.state.nodeData.id}</span>
 									{
-										this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && leoAws && this.dataStore.cronInfo.lambdaName && leoAws.region ? 
-										<a className="bot-aws-link" onClick = {() => {window.open(`https://${leoAws.region}.console.aws.amazon.com/lambda/home?region=${leoAws.region}#/functions/${this.dataStore.cronInfo.lambdaName}`)}}>lambda<img className="bot-aws-img" title={this.dataStore.cronInfo.lambdaName} src={window.leostaticcdn + 'images/aws/lambda.png'}/></a>
-										
-										: false
+										this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && leoAws && this.dataStore.cronInfo.lambdaName && leoAws.region ?
+											<a className="bot-aws-link" onClick={() => { window.open(`https://${leoAws.region}.console.aws.amazon.com/lambda/home?region=${leoAws.region}#/functions/${this.dataStore.cronInfo.lambdaName}`) }}>lambda<img className="bot-aws-img" title={this.dataStore.cronInfo.lambdaName} src={window.leostaticcdn + 'images/aws/lambda.png'} /></a>
+
+											: false
+									}
+									{
+										(() => {
+											// Get the repoUrl.  Depending on version of serverless-leo it may be in 1 of 3 spots. top level repoUrl, repo: tag, or in settings 
+											let repoUrl = this.dataStore.cronInfo && (
+												this.dataStore.cronInfo.repoUrl ||
+												(
+													this.dataStore.cronInfo.tags &&
+													(this.dataStore.cronInfo.tags.split(",").find(t => t.match(/^repo:/)) || "").replace(/^repo:/, "")
+												) ||
+												(
+													this.dataStore.cronInfo.lambda &&
+													this.dataStore.cronInfo.lambda.settings &&
+													this.dataStore.cronInfo.lambda.settings[0] &&
+													this.dataStore.cronInfo.lambda.settings[0].repoUrl
+												)
+											);
+											if (repoUrl) {
+												let url = new URL(repoUrl);
+												let hostname = url.hostname;
+												let hostnamesImages = {
+													"github.com": "github-mark.png",
+													"bitbucket.org": "bitbucket-mark.png",
+													"gitlab.com": "gitlab-mark.png",
+													"git": "git.png"
+												};
+												let image = hostnamesImages[hostname] || hostnamesImages.git;
+
+												return <a className="bot-repo-link" onClick={() => { window.open(repoUrl) }}><img className="bot-repo-img" title={hostname} src={window.leostaticcdn + 'images/icons/' + image} /></a>
+											} else {
+												return false
+											}
+										})()
+
 									}
 								</div>
 								{
@@ -604,7 +638,7 @@ class Settings extends React.Component {
 									<li onClick={this.resetStream.bind(this, false)}><a>Change Checkpoint</a></li>
 									<li onClick={this.runNow.bind(this, false)}><a>Force Run</a></li>
 									{
-										false && localStorage.getItem('enableBetaFeatures')
+										localStorage.getItem('enableAdminFeatures')
 											? <li onClick={this.runNow.bind(this, true)}><a>Force Run (Really)</a></li>
 											: false
 									}

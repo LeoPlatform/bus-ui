@@ -21,16 +21,16 @@ String.prototype.capitalize = function(lower) {
 	return (lower ? this.toLowerCase() : this).replace(/(?:^|\s|\.)\S/g, f => f.toUpperCase())
 }
 
-;['round', 'floor', 'ceil'].forEach(function(funcName) {
-	if (!Math['_' + funcName]) {
-		Math['_' + funcName] = Math[funcName]
-		Math[funcName] = function(number, precision) {
-			precision = Math.abs(parseInt(precision)) || 0
-			var coefficient = Math.pow(10, precision)
-			return Math['_' + funcName](number*coefficient)/coefficient
+	;['round', 'floor', 'ceil'].forEach(function(funcName) {
+		if (!Math['_' + funcName]) {
+			Math['_' + funcName] = Math[funcName]
+			Math[funcName] = function(number, precision) {
+				precision = Math.abs(parseInt(precision)) || 0
+				var coefficient = Math.pow(10, precision)
+				return Math['_' + funcName](number * coefficient) / coefficient
+			}
 		}
-	}
-})
+	})
 
 String.prototype.htmlEncode = function() {
 	return $('<div/>').text(this).html()
@@ -40,9 +40,9 @@ String.prototype.htmlEncode = function() {
 window.responsiveFont = function() {
 	if (!document.hidden) {
 		$('.responsive-font').css({ overflow: 'auto', fontSize: '' })
-		$('.responsive-font').each(function(a,b) {
-			while(this.scrollWidth > $(this).parent().width()) {
-				$(this).css({ fontSize: parseInt($(this).css('fontSize'))-1 })
+		$('.responsive-font').each(function(a, b) {
+			while (this.scrollWidth > $(this).parent().width()) {
+				$(this).css({ fontSize: parseInt($(this).css('fontSize')) - 1 })
 			}
 		})
 		$('.responsive-font').css({ overflow: '' })
@@ -60,6 +60,15 @@ window.enableBetaFeatures = function(enableBetaFeatures) {
 	return `Refresh the page to ${enableBetaFeatures ? 'show' : 'hide'} Beta Features`
 }
 
+window.enableAdminFeatures = function(enableFeatures) {
+	if (enableFeatures) {
+		localStorage.setItem('enableAdminFeatures', enableFeatures)
+	} else {
+		localStorage.removeItem('enableAdminFeatures')
+	}
+	return `Refresh the page to ${enableFeatures ? 'show' : 'hide'} Admin Features`
+}
+
 
 class App extends React.Component {
 
@@ -74,9 +83,9 @@ class App extends React.Component {
 		window.fetchTimeout = false
 
 		window.jumpToNode = function(nodeId, onClose) {
-            onClose && onClose()
-            dataStore.changeNode(nodeId,'node',[0,0]);
-            this.props.dispatch(saveSettings({ node: nodeId, selected: [nodeId], view: 'node', offset: [0,0] }))
+			onClose && onClose()
+			dataStore.changeNode(nodeId, 'node', [0, 0]);
+			this.props.dispatch(saveSettings({ node: nodeId, selected: [nodeId], view: 'node', offset: [0, 0] }))
 		}
 
 		window.startTrace = (trace) => {
@@ -103,7 +112,7 @@ class App extends React.Component {
 
 		try {
 			var values = JSON.parse(decodeURI(hash || '') || '{}')
-		} catch(e) {
+		} catch (e) {
 			var msg = 'Invalid Request'
 			window.messageLogNotify ? window.messageLogNotify(msg, 'warning', e) : LeoKit.alert(msg, 'warning')
 			var values = {}
@@ -113,8 +122,8 @@ class App extends React.Component {
 
 		me.selected = values.selected || []
 
-        dataStore.changeAllStateValues(values.selected, values.timePeriod, values.view, values.offset, values.node, me.zoom, values.details);
-        this.props.dispatch(saveSettings(values))
+		dataStore.changeAllStateValues(values.selected, values.timePeriod, values.view, values.offset, values.node, me.zoom, values.details);
+		this.props.dispatch(saveSettings(values))
 
 		me.toggle_stats = values.stats || { all: true }
 
@@ -208,7 +217,7 @@ class App extends React.Component {
 			window.fetchData()
 		},
 		delete: (view) => {
-			LeoKit.confirm(('Delete view "'+view+'"?').htmlEncode(), () => {
+			LeoKit.confirm(('Delete view "' + view + '"?').htmlEncode(), () => {
 				var savedViews = this.workflows.views
 				var viewId = savedViews[view]
 				localStorage.removeItem(viewId)
@@ -223,7 +232,7 @@ class App extends React.Component {
 		},
 		save: () => {
 			var defaultValue = (dataStore.nodes[this.props.userSettings.node] || {}).label || ''
-			LeoKit.prompt('Save Workflow', 'Enter workflow name', defaultValue,  (form) => {
+			LeoKit.prompt('Save Workflow', 'Enter workflow name', defaultValue, (form) => {
 				if (form.prompt_value == '') {
 					window.messageModal('Name is required', 'warning')
 					return false
@@ -238,7 +247,7 @@ class App extends React.Component {
 				order.push(form.prompt_value)
 				this.workflows.order(order)
 				this.setState({ savedWorkflows: this.workflows.views })
-				window.messageLogNotify('Saved View "'+form.prompt_value+'"')
+				window.messageLogNotify('Saved View "' + form.prompt_value + '"')
 			})
 		}
 	}
@@ -272,7 +281,7 @@ class App extends React.Component {
 			this.setState({ currentSearch: this.searches.current })
 		},
 		delete: (view) => {
-			LeoKit.confirm(('Delete search "'+view+'"?').htmlEncode(), () => {
+			LeoKit.confirm(('Delete search "' + view + '"?').htmlEncode(), () => {
 				var savedViews = this.searches.views
 				var viewId = savedViews[view]
 				localStorage.removeItem(viewId)
@@ -301,7 +310,7 @@ class App extends React.Component {
 				order.push(form.prompt_value)
 				this.searches.order(order)
 				this.setState({ savedSearches: this.searches.views })
-				window.messageLogNotify('Saved Search "'+form.prompt_value+'"')
+				window.messageLogNotify('Saved Search "' + form.prompt_value + '"')
 			})
 		}
 	}
@@ -315,31 +324,31 @@ class App extends React.Component {
 	render() {
 		return (
 			<Provider dataStore={dataStore}>
-			<main id="main">
+				<main id="main">
 
-				<ApiData />
+					<ApiData />
 
-				<MessageCenter messageLogged={this.messageLogged.bind(this)} />
+					<MessageCenter messageLogged={this.messageLogged.bind(this)} />
 
-				{
-					this.state.trace
-					? <EventTrace data={this.state.trace} onClose={() => { this.setState({ trace: undefined })}} />
-					: false
-				}
+					{
+						this.state.trace
+							? <EventTrace data={this.state.trace} onClose={() => { this.setState({ trace: undefined }) }} />
+							: false
+					}
 
-				<Header settings={this.state} messageCount={this.state.messageCount}  />
+					<Header settings={this.state} messageCount={this.state.messageCount} />
 
-				<LeftNav workflows={this.workflows} searches={this.searches} />
+					<LeftNav workflows={this.workflows} searches={this.searches} />
 
-				<Content settings={this.state} workflows={this.workflows} searches={this.searches} currentSearch={this.state.currentSearch} />
+					<Content settings={this.state} workflows={this.workflows} searches={this.searches} currentSearch={this.state.currentSearch} />
 
-				{
-					this.state.addDataSource
-					? <DataSourceConnect onClose={() => { this.setState({ addDataSource: undefined }) }} />
-					: false
-				}
+					{
+						this.state.addDataSource
+							? <DataSourceConnect onClose={() => { this.setState({ addDataSource: undefined }) }} />
+							: false
+					}
 
-			</main>
+				</main>
 			</Provider>
 		)
 	}

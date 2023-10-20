@@ -248,6 +248,8 @@ class NodeSearch extends React.Component {
 			this.findNodes()
 		}
 
+		let maxResults = parseInt(localStorage.getItem('searchUiSize')) || 50;
+
 		return (<div className={"theme-autocomplete " + (this.props.className || '')}>
 			{
 				this.state.showDropdown
@@ -275,7 +277,7 @@ class NodeSearch extends React.Component {
 								: false
 						}
 						{
-							this.foundNodeIds.map((nodeId) => {
+							this.foundNodeIds.slice(0, maxResults).map((nodeId) => {
 
 								var node = this.dataStore.nodes[nodeId] || {}
 								var tags = (node.tags || '').toString().split(',')
@@ -307,6 +309,9 @@ class NodeSearch extends React.Component {
 
 							})
 						}
+						{this.foundNodeIds.length > maxResults ? (<li style={{ display: "flex", "align-items": "center", "justify-content": "center" }}>
+							<span>Refine Search</span>
+						</li>) : false}
 						{
 							this.searchCount == 0
 								? (<li><em>no results</em></li>)
