@@ -320,7 +320,7 @@ class Settings extends React.Component {
 	runNow(trueForce = false) {
 		var data = { id: this.state.nodeData.id, executeNow: true };
 		if (trueForce) {
-			// data.executeNowClear = true;
+			data.executeNowClear = true;
 		}
 		$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
 			window.messageLogNotify('Run triggered for bot ' + (this.props.data.label || ''), 'info')
@@ -459,10 +459,10 @@ class Settings extends React.Component {
 									}
 									<label>Id</label><span className="user-selectable">{this.state.nodeData.id}</span>
 									{
-										this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && leoAws && this.dataStore.cronInfo.lambdaName && leoAws.region ? 
-										<a className="bot-aws-link" onClick = {() => {window.open(`https://${leoAws.region}.console.aws.amazon.com/lambda/home?region=${leoAws.region}#/functions/${this.dataStore.cronInfo.lambdaName}`)}}>lambda<img className="bot-aws-img" title={this.dataStore.cronInfo.lambdaName} src={window.leostaticcdn + 'images/aws/lambda.png'}/></a>
-										
-										: false
+										this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && leoAws && this.dataStore.cronInfo.lambdaName && leoAws.region ?
+											<a className="bot-aws-link" onClick={() => { window.open(`https://${leoAws.region}.console.aws.amazon.com/lambda/home?region=${leoAws.region}#/functions/${this.dataStore.cronInfo.lambdaName}`) }}>lambda<img className="bot-aws-img" title={this.dataStore.cronInfo.lambdaName} src={window.leostaticcdn + 'images/aws/lambda.png'} /></a>
+
+											: false
 									}
 								</div>
 								{
@@ -604,7 +604,7 @@ class Settings extends React.Component {
 									<li onClick={this.resetStream.bind(this, false)}><a>Change Checkpoint</a></li>
 									<li onClick={this.runNow.bind(this, false)}><a>Force Run</a></li>
 									{
-										false && localStorage.getItem('enableBetaFeatures')
+										localStorage.getItem('enableAdminFeatures')
 											? <li onClick={this.runNow.bind(this, true)}><a>Force Run (Really)</a></li>
 											: false
 									}

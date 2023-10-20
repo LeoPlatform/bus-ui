@@ -1,6 +1,6 @@
 {
 	"name": "botmon",
-	"version": "3.0.2",
+	"version": "3.0.3",
 	"description": "",
 	"main": "app.js",
 	"scripts": {
@@ -76,6 +76,7 @@
 	"dependencies": {
 		"ajv": "^8.11.0",
 		"ajv-formats": "^2.1.1",
+		"babel-loader": "^7.1.5",
 		"babel-plugin-transform-decorators-legacy": "^1.3.4",
 		"babel-preset-es2015": "^6.24.1",
 		"babel-preset-react": "^6.24.1",
@@ -92,7 +93,7 @@
 		"jsonpath": "^0.2.9",
 		"later": "^1.2.0",
 		"leo-auth": "^3.0.1",
-		"leo-sdk": "^6.0.12-beta",
+		"leo-sdk": "^6.0.17",
 		"material-ui": "^0.19.4",
 		"mobx": "^3.3.0",
 		"mobx-react": "^4.3.4",

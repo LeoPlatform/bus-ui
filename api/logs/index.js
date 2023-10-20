@@ -42,7 +42,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 	var nextToken = null;
 	var hasTime = true;
 
-	var timeout = setTimeout(function () {
+	var timeout = setTimeout(function() {
 		hasTime = false;
 	}, context.getRemainingTimeInMillis() * 0.8);
 	if (event.params.querystring.stream) {
@@ -67,7 +67,11 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 				startTime: start,
 				filterPattern: pattern,
 				nextToken: nextToken
-			}, function (err, data) {
+			}, function(err, data) {
+				if (err && err.code === "ResourceNotFoundException") {
+					err = null;
+					data = { events: [] }
+				}
 				if (err) {
 					return done(err);
 				}
@@ -116,7 +120,7 @@ function requestLogs(lambda, start, callback) {
 		startTime: start.timestamp,
 		filterPattern: `"${start.requestId}"`,
 		nextToken: start.nextToken
-	}, function (err, data) {
+	}, function(err, data) {
 		var logs = [];
 		var stats = {
 			dynamodb: {
@@ -175,7 +179,7 @@ function parseLeoLog(bot, e) {
 }
 
 var versionHandler = {
-	"1": function (bot, e, data) {
+	"1": function(bot, e, data) {
 		return {
 			id: bot,
 			version: safeNumber(parseInt(data[0].replace("v", ""))),
@@ -193,7 +197,7 @@ var versionHandler = {
 			timestamp: e.timestamp
 		};
 	},
-	"2": function (bot, e) {
+	"2": function(bot, e) {
 
 		var log = JSON.parse(e.message.trim().replace(/^.*\[LEOLOG\]:v2:/, ''));
 		log.e = log.e || {};

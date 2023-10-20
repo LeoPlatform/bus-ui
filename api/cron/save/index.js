@@ -20,7 +20,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 	var ref = util.ref(body.id, "bot");
 	var id = ref && ref.id;
 
-	await request.authorize(event, {
+	let user = await request.authorize(event, {
 		lrn: 'lrn:leo:botmon:::cron/{id}',
 		action: "saveCron",
 		core: {
@@ -41,10 +41,10 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 			if (err) {
 				return callback(err);
 			}
-			save(id, doc, callback);
+			save(user, id, doc, callback);
 		});
 	} else {
-		save(id, doc, callback)
+		save(user, id, doc, callback)
 	}
 });
 
@@ -69,7 +69,7 @@ function buildId(doc, done) {
 			id = baseId + `_${tries}`;
 
 			if (tries > randomAt) {
-				id = baseId + `_${("0000" + Math.round(Math.random()*10000)).slice(-4)}`;
+				id = baseId + `_${("0000" + Math.round(Math.random() * 10000)).slice(-4)}`;
 			}
 			if (tries >= uuidAt) {
 				done(null, uuid.v4());
@@ -82,11 +82,12 @@ function buildId(doc, done) {
 	get();
 }
 
-function save(id, doc, callback) {
-	var refId = util.refId(id, "bot");
-	var sets = [];
-	var names = {};
-	var attributes = {};
+function save(user, id, doc, callback) {
+	let refId = util.refId(id, "bot");
+	let sets = [];
+	let deletes = [];
+	let names = {};
+	let attributes = {};
 
 	// A bot is either time based or trigger based
 	if (doc.triggers) {
@@ -115,16 +116,18 @@ function save(id, doc, callback) {
 		doc.errorCount = 0;
 		doc.scheduledTrigger = null;
 	}
+	let clearInstances = doc.executeNowClear === true;
 	delete doc.executeNow;
+	delete doc.executeNowClear;
 
-	var newCheckpoint = doc.checkpoint;
-    delete doc.checkpoint; // New version of checkpoint is an object not legacy string
+	let newCheckpoint = doc.checkpoint;
+	delete doc.checkpoint; // New version of checkpoint is an object not legacy string
 
-	var skip = ["checksumReset"];
+	let skip = ["checksumReset"];
 
-	for (var k in doc) {
+	for (let k in doc) {
 		if (skip.indexOf(k) < 0 && doc[k] !== undefined && doc[k] !== "") {
-			var fieldName = k.replace(/[^a-z]+/ig, "_");
+			let fieldName = k.replace(/[^a-z]+/ig, "_");
 			sets.push(`#${fieldName} = :${fieldName}`);
 			names[`#${fieldName}`] = k;
 			attributes[`:${fieldName}`] = doc[k];
@@ -140,43 +143,59 @@ function save(id, doc, callback) {
 		read: {},
 		write: {}
 	};
-	sets.push(`#instances = if_not_exists(#instances, :instances)`);
+	if (clearInstances) {
+		names[`#invokeTime`] = "invokeTime";
+		names[`#instanceId`] = "0";
+		delete attributes[`:instances`];
+
+		deletes.push("#instances.#instanceId")
+		deletes.push("#invokeTime")
+	} else {
+		sets.push(`#instances = if_not_exists(#instances, :instances)`);
+	}
 	sets.push(`#checkpoints = if_not_exists(#checkpoints, :checkpoints)`);
 	sets.push(`#requested_kinesis = if_not_exists(#requested_kinesis, :requested_kinesis)`);
 
-	var params = {
+	let params = {
 		TableName: CRON_TABLE,
 		Key: {
 			id: id
 		},
-		UpdateExpression: 'set ' + sets.join(", "),
+		UpdateExpression: 'set ' + sets.join(", ") + (deletes.length ? (" remove " + deletes.join(", ")) : ""),
 		ExpressionAttributeNames: names,
 		ExpressionAttributeValues: attributes,
 		"ReturnConsumedCapacity": 'TOTAL',
 		ReturnValues: 'ALL_NEW',
 	}
 
-
-    dynamodb.get(CRON_TABLE, id, (err, oldData) => {
-    	if (oldData) {
-    		delete oldData.instances;
+	dynamodb.get(CRON_TABLE, id, (err, oldData) => {
+		if (oldData) {
+			delete oldData.instances;
 		}
-		dynamodb.docClient.update(params, function (err, result) {
+		dynamodb.docClient.update(params, function(err, result) {
 			if (err) {
 				callback(err);
 			} else {
 				var done = callback;
 				var data = result.Attributes;
-                var stream = leo.load(BOT_ID, LOG_DESTINATION);
-                var newData = data;
-                delete newData.instances;
+				var stream = leo.load(BOT_ID, LOG_DESTINATION);
+				var newData = data;
+				delete newData.instances;
 
-                callback = (err, d) => {
-                    var diffArray = diff(oldData, newData) || [];
-                    var diffs = (diffArray).map(e => ({[`${e.path.join(".")}`]:{old:e.lhs || (e.item && e.item.lhs) || '', new: e.rhs || (e.item && e.item.rhs) || ''}}));
+				callback = (err, d) => {
+					var diffArray = diff(oldData, newData) || [];
+					var diffs = (diffArray).map(e => ({ [`${e.path.join(".")}`]: { old: e.lhs || (e.item && e.item.lhs) || '', new: e.rhs || (e.item && e.item.rhs) || '' } }));
 					if (diffs.length !== 0) {
-                        stream.write({old: oldData, new: newData, diff: diffs});
-                    }
+						stream.write({
+							old: oldData,
+							new: newData,
+							diff: diffs,
+							user: {
+								identity_id: user.identity_id,
+								user_id: user.context && user.context.user_id
+							}
+						});
+					}
 					if (!err) {
 						stream.end(() => {
 							if (!err && data.system) {
@@ -185,8 +204,8 @@ function save(id, doc, callback) {
 								done(err, d)
 							}
 						});
-                    } else {
-                    	done(err, d);
+					} else {
+						done(err, d);
 					}
 				};
 
@@ -212,7 +231,7 @@ function save(id, doc, callback) {
 				}
 
 				if (newCheckpoint) {
-					Object.keys(newCheckpoint).map((key)=> {
+					Object.keys(newCheckpoint).map((key) => {
 						index++;
 						sets.push(`#checkpoints.#read.#r_${index} = :r_${index}`);
 						names[`#r_${index}`] = key.toString();
@@ -234,7 +253,7 @@ function save(id, doc, callback) {
 						ExpressionAttributeValues: attributes,
 						"ReturnConsumedCapacity": 'TOTAL'
 					};
-					dynamodb.docClient.update(params, function (err, data) {
+					dynamodb.docClient.update(params, function(err, data) {
 						console.log(err, data);
 						callback(null, {
 							refId: refId
@@ -247,7 +266,7 @@ function save(id, doc, callback) {
 				}
 			}
 		});
-    });
+	});
 }
 
 function saveSystemEntry(botId, cron, doc) {
