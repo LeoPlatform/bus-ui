@@ -280,7 +280,7 @@ class NodeSearch extends React.Component {
 							this.foundNodeIds.slice(0, maxResults).map((nodeId) => {
 
 								var node = this.dataStore.nodes[nodeId] || {}
-								var tags = (node.tags || '').toString().split(',')
+								var tags = (node.tags || '').toString().split(',').filter(t => !t.match(/(^repo:)/))
 
 								if (searchIndex == this.state.searchIndex) {
 									this.searchNode = nodeId
