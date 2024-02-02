@@ -94,7 +94,7 @@
 		"later": "^1.2.0",
 		"leo-auth": "^3.0.2",
 		"leo-sdk": "^6.0.17",
-		"material-ui": "^0.19.4",
+		"material-ui": "^0.20.2",
 		"mobx": "^3.3.0",
 		"mobx-react": "^4.3.4",
 		"mocha": "^3.0.2",
