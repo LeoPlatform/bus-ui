@@ -112,45 +112,76 @@ class NodeView extends React.Component {
 			var parents = []
 			var nId = n.id
 			foundNodeList = foundNodeList || { [n.id]: 1 }
-
-			for (var id in n.link_to.parent) {
-				if (n.type === "bot") {
-					var bot_id = nId
-					var queue_id = id
-				} else {
-					var bot_id = id
-					var queue_id = nId
-				}
-
-				var parent = basicNode(dataStore.nodes[id])
-
-				if (parent && parent.status !== 'archived' && !parent.archived) {
-					var link = n.link_to.parent[id]
-					//Is it in danger?
-					parent.relation = {
-						type: link.type,
-						line: link.display.line,
-						above: link.display.above,
-						below: link.display.below
-					}
-
-					if (!foundNodeList[id]) {
-						foundNodeList[id] = 1
-						parent.parents = getParents(dataStore.nodes[id], Object.assign({}, foundNodeList), dataStore, ++level)
+			let numberOfParents = Object.keys(n.link_to.parent).length;
+			if (numberOfParents > 10) {					
+				let basicNodeThing = basicNode({
+					id: n.id +'-TooManyParents',
+					type: 'infinite',
+					label: 'Too many parents refine by searching',
+					status: undefined,
+					display: {
+						above: ['test_above'],
+							below: ['test_below'],
+					},
+					message: undefined,
+					archived: false,
+					paused: false,
+				});
+				basicNodeThing.relation = {
+					type: 'TooManyParents',
+						line: 'dashed_gray',
+						above: ['test_relation_above'],
+						below: ['test_relation_below'],
+				};
+				basicNodeThing.kids = [n];
+				basicNodeThing.iconOverrides = {
+					type: 'icon',
+					icon: window.leostaticcdn + (n.type == 'bot' ? 'images/icons/bitbucket-mark.png' : 'images/icons/github-mark.png'),
+				};
+				parents = [
+					basicNodeThing
+				]
+			} else {
+				for (var id in n.link_to.parent) {
+					if (n.type === "bot") {
+						var bot_id = nId
+						var queue_id = id
 					} else {
-						parent.parents = [{
-							id: 'infinite',
-							icon: window.leostaticcdn + 'images/icons/infinite.png',
-							type: 'infinite',
-							kids: [n],
-							relation: {
-								line: 'dashed_gray'
-							}
-						}]
+						var bot_id = id
+						var queue_id = nId
 					}
-					parent.leftCollapsed = (level >= 1 && parent.parents.length > 1);
-					parents.push(parent);
+	
+					var parent = basicNode(dataStore.nodes[id])
+	
+					if (parent && parent.status !== 'archived' && !parent.archived) {
+						var link = n.link_to.parent[id]
+						//Is it in danger?
+						parent.relation = {
+							type: link.type,
+							line: link.display.line,
+							above: link.display.above,
+							below: link.display.below
+						}
+	
+						if (!foundNodeList[id]) {
+							foundNodeList[id] = 1
+							parent.parents = getParents(dataStore.nodes[id], Object.assign({}, foundNodeList), dataStore, ++level)
+						} else {
+							parent.parents = [{
+								id: 'infinite',
+								icon: window.leostaticcdn + 'images/icons/infinite.png',
+								type: 'infinite',
+								kids: [n],
+								relation: {
+									line: 'dashed_gray'
+								}
+							}]
+						}
+						parent.leftCollapsed = (level >= 1 && parent.parents.length > 1);
+						parents.push(parent);
+					}
 				}
+
 			}
 			return parents.sort((a, b) => {
 				return a.label.localeCompare(b.label)
@@ -163,42 +194,75 @@ class NodeView extends React.Component {
 			var nId = n.id
 			foundNodeList = foundNodeList || { [n.id]: 1 }
 
-			for (var id in n.link_to.children) {
-				if (n.type === "bot") {
-					var bot_id = nId
-					var queue_id = id
-				} else {
-					var bot_id = id
-					var queue_id = nId
-				}
-
-				var child = basicNode(dataStore.nodes[id])
-
-				if (child && child.status !== 'archived' && !child.archived) {
-					var link = n.link_to.children[id];
-					//Is it in danger?
-					child.relation = {
-						type: link.type,
-						line: link.display.line,
-						above: link.display.above,
-						below: link.display.below
-					};
-					if (!foundNodeList[id]) {
-						foundNodeList[id] = 1;
-						child.kids = getKids(dataStore.nodes[id], Object.assign({}, foundNodeList), dataStore, ++level)
+			// If the link is > 1 year since last activity don't render the relationship
+			// Limit the number of children that we are rendering
+			let numberOfChildren = Object.keys(n.link_to.children).length;
+			if (numberOfChildren > 10) {					
+				let basicNodeThing = basicNode({
+					id: n.id +'-TooManyKids',
+					type: 'infinite',
+					label: 'Too many children refine by searching',
+					status: undefined,
+					display: {
+						above: ['test_above'],
+							below: ['test_below'],
+					},
+					message: undefined,
+					archived: false,
+					paused: false,
+				});
+				basicNodeThing.relation = {
+					type: 'TooManyKids',
+					line: 'dashed_gray',
+					above: ['test_relation_above'],
+					below: ['test_relation_below'],
+				};
+				basicNodeThing.parents = [n];
+				basicNodeThing.iconOverrides = {
+					type: 'icon',
+					icon: window.leostaticcdn + (n.type == 'bot' ? 'images/icons/bitbucket-mark.png' : 'images/icons/github-mark.png'),
+				};
+				kids = [
+					basicNodeThing
+				]
+			} else {
+				for (var id in n.link_to.children) {
+					if (n.type === "bot") {
+						var bot_id = nId
+						var queue_id = id
 					} else {
-						child.kids = [{
-							id: 'infinite',
-							icon: window.leostaticcdn + 'images/icons/infinite.png',
-							type: 'infinite',
-							parents: [n],
-							relation: {
-								line: 'dashed_gray'
-							}
-						}]
+						var bot_id = id
+						var queue_id = nId
 					}
-					child.rightCollapsed = (level >= 1 && child.kids.length > 1);
-					kids.push(child);
+	
+					var child = basicNode(dataStore.nodes[id])
+	
+					if (child && child.status !== 'archived' && !child.archived) {
+						var link = n.link_to.children[id];
+						//Is it in danger?
+						child.relation = {
+							type: link.type,
+							line: link.display.line,
+							above: link.display.above,
+							below: link.display.below
+						};
+						if (!foundNodeList[id]) {
+							foundNodeList[id] = 1;
+							child.kids = getKids(dataStore.nodes[id], Object.assign({}, foundNodeList), dataStore, ++level)
+						} else {
+							child.kids = [{
+								id: 'infinite',
+								icon: window.leostaticcdn + 'images/icons/infinite.png',
+								type: 'infinite',
+								parents: [n],
+								relation: {
+									line: 'dashed_gray'
+								}
+							}]
+						}
+						child.rightCollapsed = (level >= 1 && child.kids.length > 1);
+						kids.push(child);
+					}
 				}
 			}
 			return kids.sort((a, b) => {
