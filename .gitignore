@@ -9,3 +9,8 @@ dist/
 package-lock.json
 cloudformation.json
 test/
+scripts/*
+
+*.d.ts
+*.js
+*.js.map

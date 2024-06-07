@@ -1,20 +1,28 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
+
+import { APIGatewayProxyEvent, Callback, Context } from "aws-lambda";
+
 let request = require("leo-auth");
 let stats = require("../../lib/stats.js");
 require("moment-round");
 var zlib = require("zlib");
 let logger = require("leo-logger")("stats-api");
+
 let compressionThreshold = 100000; // 100k
-exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, callback) => {
+
+interface LeoAPIGatewayProxyEvent extends APIGatewayProxyEvent {
+
+}
+
+exports.handler = require("leo-sdk/wrappers/resource")(async (event: LeoAPIGatewayProxyEvent, context: Context, callback: Callback) => {
     await request.authorize(event, {
         lrn: 'lrn:leo:botmon:::',
         action: "stats",
         botmon: {}
     });
+
     function findBigStrings(obj, prefix = "") {
-        if (!obj)
-            return;
+        if (!obj) return;
         let objType = typeof obj;
         if (objType === 'object') {
             if (Array.isArray(obj)) {
@@ -29,13 +37,13 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
                     findBigStrings(obj[key], localPrefix);
                 }
             }
-        }
-        else if (objType === 'string') {
+        } else if (objType === 'string') {
             if (obj.length > 1024) {
                 logger.log(`string stored at '${prefix}' is larger than 1024 bytes (length=${obj.length}): '${obj}'`);
             }
         }
     }
+
     stats(event, (err, data) => {
         let stats = (data || {}).stats;
         if (stats) {
@@ -59,12 +67,13 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
                     break;
                 }
             }
+
             if (willAcceptGzip && responseBody.length > compressionThreshold) {
                 logger.log(`compressing response,  size = ${responseBody.length}`);
                 responseBody = zlib.gzipSync(responseBody).toString('base64');
                 responseHeaders['Content-Encoding'] = 'gzip';
                 isBase64Encoded = true;
-                logger.log(`after compression, response size = ${responseBody.length}`);
+                logger.log(`after compression, response size = ${responseBody.length}`)
             }
             callback(undefined, {
                 body: responseBody,
@@ -72,10 +81,8 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
                 isBase64Encoded,
                 statusCode: 200,
             });
-        }
-        else {
+        } else {
             callback(err, (data || {}).stats);
         }
     });
 });
-//# sourceMappingURL=index.js.map

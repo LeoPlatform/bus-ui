@@ -8,8 +8,9 @@
 		"old_start": "leo-cli test .",
 		"test": "mocha --require ./test/bootstrap.js --recursive -w",
 		"debug": "node-debug leo test .",
-		"build": "leo-cli publish . --force all --build --save",
-		"publish": "leo-cli publish . --force all"
+		"build": "tsc && leo-cli publish . --force all --build --save",
+		"publish": "tsc && leo-cli publish . --force all",
+		"watch": "tsc -w"
 	},
 	"config": {
 		"leo": {
@@ -113,6 +114,9 @@
 		"uuid": "^2.0.3"
 	},
 	"devDependencies": {
-		"babel-preset-env": "^1.7.0"
+		"@types/aws-lambda": "^8.10.138",
+		"babel-preset-env": "^1.7.0",
+		"ts-loader": "^8.0.0",
+		"typescript": "^5.4.5"
 	}
 }

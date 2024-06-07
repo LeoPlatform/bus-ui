@@ -1,0 +1,33 @@
+{
+	"compileOnSave": true,
+	"compilerOptions": {
+		"module": "commonjs",
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"target": "es2022",
+		"moduleResolution": "node",
+		"sourceMap": true,
+		"inlineSources": true,
+		"allowJs": false,
+		"jsx": "react",
+		"jsxFactory": "JSX.createElement",
+		"jsxFragmentFactory": "JSX.Fragment",
+		"baseUrl": ".",
+		"declaration": true,
+		"paths": {
+			"*": [
+				"node_modules/*",
+				"types/*"
+			]
+		}
+	},
+	"include": [
+		"**/*.ts",
+		"**/*.tsx"
+	],
+	"exclude": [
+		"node_modules",
+		"**/*.js"
+	],
+	"watch": true
+}
