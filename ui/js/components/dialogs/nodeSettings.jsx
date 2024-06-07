@@ -481,6 +481,9 @@ class Settings extends React.Component {
 												)
 											);
 											if (repoUrl) {
+												if (!repoUrl.match(/^https?:\/\//)) {
+													repoUrl = "https://" + repoUrl;
+												}
 												let url = new URL(repoUrl);
 												let hostname = url.hostname;
 												let hostnamesImages = {

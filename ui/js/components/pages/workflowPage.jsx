@@ -194,7 +194,6 @@ class NodeView extends React.Component {
 			var nId = n.id
 			foundNodeList = foundNodeList || { [n.id]: 1 }
 
-			// If the link is > 1 year since last activity don't render the relationship
 			// Limit the number of children that we are rendering
 			let numberOfChildren = Object.keys(n.link_to.children).length;
 			if (numberOfChildren > 10) {					
