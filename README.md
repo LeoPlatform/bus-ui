@@ -96,3 +96,18 @@ module.exports = {
 console.log(`Connecting to Bus: ${config.BusName}, Botmon: ${config.StackName}`);
 
 ```
+
+
+# Deployment
+
+run `npm run publish`
+
+>[!TIP] 
+You can optionally add a tag to the command by adding 
+`shell --tag {tag_name}` to the end of the publish command where `{tag_name}` resolves to a custom folder 
+
+This will output the name of an S3 file that you will need to copy
+
+Then go into the Cloudformation web ui and find the correct stack you want to update (`ProdBus`, `StagingBus`, etc)
+
+<!-- Drop a note in #t_engineering -->
