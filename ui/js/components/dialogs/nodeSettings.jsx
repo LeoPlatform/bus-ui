@@ -480,6 +480,7 @@ class Settings extends React.Component {
 													this.dataStore.cronInfo.lambda.settings[0].repoUrl
 												)
 											);
+											// TODO: try and infer a repo: tag based off the other settings
 											if (repoUrl) {
 												if (!repoUrl.match(/^https?:\/\//)) {
 													repoUrl = "https://" + repoUrl;
