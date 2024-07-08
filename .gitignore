@@ -9,3 +9,5 @@ dist/
 package-lock.json
 cloudformation.json
 test/
+.vscode/
+.idea/
