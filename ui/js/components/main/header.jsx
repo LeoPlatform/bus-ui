@@ -18,6 +18,20 @@ class Header extends React.Component {
 			messageCount: props.messageCount,
 			displayPaused: false
 		};
+		let tz = localStorage.getItem("defaultBotmonTimezone");
+		this.timeZone = tz ? tz : moment.tz.guess();
+		this.timeZoneList = [
+			"US/Pacific",
+			"US/Central",
+			"US/Eastern",
+			"US/Mountain",
+			"Europe/Madrid",
+			"Europe/London",
+			"Europe/Dublin",
+			"UTC"
+		];
+
+		// console.log(this.timeZone);
 	}
 
 
@@ -49,6 +63,13 @@ class Header extends React.Component {
 
 	messageDeleted(messageCount) {
 		this.setState({ messageCount: messageCount })
+	}
+
+	setTimeZone(tz) {
+		// console.log(`tz = ${JSON.stringify(tz)}`);
+		this.timeZone = tz;
+		localStorage.setItem("defaultBotmonTimezone", tz);
+		moment.tz.setDefault(tz);
 	}
 
 
@@ -95,8 +116,15 @@ class Header extends React.Component {
 				</div>
 			</div>
 
-			<div>
+			
 
+			<div className='header-options'>
+				<div className='tz-select'>
+					<label>Rendered Timezone</label>
+						<select name="selectedTimeZone" defaultValue={this.timeZone} onChange={c => this.setTimeZone(c.target.value)}>
+							{this.timeZoneList.map(item => <option key={item} value={item}>{item}</option>)}
+						</select>
+				</div>
 				<nav className="page-sub-nav">
 					<ul>
 						<li className="theme-dropdown-right">
