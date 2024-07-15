@@ -136,7 +136,7 @@ class NodeView extends React.Component {
 				basicNodeThing.kids = [n];
 				basicNodeThing.iconOverrides = {
 					type: 'icon',
-					icon: window.leostaticcdn + (n.type == 'bot' ? 'images/icons/bitbucket-mark.png' : 'images/icons/github-mark.png'),
+					icon: window.leostaticcdn + (n.type == 'bot' ? 'images/nodes/queue.png' : 'images/nodes/bot.png'),
 				};
 				parents = [
 					basicNodeThing
@@ -219,7 +219,7 @@ class NodeView extends React.Component {
 				basicNodeThing.parents = [n];
 				basicNodeThing.iconOverrides = {
 					type: 'icon',
-					icon: window.leostaticcdn + (n.type == 'bot' ? 'images/icons/bitbucket-mark.png' : 'images/icons/github-mark.png'),
+					icon: window.leostaticcdn + (n.type == 'bot' ? 'images/nodes/queue.png' : 'images/nodes/bot.png'),
 				};
 				kids = [
 					basicNodeThing
