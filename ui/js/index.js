@@ -32,6 +32,8 @@ window.moment = moment;
 
 if (window.botmon.timezone) {
     moment.tz.setDefault(window.botmon.timezone);
+} else if (localStorage.getItem("defaultBotmonTimezone")){
+	moment.tz.setDefault(localStorage.getItem("defaultBotmonTimezone"))
 }
 
 /*

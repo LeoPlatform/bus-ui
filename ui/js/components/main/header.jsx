@@ -18,6 +18,22 @@ class Header extends React.Component {
 			messageCount: props.messageCount,
 			displayPaused: false
 		};
+		this.localTz = moment.tz.guess();
+		let tz = localStorage.getItem("defaultBotmonTimezone");
+		this.timeZone = tz ? tz : "Default";
+		this.timeZoneList = [
+			"Default",
+			"US/Pacific",
+			"US/Central",
+			"US/Eastern",
+			"US/Mountain",
+			"Europe/Madrid",
+			"Europe/London",
+			"Europe/Dublin",
+			"UTC"
+		].filter((item => item !== this.localTz));
+
+		// console.log(this.timeZone);
 	}
 
 
@@ -49,6 +65,18 @@ class Header extends React.Component {
 
 	messageDeleted(messageCount) {
 		this.setState({ messageCount: messageCount })
+	}
+
+	setTimeZone(tz) {
+		// console.log(`tz = ${JSON.stringify(tz)}`);
+		this.timeZone = tz;
+		if (this.timeZone == "Default") {
+			localStorage.removeItem("defaultBotmonTimezone");
+			moment.tz.setDefault();
+		} else {
+			localStorage.setItem("defaultBotmonTimezone", tz);
+			moment.tz.setDefault(tz);
+		}
 	}
 
 
@@ -95,8 +123,9 @@ class Header extends React.Component {
 				</div>
 			</div>
 
-			<div>
+			
 
+			<div className='header-options'>
 				<nav className="page-sub-nav">
 					<ul>
 						<li className="theme-dropdown-right">
@@ -104,6 +133,18 @@ class Header extends React.Component {
 								<i className="icon-ellipsis"></i>
 							</a>
 							<ul>
+								<li>
+									<a>
+										<div>
+											<i className="icon-clock" />
+											<span>
+												<select name="selectedTimeZone" defaultValue={this.timeZone} onChange={c => this.setTimeZone(c.target.value)}>
+													{this.timeZoneList.map(item => <option key={item} value={item}>{item == "Default" ? this.localTz : item}</option>)}
+												</select>
+											</span>
+										</div>
+									</a>
+								</li>
 								<li>
 									<a onClick={this.togglePause.bind(this)}>
 										{
