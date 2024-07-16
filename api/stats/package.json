@@ -16,7 +16,7 @@
 			"name": "Leo_Botmon_api_stats",
 			"handler": "handler",
 			"role": null,
-			"memory": 384,
+			"memory": 1024,
 			"timeout": 10,
 			"env": {
 				"Resources": {

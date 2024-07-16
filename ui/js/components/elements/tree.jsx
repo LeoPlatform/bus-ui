@@ -623,7 +623,7 @@ class Tree extends React.Component {
 			})
 
 			nodeEnter.append('svg').filter(function(d) { return d.icon })
-				.html(node => NodeImages(node.id, this.dataStore))
+				.html(node => NodeImages(node.id, this.dataStore, node.iconOverrides))
 				.attr('x', function(d) {
 					return (d.is_root ? -ICON_SIZE * 2 : -ICON_SIZE * 1.5) / 2
 				})
