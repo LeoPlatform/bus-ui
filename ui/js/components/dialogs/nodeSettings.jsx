@@ -365,6 +365,17 @@ class Settings extends React.Component {
 		this.setState({ showDropdown: !this.state.showDropdown })
 	}
 
+	copyCheckpointToClipboard(checkpoint) {
+		if(checkpoint) {
+			navigator.clipboard.writeText(checkpoint).then(() => {
+				window.messageLogNotify('Successfully copied checkpoint to the clipboard','');
+			});
+
+		} else {
+			window.messageLogNotify('Expected Checkpoint text is empty. Failed to Copy', 'warning');
+		}
+	}
+
 
 	render() {
 
@@ -505,6 +516,7 @@ class Settings extends React.Component {
 								</div>
 								{
 									(this.dataStore.cronInfo && nodeId == this.dataStore.cronInfo.id && this.dataStore.cronInfo.scheduledTrigger && this.dataStore.cronInfo.scheduledTrigger > Date.now()) ? <span className="bot-invoke-backoff">Backoff Until: {moment(this.dataStore.cronInfo.scheduledTrigger).format("MMM D, Y h:mm:ss a")}</span> : false
+									
 								}
 							</div>
 
@@ -640,6 +652,7 @@ class Settings extends React.Component {
 								? (<ul className="dropdown">
 									<div className="mask" onClick={this.toggleDropdown.bind(this)} />
 									<li onClick={this.resetStream.bind(this, false)}><a>Change Checkpoint</a></li>
+									<li onClick={this.copyCheckpointToClipboard.bind(this, kinesis_number)}> <a>Copy Checkpoint</a></li>
 									<li onClick={this.runNow.bind(this, false)}><a>Force Run</a></li>
 									{
 										localStorage.getItem('enableAdminFeatures')
