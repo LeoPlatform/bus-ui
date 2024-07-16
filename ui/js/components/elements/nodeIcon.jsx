@@ -45,6 +45,10 @@ function getImages(node, dataStore, overwrites) {
 			return [(!icon.match(/^https?:/) ? window.leostaticcdn + 'images/' + (icon.indexOf('/') !== -1 ? '' : 'nodes/') : '') + icon]
 		break
 
+		case 'icon':
+			return [node.icon]
+		break;
+
 		default:
 		case 'bot':
 
