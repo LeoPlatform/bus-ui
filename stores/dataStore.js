@@ -3,6 +3,8 @@ import autoBind from 'react-autobind';
 import _ from 'lodash';
 import moment from 'moment';
 import refUtil from "leo-sdk/lib/reference.js";
+import zlib from './zlib';
+import buffer from './buffer';
 
 export default class DataStore {
 
@@ -386,7 +388,35 @@ export default class DataStore {
                 timestamp: timestamp
             },
             success: (result) => {
-                statsPromise.resolve(result);
+                // Check for nextPart
+                if(result.nextPart) {
+                    let newCall = $.ajax({
+                        url: 'api/stats_v2',
+                        data: {
+                            nextPart: result.nextPart
+                        },
+                        success: (nextResult) => {
+                            // Merge results together and then resolve
+                            result.nodes.queue = nextResult.nodes.queue;
+                            result.nodes.system = nextResult.nodes.system
+                            statsPromise.resolve(result);
+                        },
+                        error: (err) => {
+                            window.messageLogNotify('Failure retrieving NextPage of Stats', 'warning')
+                            statsPromise.reject(err);
+                        }
+                    });
+    
+                    statsPromise.abort = () => {
+                        call.abort();
+                        newCall.abort();
+                    }
+                    
+                }else {
+                    statsPromise.resolve(result);
+
+                }
+
             },
             error: (err) => {
                 window.messageLogNotify('Failure retrieving Stats', 'warning')
