@@ -493,7 +493,7 @@ class Settings extends React.Component {
 											);
 											// TODO: try and infer a repo: tag based off the other settings
 											// We also only want to show this for bots. we don't want to link this for queues or systems
-											if (repoUrl && this.props.data.type !== 'queue') {
+											if (repoUrl && this.props.data.type === 'bot') {
 												if (!repoUrl.match(/^https?:\/\//)) {
 													repoUrl = "https://" + repoUrl;
 												}
