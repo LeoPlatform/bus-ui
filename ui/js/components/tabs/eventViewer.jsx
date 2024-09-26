@@ -484,6 +484,7 @@ export default connect(store => store)(EventViewer)
 
 function getOldNewDiff(oldData, newData) {
 	const {diffJson, jsonDiff, canonicalize} = require('diff/lib/diff/json');
+	const re = /\S/;
 
 	// overwrite `castInput` so it uses 4 spaces rather than the default 2 for formatting
 	jsonDiff.castInput = function(value) {  
@@ -498,13 +499,20 @@ function getOldNewDiff(oldData, newData) {
 		<div className="diff">
 		{
 			diff.map((part) => 
-				
-				// const spacer = color === 'green' ? '+++' : color === 'red' ? '---' : '   ';
-				<span key={uniqueKey++} className={part.added ? 'green' :
-				 part.removed ? 'red' : 'grey'}>{part.value}</span>
-			
+				{
+					const color = part.added ? 'green' : part.removed ? 'red' : 'grey';
+					const spacer = color === 'green' ? '+ ' : color === 'red' ? '- ' : '';
+					if(spacer != '') {
+						// if the value has line characters we want to split and do the changes on each 'line' and join them back together
+						let lines = part.value.split('\n');
+						let index = part.value.search(re);
+						part.value = lines.map( val => val ? val.substring(0, index) + spacer + val.substring(index, val.length): '').join('\n');
+					}
 					
-		)
+					return <span key={uniqueKey++} className={color}>{part.value}</span>
+				}
+					
+			)
 			
 		}
 		</div>
