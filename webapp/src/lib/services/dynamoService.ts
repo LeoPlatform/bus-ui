@@ -1,16 +1,19 @@
+import { page } from "$app/state";
+import { createDynamoClient } from "$lib/server/aws_utils";
 import { getLeoCronTable } from "$lib/server/utils";
 import { botDetailLoading, botDetailError, botDetailStore } from "$lib/stores/botDetailStore";
-import type { BotSettings } from "$lib/types";
+import type { AwsCreds, BotSettings } from "$lib/types";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, ScanCommand, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 
-const client = new DynamoDBClient({
-    region: import.meta.env.AWS_REGION
-});
 
-const docClient = DynamoDBDocumentClient.from(client);
 
-export async function getRelationShips(): Promise<BotSettings[]> {
+//TODO: will eventually need to do the parallel scan
+export async function getRelationShips(creds: AwsCreds): Promise<BotSettings[]> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+
+
     botDetailLoading.set(true);
     botDetailError.set(null);
 

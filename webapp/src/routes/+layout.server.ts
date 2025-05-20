@@ -1,9 +1,14 @@
-import { getRelationShips } from "$lib/services/dynamoService";
+import { redirect } from "@sveltejs/kit";
 
-export async function load() {
-    const relationship =  await getRelationShips();
-    return {
-        botData: relationship
-    }
+export async function load({locals}) {
+    const session = await locals.auth();
     
+    // if(!session?.user) {
+        
+    //     throw redirect(303, `/signin?redirectTo=${'/'}`)
+    // }
+
+    return {
+        user: session?.user
+    }
 }

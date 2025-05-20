@@ -2,6 +2,7 @@
 	import * as Icons from '$lib/components/icons';
   	import LeftNav from '$lib/components/left-nav.svelte';
 	import '../app.pcss';
+	import { auth } from '$lib/stores/auth';
 	
 	//TODO remove this when we actually are ready
 	const routes = [
@@ -24,14 +25,22 @@
 	
 	const appState = {};
 	let { children } = $props();
+	
+	// // Skip layout for auth routes
+	// $: isAuthRoute = window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/auth');
 </script>
 
+<!-- <AuthProvider> -->
+	<!-- {#if $auth.isAuthenticated && !isAuthRoute} -->
 <div class="flex h-screen w-full overflow-hidden">
 	<LeftNav routes={routes} appState={appState}/>
 	<main class="flex-1 overflow-auto p-4">
-		<!-- <div class="debug-info">
-			<p>DEBUG: Content area</p>
-		</div> -->
 		{@render children()}
 	</main>
 </div>
+	<!-- {:else}
+		<main class="w-full">
+			{@render children()}
+		</main>
+	{/if} -->
+<!-- </AuthProvider> -->
