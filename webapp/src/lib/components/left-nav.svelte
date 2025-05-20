@@ -3,9 +3,9 @@
   import { Separator } from "$lib/components/ui/separator";
   import * as Tooltip from '$lib/components/ui/tooltip/index';
   import {Button} from "$lib/components/ui/button";
-  import { page } from "$app/stores";
+  import { page } from '$app/state';
 
-  const currentRoute = $derived($page.url.pathname ? $page.url.pathname : '/');
+  const currentRoute = $derived(page.url.pathname ? page.url.pathname : '/');
 
     type Props = {
         // workflows: any;//TODO: make this a type

@@ -24,3 +24,5 @@ vite.config.ts.timestamp-*
 
 *storybook.log
 node_modules
+
+*.config.json

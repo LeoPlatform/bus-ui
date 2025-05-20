@@ -1,0 +1,14 @@
+node_modules/
+*.sublime-workspace
+.DS_Store
+*.swp
+
+*\build.js
+dist/
+
+package-lock.json
+cloudformation.json
+test/
+
+.vscode/
+.idea/

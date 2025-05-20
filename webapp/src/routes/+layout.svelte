@@ -2,7 +2,6 @@
 	import * as Icons from '$lib/components/icons';
   	import LeftNav from '$lib/components/left-nav.svelte';
 	import '../app.pcss';
-	import { auth } from '$lib/stores/auth';
 	
 	//TODO remove this when we actually are ready
 	const routes = [
