@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "create-env": "tsx scripts/create-env.ts --configLocation ./providers.config.ts"
+    "create-env": "tsx scripts/create-env.ts --configLocation ./providers.config.json"
   },
   "devDependencies": {
     "@auth/sveltekit": "^1.9.1",

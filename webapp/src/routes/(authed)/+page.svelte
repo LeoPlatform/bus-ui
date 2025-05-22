@@ -12,7 +12,8 @@
 
     async function goToWorkflow(id: string) {
         console.log('going to workflow', id);
-        await goto(`/workflows/${id}`);
+        // using this because goto serializes the entire page state, which won't work with our tree
+        window.location.href = `/workflows/${id}`;
     }
 
     function toggleDashboard(id: string) {
