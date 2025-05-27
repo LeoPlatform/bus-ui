@@ -172,7 +172,7 @@
     <Input 
       placeholder="Filter Bots..."
       value={(table.getColumn("botName")?.getFilterValue() as string) ?? ""}
-      onChange={(e) => {
+      onchange={(e) => {
         // console.log(typeof e);
         table.getColumn("botName")?.setFilterValue(e.currentTarget.value);
       }}

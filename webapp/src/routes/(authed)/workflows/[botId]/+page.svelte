@@ -19,8 +19,10 @@
   let zoomHandler: d3.ZoomBehavior<Element, unknown>;
   let linkGroup: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
   let nodeGroup: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
-  let nodePositions = new Map<string, {x: number, y: number}>(); // Track node positions
+  let nodePositions = new Map<string, { x: number; y: number }>(); // Track node positions
   let lastExpandedNode: string | null = null; // Track which node was last expanded
+  let visibleNodes = $state(new Set<string>()); // Track which nodes are visible in the viewport so we can send this to the api
+  let nodeCount = $derived(getVisibleNodeCount());
 
   onMount(() => {
     console.log("component mounted");
@@ -70,7 +72,9 @@
 
   function shouldInitiallyShow(data: RelationshipTree): boolean {
     // Only show initially if it has 1 or fewer children AND 1 or fewer parents
-    return (data.children?.length || 0) <= 1 && (data.parents?.length || 0) <= 1;
+    return (
+      (data.children?.length || 0) <= 1 && (data.parents?.length || 0) <= 1
+    );
   }
 
   function isNodeExpanded(nodeId: string): boolean {
@@ -80,7 +84,7 @@
   function findOriginalData(nodeId: string): RelationshipTree | null {
     function search(data: RelationshipTree): RelationshipTree | null {
       if (data.id === nodeId) return data;
-      
+
       // Search in children
       if (data.children) {
         for (const child of data.children) {
@@ -88,7 +92,7 @@
           if (result) return result;
         }
       }
-      
+
       // Search in parents
       if (data.parents) {
         for (const parent of data.parents) {
@@ -96,16 +100,16 @@
           if (result) return result;
         }
       }
-      
+
       return null;
     }
-    
+
     return search(relationShipTree);
   }
 
   function toggleNode(nodeId: string) {
     lastExpandedNode = nodeId; // Track which node is being toggled
-    
+
     if (expandedNodes.has(nodeId)) {
       expandedNodes.delete(nodeId);
     } else {
@@ -144,19 +148,21 @@
     };
 
     // Determine if this specific node should show its children
-    const hasMultipleRelations = (direction === "right" && (data.children?.length || 0) > 1) || 
-                                 (direction === "left" && (data.parents?.length || 0) > 1);
-    
-    const shouldShowChildren = depth === 0 || // Always show root
-                              !hasMultipleRelations || // Show if not complex
-                              isNodeExpanded(data.id); // Show if explicitly expanded
-    
+    const hasMultipleRelations =
+      (direction === "right" && (data.children?.length || 0) > 1) ||
+      (direction === "left" && (data.parents?.length || 0) > 1);
+
+    const shouldShowChildren =
+      depth === 0 || // Always show root
+      !hasMultipleRelations || // Show if not complex
+      isNodeExpanded(data.id); // Show if explicitly expanded
+
     // Process children for right tree
     if (direction === "right" && data.children && data.children.length > 0) {
       const processedChildren = data.children.map((child) =>
         processTree(child, "right", node, depth + 1)
       );
-      
+
       if (shouldShowChildren) {
         node.children = processedChildren;
         node._children = [];
@@ -171,7 +177,7 @@
       const processedParents = data.parents.map((parent) =>
         processTree(parent, "left", node, depth + 1)
       );
-      
+
       if (shouldShowChildren) {
         node.children = processedParents;
         node._children = [];
@@ -182,6 +188,143 @@
     }
 
     return node;
+  }
+
+  function updateVisibleNodesFromDOM() {
+    const newVisibleNodes = new Set<string>();
+
+    // Get all nodes that are actually rendered and visible in the DOM
+    nodeGroup.selectAll(".node").each(function (d: any) {
+      const element = d3.select(this);
+      const opacity = parseFloat(element.style("opacity")) || 1;
+
+      // Only include nodes that are visible (opacity > 0)
+      if (opacity > 0) {
+        newVisibleNodes.add(d.data.id);
+      }
+    });
+
+    visibleNodes = newVisibleNodes;
+  }
+  /**
+   * Wraps text in SVG text elements with intelligent line breaking for technical identifiers
+   * Splits at non-word characters like colons, underscores, dashes, dots, etc.
+   */
+  function wrapText(
+    text: d3.Selection<SVGTextElement, any, any, any>,
+    width: number,
+    maxLines: number = 3,
+    lineHeight: number = 1.1
+  ) {
+    text.each(function (d: any) {
+      const textElement = d3.select(this);
+      const originalText = textElement.text();
+
+      // Clear existing text
+      textElement.text(null);
+
+      // Split on non-word characters but keep the delimiters
+      // This regex splits on common technical separators: : _ - . / @ # $ % & + = ~ |
+      const parts = originalText
+        .split(/([:\-_./\\@#$%&+=~|])/)
+        .filter((part) => part.length > 0);
+
+      let currentLine = "";
+      let lineNumber = 0;
+      const dy = parseFloat(textElement.attr("dy")) || 0;
+      const y = textElement.attr("y") || 0;
+      const x = textElement.attr("x") || 0;
+
+      // Create first tspan
+      let tspan = textElement
+        .append("tspan")
+        .attr("x", x)
+        .attr("y", y)
+        .attr("dy", dy + "em");
+
+      for (let i = 0; i < parts.length && lineNumber < maxLines; i++) {
+        const part = parts[i];
+        const testLine = currentLine + part;
+
+        // Set test text to measure width
+        tspan.text(testLine);
+
+        // Check if line exceeds width
+        if (
+          tspan.node()!.getComputedTextLength() > width &&
+          currentLine.length > 0
+        ) {
+          // Current line is too long, start a new line
+          if (lineNumber < maxLines - 1) {
+            // Finalize current line
+            tspan.text(currentLine);
+
+            // Start new line
+            lineNumber++;
+            currentLine = part;
+            tspan = textElement
+              .append("tspan")
+              .attr("x", x)
+              .attr("dy", lineHeight + "em")
+              .text(currentLine);
+          } else {
+            // Last line - add ellipsis if needed
+            const availableText = currentLine;
+            if (availableText.length > 3) {
+              tspan.text(availableText.slice(0, -3) + "...");
+            } else {
+              tspan.text(availableText + "...");
+            }
+            break;
+          }
+        } else {
+          // Line fits, continue building it
+          currentLine = testLine;
+        }
+      }
+
+      // Handle case where we've processed all parts but need ellipsis
+      if (lineNumber >= maxLines - 1 && parts.length > 0) {
+        const finalText = tspan.text();
+        // Only add ellipsis if there was more content that couldn't fit
+        if (currentLine !== originalText && finalText.length > 3) {
+          tspan.text(finalText.slice(0, -3) + "...");
+        }
+      }
+    });
+  }
+
+  /**
+   * Enhanced node label creation with intelligent sizing and wrapping
+   */
+  function createNodeLabel(
+    element: d3.Selection<SVGGElement, any, any, any>,
+    d: any
+  ) {
+    // Determine appropriate width based on node depth and type
+    let maxWidth: number = 140;
+    let maxLines: number = 4;
+
+    // Create the text element
+    const textElement = element
+      .append("text")
+      .attr("class", "node-text")
+      .attr("dy", "0.35em")
+      .attr("y", node_width / 2 + 15)
+      .style("text-anchor", "middle")
+      .style("fill", "#333")
+      .style("font-weight", d.data.depth === 0 ? "bold" : "normal")
+      .style("font-size", () => {
+        if (d.depth === 0) return "14px";
+        if (d.depth === 1) return "12px";
+        return "10px";
+      })
+      .text(d.data.id); // Set initial text
+
+    // Apply wrapping
+    wrapText(textElement, maxWidth, maxLines);
+
+    return textElement;
   }
 
   function renderVisualization() {
@@ -226,7 +369,7 @@
 
       // Calculate the dynamic height based on the number of nodes
       const dynamicHeight = Math.max(height, maxNodesAtAnyLevel * 50);
-      
+
       const treeLayout = d3
         .tree()
         .nodeSize([node_width + 50, node_width + 150]);
@@ -246,7 +389,7 @@
       // Translate positions to center the visualization
       const centerY = height / 2;
       const rootX = 0;
-      
+
       treeData.each((d) => {
         // Swap x and y for horizontal layout
         const tempX = d.x;
@@ -280,52 +423,75 @@
     // Combine links from both trees
     const allLinks = [...rightTree.links(), ...leftTree.links()];
 
+    // Helper function to create unique position key including direction
+    function getPositionKey(
+      nodeId: string,
+      direction: string,
+      depth: number
+    ): string {
+      return `${nodeId}-${direction}-${depth}`;
+    }
+
     // Helper function to check if two nodes are directly connected
     function isDirectlyConnected(nodeId1: string, nodeId2: string): boolean {
       // Check if node1 is a direct parent/child of node2 in the original data
       const node1Data = findOriginalData(nodeId1);
       const node2Data = findOriginalData(nodeId2);
-      
+
       if (!node1Data || !node2Data) return false;
-      
+
       // Check if node1 is a direct child of node2
-      const node1IsChildOfNode2 = node2Data.children?.some(child => child.id === nodeId1) || false;
-      
-      // Check if node1 is a direct parent of node2  
-      const node1IsParentOfNode2 = node1Data.children?.some(child => child.id === nodeId2) || false;
-      
+      const node1IsChildOfNode2 =
+        node2Data.children?.some((child) => child.id === nodeId1) || false;
+
+      // Check if node1 is a direct parent of node2
+      const node1IsParentOfNode2 =
+        node1Data.children?.some((child) => child.id === nodeId2) || false;
+
       // Check parent relationships too
-      const node1IsParentOfNode2Alt = node2Data.parents?.some(parent => parent.id === nodeId1) || false;
-      const node2IsParentOfNode1 = node1Data.parents?.some(parent => parent.id === nodeId2) || false;
-      
-      return node1IsChildOfNode2 || node1IsParentOfNode2 || node1IsParentOfNode2Alt || node2IsParentOfNode1;
+      const node1IsParentOfNode2Alt =
+        node2Data.parents?.some((parent) => parent.id === nodeId1) || false;
+      const node2IsParentOfNode1 =
+        node1Data.parents?.some((parent) => parent.id === nodeId2) || false;
+
+      return (
+        node1IsChildOfNode2 ||
+        node1IsParentOfNode2 ||
+        node1IsParentOfNode2Alt ||
+        node2IsParentOfNode1
+      );
     }
 
     // Store positions for smooth transitions - only update positions for affected nodes
-    allNodes.forEach(d => {
+    allNodes.forEach((d) => {
       const nodeId = d.data.id;
-      
-      if (!nodePositions.has(nodeId)) {
-        // New node - store its calculated position
-        nodePositions.set(nodeId, { x: d.x, y: d.y });
+      const direction = d.data.direction;
+      const positionKey = getPositionKey(nodeId, direction, d.data.depth);
+
+      if (!nodePositions.has(positionKey)) {
+        // New node - store its calculated position with direction-specific key
+        nodePositions.set(positionKey, { x: d.x, y: d.y });
       } else {
         // Existing node - maintain stable position unless it's near the expansion
-        const stored = nodePositions.get(nodeId)!;
-        
+        const stored = nodePositions.get(positionKey)!;
+
         // Simple rule: only allow position changes for nodes that are:
-        // 1. The root node (always stable)
+        // 1. The root node (always stable, but still direction-specific)
         // 2. Direct children/parents of the toggled node
         // 3. New nodes being added
-        
+
         if (nodeId === relationShipTree.id) {
-          // Root node - always keep stable
+          // Root node - always keep stable (but direction matters for left vs right)
           d.x = stored.x;
           d.y = stored.y;
-        } else if (lastExpandedNode && isDirectlyConnected(nodeId, lastExpandedNode)) {
+        } else if (
+          lastExpandedNode &&
+          isDirectlyConnected(nodeId, lastExpandedNode)
+        ) {
           // Node is directly connected to the one being expanded - allow movement
           d.x0 = stored.x;
           d.y0 = stored.y;
-          nodePositions.set(nodeId, { x: d.x, y: d.y });
+          nodePositions.set(positionKey, { x: d.x, y: d.y });
         } else {
           // All other nodes - keep stable position
           d.x = stored.x;
@@ -337,10 +503,15 @@
     // UPDATE PATTERN FOR LINKS - No more clearing!
     const linkSelection = linkGroup
       .selectAll(".link-group")
-      .data(allLinks, (d: any) => `${d.source.data.id}-${d.target.data.id}`);
+      .data(
+        allLinks,
+        (d: any) =>
+          `${d.source.data.id}-${d.source.data.direction}-${d.target.data.id}-${d.target.data.direction}`
+      );
 
     // Remove old links with transition
-    linkSelection.exit()
+    linkSelection
+      .exit()
       .transition()
       .duration(500)
       .style("opacity", 0)
@@ -365,7 +536,8 @@
     const linkUpdate = linkEnter.merge(linkSelection);
 
     // Start links from their previous positions for smooth transitions
-    linkUpdate.select("path")
+    linkUpdate
+      .select("path")
       .transition()
       .duration(500)
       .ease(d3.easeQuadInOut)
@@ -382,25 +554,25 @@
       });
 
     // Fade in new and updated links
-    linkUpdate
-      .transition()
-      .duration(300)
-      .style("opacity", 1);
+    linkUpdate.transition().duration(300).style("opacity", 1);
 
     // UPDATE PATTERN FOR NODES - No more clearing!
     const nodeSelection = nodeGroup
       .selectAll(".node")
-      .data(allNodes, (d: any) => d.data.id);
+      .data(allNodes, (d: any) => `${d.data.id}-${d.data.direction}-${d.data.depth}`); // Include direction in key
 
     // Remove old nodes with transition
-    nodeSelection.exit()
+    nodeSelection
+      .exit()
       .transition()
       .duration(500)
       .style("opacity", 0)
       .attr("transform", (d) => {
         // Exit nodes towards their parent's position
         const parent = d.parent;
-        const parentPos = parent ? nodePositions.get(parent.data.id) : { x: d.x, y: d.y };
+        const parentPos = parent
+          ? nodePositions.get(parent.data.id)
+          : { x: d.x, y: d.y };
         return `translate(${parentPos?.x || d.x},${parentPos?.y || d.y})`;
       })
       .remove();
@@ -412,7 +584,9 @@
       .attr("class", "node")
       .attr("transform", (d) => {
         // Start new nodes at their parent's position for smooth entrance
-        const parentPos = d.parent ? nodePositions.get(d.parent.data.id) : { x: d.x, y: d.y };
+        const parentPos = d.parent
+          ? nodePositions.get(d.parent.data.id)
+          : { x: d.x, y: d.y };
         return `translate(${parentPos?.x || d.x},${parentPos?.y || d.y})`;
       })
       .style("opacity", 0)
@@ -473,45 +647,40 @@
           .attr("width", node_width);
       }
 
-      // Add text labels
-      element
-        .append("text")
-        .attr("class", "node-text")
-        .attr("dy", ".35em")
-        .attr("y", node_width / 2 + 15)
-        .style("text-anchor", "middle")
-        .text(d.data.id)
-        .style("fill", "#333")
-        .style("font-weight", d.data.depth === 0 ? "bold" : "normal")
-        .style("font-size", () => {
-          if (d.depth === 0) return "14px";
-          if (d.depth === 1) return "12px";
-          return "10px";
-        });
+      // Add text labels with intelligent wrapping
+      createNodeLabel(element, d);
 
       // Add expand/collapse buttons for nodes that need them
       const hasHiddenChildren = d.data._children && d.data._children.length > 0;
       const hasVisibleChildren = d.data.children && d.data.children.length > 0;
       const originalData = findOriginalData(d.data.id);
-      const hasMultipleRelations = originalData && 
-        ((d.data.direction === "right" && (originalData.children?.length || 0) > 1) || 
-         (d.data.direction === "left" && (originalData.parents?.length || 0) > 1));
+      const hasMultipleRelations =
+        originalData &&
+        ((d.data.direction === "right" &&
+          (originalData.children?.length || 0) > 1) ||
+          (d.data.direction === "left" &&
+            (originalData.parents?.length || 0) > 1));
 
       // Debug logging
-      if (d.data.id === relationShipTree.id) { // Only log for root to avoid spam
+      if (d.data.id === relationShipTree.id) {
+        // Only log for root to avoid spam
         console.log("Root node button state:", {
           hasHiddenChildren,
-          hasVisibleChildren, 
+          hasVisibleChildren,
           hasMultipleRelations,
           isExpanded: isNodeExpanded(d.data.id),
           originalChildrenCount: originalData?.children?.length || 0,
-          originalParentsCount: originalData?.parents?.length || 0
+          originalParentsCount: originalData?.parents?.length || 0,
         });
       }
 
-      if (hasHiddenChildren || (hasVisibleChildren && hasMultipleRelations) || hasMultipleRelations) {
+      if (
+        hasHiddenChildren ||
+        (hasVisibleChildren && hasMultipleRelations) ||
+        hasMultipleRelations
+      ) {
         const buttonGroup = element.append("g").attr("class", "button-group");
-        
+
         const buttonCircle = buttonGroup
           .append("circle")
           .attr("class", "button-circle")
@@ -530,7 +699,7 @@
           .attr("y", -node_width / 3)
           .attr("dy", ".35em")
           .style("text-anchor", "middle")
-          .style("fill", "black")
+          .style("fill", "white")
           .style("font-size", "18px")
           .style("font-weight", "bold")
           .style("opacity", 0)
@@ -538,29 +707,30 @@
           .style("pointer-events", "none"); // But let clicks pass through to circle
 
         // Add click handler specifically to the button
-        buttonGroup
-          .on("click", function(event, buttonData) {
-            // Stop event from bubbling to the node
-            event.stopPropagation();
-            
-            // Handle expand/collapse logic
-            const hasHiddenChildren = buttonData.data._children && buttonData.data._children.length > 0;
-            const hasVisibleChildren = buttonData.data.children && buttonData.data.children.length > 0;
-            
-            if (hasHiddenChildren || hasVisibleChildren) {
-              toggleNode(buttonData.data.id);
-            }
-          });
+        buttonGroup.on("click", function (event, buttonData) {
+          // Stop event from bubbling to the node
+          event.stopPropagation();
+
+          // Handle expand/collapse logic
+          const hasHiddenChildren =
+            buttonData.data._children && buttonData.data._children.length > 0;
+          const hasVisibleChildren =
+            buttonData.data.children && buttonData.data.children.length > 0;
+
+          if (hasHiddenChildren || hasVisibleChildren) {
+            toggleNode(buttonData.data.id);
+          }
+        });
 
         // Add hover effects
         element
-          .on("mouseenter", function() {
+          .on("mouseenter", function () {
             const isExplicitlyExpanded = isNodeExpanded(d.data.id);
-            let buttonText;
-            
+            let buttonColor, buttonText;
+
             // Show collapse button if:
             // 1. Node has visible children AND
-            // 2. Node has multiple relations (meaning it can be collapsed) AND  
+            // 2. Node has multiple relations (meaning it can be collapsed) AND
             // 3. Node is explicitly expanded (user expanded it manually)
             if (hasVisibleChildren && hasMultipleRelations && isExplicitlyExpanded) {
               buttonText = "<";
@@ -578,11 +748,11 @@
             
             buttonCircle.style("fill", "#FFFF");
             buttonTextElement.text(buttonText);
-            
+
             buttonCircle.transition().duration(200).style("opacity", 1);
             buttonTextElement.transition().duration(200).style("opacity", 1);
           })
-          .on("mouseleave", function() {
+          .on("mouseleave", function () {
             buttonCircle.transition().duration(200).style("opacity", 0);
             buttonTextElement.transition().duration(200).style("opacity", 0);
           });
@@ -593,28 +763,33 @@
     const nodeUpdate = nodeEnter.merge(nodeSelection);
 
     // Update button states for all nodes (both new and existing)
-    nodeUpdate.each(function(d) {
+    nodeUpdate.each(function (d) {
       const element = d3.select(this);
       const buttonGroup = element.select(".button-group");
-      
+
       if (!buttonGroup.empty()) {
         // Re-evaluate button state for existing buttons
-        const hasHiddenChildren = d.data._children && d.data._children.length > 0;
-        const hasVisibleChildren = d.data.children && d.data.children.length > 0;
+        const hasHiddenChildren =
+          d.data._children && d.data._children.length > 0;
+        const hasVisibleChildren =
+          d.data.children && d.data.children.length > 0;
         const originalData = findOriginalData(d.data.id);
-        const hasMultipleRelations = originalData && 
-          ((d.data.direction === "right" && (originalData.children?.length || 0) > 1) || 
-           (d.data.direction === "left" && (originalData.parents?.length || 0) > 1));
+        const hasMultipleRelations =
+          originalData &&
+          ((d.data.direction === "right" &&
+            (originalData.children?.length || 0) > 1) ||
+            (d.data.direction === "left" &&
+              (originalData.parents?.length || 0) > 1));
 
         // Update the hover behavior with current state
         element
-          .on("mouseenter", function() {
+          .on("mouseenter", function () {
             const isExplicitlyExpanded = isNodeExpanded(d.data.id);
             let buttonColor, buttonText;
-            
+
             // Show collapse button if:
             // 1. Node has visible children AND
-            // 2. Node has multiple relations (meaning it can be collapsed) AND  
+            // 2. Node has multiple relations (meaning it can be collapsed) AND
             // 3. Node is explicitly expanded (user expanded it manually)
             if (hasVisibleChildren && hasMultipleRelations && isExplicitlyExpanded) {
               buttonText = "<";
@@ -629,20 +804,20 @@
             else {
               buttonText = ">";
             }
-            
+
             const buttonCircle = buttonGroup.select(".button-circle");
             const buttonTextElement = buttonGroup.select(".button-text");
             
             buttonCircle.style("fill", "#FFFF");
             buttonTextElement.text(buttonText);
-            
+
             buttonCircle.transition().duration(200).style("opacity", 1);
             buttonTextElement.transition().duration(200).style("opacity", 1);
           })
-          .on("mouseleave", function() {
+          .on("mouseleave", function () {
             const buttonCircle = buttonGroup.select(".button-circle");
             const buttonTextElement = buttonGroup.select(".button-text");
-            
+
             buttonCircle.transition().duration(200).style("opacity", 0);
             buttonTextElement.transition().duration(200).style("opacity", 0);
           });
@@ -650,19 +825,20 @@
         // Also update existing button click handlers
         const existingButtonGroup = buttonGroup.select(".button-group");
         if (!existingButtonGroup.empty()) {
-          existingButtonGroup
-            .on("click", function(event, buttonData) {
-              // Stop event from bubbling to the node
-              event.stopPropagation();
-              
-              // Handle expand/collapse logic
-              const hasHiddenChildren = buttonData.data._children && buttonData.data._children.length > 0;
-              const hasVisibleChildren = buttonData.data.children && buttonData.data.children.length > 0;
-              
-              if (hasHiddenChildren || hasVisibleChildren) {
-                toggleNode(buttonData.data.id);
-              }
-            });
+          existingButtonGroup.on("click", function (event, buttonData) {
+            // Stop event from bubbling to the node
+            event.stopPropagation();
+
+            // Handle expand/collapse logic
+            const hasHiddenChildren =
+              buttonData.data._children && buttonData.data._children.length > 0;
+            const hasVisibleChildren =
+              buttonData.data.children && buttonData.data.children.length > 0;
+
+            if (hasHiddenChildren || hasVisibleChildren) {
+              toggleNode(buttonData.data.id);
+            }
+          });
         }
       }
     });
@@ -676,7 +852,8 @@
       .style("opacity", 1);
 
     // Update link positions smoothly
-    linkUpdate.select("path")
+    linkUpdate
+      .select("path")
       .transition()
       .duration(500)
       .ease(d3.easeQuadInOut)
@@ -693,23 +870,25 @@
       });
 
     // Fade in new and updated links
-    linkUpdate
-      .transition()
-      .duration(500)
-      .style("opacity", 1);
+    linkUpdate.transition().duration(500).style("opacity", 1);
 
     // Function to highlight connections
-    function highlightConnections(selectedNode: d3.HierarchyPointNode<unknown>) {
+    function highlightConnections(
+      selectedNode: d3.HierarchyPointNode<unknown>
+    ) {
       // Reset all nodes and links
-      nodeGroup.selectAll(".node")
+      nodeGroup
+        .selectAll(".node")
         .classed("highlighted", false)
         .classed("faded", false);
-      linkGroup.selectAll(".link")
+      linkGroup
+        .selectAll(".link")
         .classed("highlighted", false)
         .classed("faded", true);
 
       // Highlight the selected node
-      nodeGroup.selectAll(".node")
+      nodeGroup
+        .selectAll(".node")
         .filter((d) => d.data.id === selectedNode.data.id)
         .classed("highlighted", true)
         .classed("faded", false);
@@ -723,7 +902,8 @@
           d3.select(this).classed("highlighted", true).classed("faded", false);
 
           // Highlight connected nodes
-          nodeGroup.selectAll(".node")
+          nodeGroup
+            .selectAll(".node")
             .filter(
               (node) =>
                 node.data.id === d.source.data.id ||
@@ -746,13 +926,23 @@
         { type: "queue", color: "#8da0cb", shape: "rect", label: "Queue" },
         { type: "bot", color: "#66c2a5", shape: "circle", label: "Bot" },
         { type: "system", color: "#fc8d62", shape: "circle", label: "System" },
-        { type: "expand", color: "#4CAF50", shape: "circle", label: "Click to Expand" },
-        { type: "collapse", color: "#f44336", shape: "circle", label: "Click to Collapse" },
+        {
+          type: "expand",
+          color: "#4CAF50",
+          shape: "circle",
+          label: "Click to Expand",
+        },
+        {
+          type: "collapse",
+          color: "#f44336",
+          shape: "circle",
+          label: "Click to Collapse",
+        },
       ];
 
       legendItems.forEach((item, i) => {
         const yPos = i * 25;
-        
+
         if (item.shape === "rect") {
           legend
             .append("rect")
@@ -778,6 +968,22 @@
           .style("font-size", "12px");
       });
     }
+
+    setTimeout(() => {
+      updateVisibleNodesFromDOM()
+    }, 600);
+  }
+
+  function getVisibleNodeIds(): string[] {
+    return Array.from(visibleNodes);
+  }
+
+  function getVisibleNodeCount(): number {
+    return visibleNodes.size;
+  }
+
+  function isNodeVisible(nodeId: string): boolean {
+    return visibleNodes.has(nodeId);
   }
 
   function resetView() {
@@ -787,10 +993,12 @@
       .call(zoomHandler.transform, d3.zoomIdentity);
 
     // Reset highlighting
-    nodeGroup.selectAll(".node")
+    nodeGroup
+      .selectAll(".node")
       .classed("highlighted", false)
       .classed("faded", false);
-    linkGroup.selectAll(".link")
+    linkGroup
+      .selectAll(".link")
       .classed("highlighted", false)
       .classed("faded", false);
 
@@ -813,7 +1021,7 @@
       tree.children?.forEach(addAllNodes);
       tree.parents?.forEach(addAllNodes);
     }
-    
+
     addAllNodes(relationShipTree);
     expandedNodes = new Set(expandedNodes);
     renderVisualization();
@@ -826,6 +1034,7 @@
     <button onclick={resetView}>Reset View</button>
     <button onclick={expandAll}>Expand All</button>
     <button onclick={collapseAll}>Collapse All</button>
+    <button>Visible Nodes ({nodeCount})</button>
   </div>
   <div id="tree-container"></div>
   <div class="info-panel">
@@ -866,7 +1075,9 @@
   }
 
   .node {
-    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    transition:
+      opacity 0.3s ease-in-out,
+      transform 0.3s ease-in-out;
   }
 
   .link-group {
