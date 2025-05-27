@@ -628,10 +628,18 @@
           .attr("height", node_width)
           .attr("width", node_width);
       } else if (d.data.type === "bot") {
+
+        let botImg;
+        if (d.data.paused) {
+          botImg = "/bot-paused.png"
+        } else {
+          botImg = "/bot.png"
+        }
+
         element
           .append("image")
           .attr("class", "node-image")
-          .attr("xlink:href", "/bot.png")
+          .attr("xlink:href", botImg)
           .attr("x", -node_width / 2)
           .attr("y", -node_width / 2)
           .attr("height", node_width)
@@ -685,7 +693,7 @@
           .append("circle")
           .attr("class", "button-circle")
           .attr("cx", node_width / 3)
-          .attr("cy", -node_width / 3)
+          .attr("cy", node_width / 3)
           .attr("r", 10)
           .style("stroke", "#333")
           .style("stroke-width", 1)
@@ -696,10 +704,10 @@
           .append("text")
           .attr("class", "button-text")
           .attr("x", node_width / 3)
-          .attr("y", -node_width / 3)
+          .attr("y", node_width / 3)
           .attr("dy", ".35em")
           .style("text-anchor", "middle")
-          .style("fill", "white")
+          .style("fill", "black")
           .style("font-size", "18px")
           .style("font-weight", "bold")
           .style("opacity", 0)

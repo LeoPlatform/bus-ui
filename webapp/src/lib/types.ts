@@ -21,6 +21,7 @@ export type Route = {
 
 export interface BotSettings {
   id: string;
+  archived?: boolean;
   checkpoints?: Checkpoints;
   description?: string;
   errorCount?: number;
@@ -41,9 +42,11 @@ export interface BotHealth {
   error_limit?: number;
 }
 
-export interface Checkpoints {
-  read?: Record<string, CheckpointDetail>;
-  write?: Record<string, CheckpointDetail>;
+export type CheckpointRecord = Record<string, CheckpointDetail>;
+export type CheckpointType = "read" | "write";
+
+export type Checkpoints = {
+  [key in CheckpointType]?: CheckpointRecord;
 }
 
 export interface CheckpointDetail {
@@ -53,6 +56,10 @@ export interface CheckpointDetail {
 
 export interface RelationshipTree {
   id: string;
+  name?: string;
+  paused?: boolean;
+  alarmed?: boolean;
+  rogue?: boolean;
   children: RelationshipTree[];
   parents: RelationshipTree[];
 }
