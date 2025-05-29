@@ -24,6 +24,9 @@
   let visibleNodes = $state(new Set<string>()); // Track which nodes are visible in the viewport so we can send this to the api
   let nodeCount = $derived(getVisibleNodeCount());
 
+  // Mock data for link information - replace with actual API calls
+  let linkStats = new Map<string, { eventCount: number; lastWrite: number }>();
+
   onMount(() => {
     console.log("component mounted");
     const treeData = relationShipTree;
@@ -32,8 +35,53 @@
       return;
     }
 
+    // Initialize mock link stats - replace with actual API call
+    initializeLinkStats();
     initializeVisualization();
   });
+
+  // Function to initialize link statistics
+  // TODO: Replace this with actual API call to get stats data
+  function initializeLinkStats() {
+    // Mock data - replace with actual stats API call
+    linkStats.set("parent-child-key", { 
+      eventCount: 1247, 
+      lastWrite: Date.now() - 3600000 // 1 hour ago
+    });
+    linkStats.set("another-key", { 
+      eventCount: 89, 
+      lastWrite: Date.now() - 120000 // 2 minutes ago
+    });
+  }
+
+  // Function to get link statistics for a parent-child relationship
+  //TODO: we will want this to grab stats data from the api for any visibile nodes.
+  // TODO: we will also only want this to grab stats for freshly rendered nodes (don't refresh data we don't have to)
+  // TODO: we will also want to fresh stats pull for all visible nodes every 30 seconds or so.
+  function getLinkStats(parentId: string, childId: string) {
+    // TODO: Replace this with actual lookup logic based on your data structure
+    const key = `${parentId}-${childId}`;
+    return linkStats.get(key) || { eventCount: 0, lastWrite: Date.now() };
+  }
+
+  // Function to format time ago
+  function formatTimeAgo(timestamp: number): string {
+    const now = Date.now();
+    const diff = now - timestamp;
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+
+    return parts.join(', ') + ' ago';
+  }
 
   function initializeVisualization() {
     // Clear any existing SVG
@@ -137,9 +185,11 @@
 
     const node: TreeNode = {
       id: data.id,
-      name: data.name || "",
+      name: data.name,
       type: dataType,
-      size: data.size || 100,
+      paused: data.paused,
+      alarmed: data.alarmed,
+      rogue: data.rogue,
       parent: parent,
       depth: depth,
       direction: direction,
@@ -206,6 +256,7 @@
 
     visibleNodes = newVisibleNodes;
   }
+
   /**
    * Wraps text in SVG text elements with intelligent line breaking for technical identifiers
    * Splits at non-word characters like colons, underscores, dashes, dots, etc.
@@ -319,7 +370,7 @@
         if (d.depth === 1) return "12px";
         return "10px";
       })
-      .text(d.data.id); // Set initial text
+      .text(d.data.name || d.data.id); // Set initial text
 
     // Apply wrapping
     wrapText(textElement, maxWidth, maxLines);
@@ -532,6 +583,25 @@
       .style("stroke-width", "2px")
       .style("fill", "none");
 
+    // Add text above the link (event count)
+    linkEnter
+      .append("text")
+      .attr("class", "link-text-above")
+      .style("text-anchor", "middle")
+      .style("font-size", "11px")
+      .style("font-weight", "bold")
+      .style("fill", "#333")
+      .style("pointer-events", "none"); // Prevent text from interfering with interactions
+
+    // Add text below the link (time ago)
+    linkEnter
+      .append("text")
+      .attr("class", "link-text-below")
+      .style("text-anchor", "middle")
+      .style("font-size", "10px")
+      .style("fill", "#666")
+      .style("pointer-events", "none"); // Prevent text from interfering with interactions
+
     // Merge and update all links
     const linkUpdate = linkEnter.merge(linkSelection);
 
@@ -551,6 +621,29 @@
                 C${(sourceX + targetX) / 2},${sourceY}
                  ${(sourceX + targetX) / 2},${targetY}
                  ${targetX},${targetY}`;
+      });
+
+    // Update link text positions and content
+    linkUpdate
+      .select(".link-text-above")
+      .transition()
+      .duration(500)
+      .attr("x", (d) => (d.source.x + d.target.x) / 2)
+      .attr("y", (d) => (d.source.y + d.target.y) / 2 - 8)
+      .text((d) => {
+        const stats = getLinkStats(d.source.data.id, d.target.data.id);
+        return stats.eventCount.toLocaleString();
+      });
+
+    linkUpdate
+      .select(".link-text-below")
+      .transition()
+      .duration(500)
+      .attr("x", (d) => (d.source.x + d.target.x) / 2)
+      .attr("y", (d) => (d.source.y + d.target.y) / 2 + 15)
+      .text((d) => {
+        const stats = getLinkStats(d.source.data.id, d.target.data.id);
+        return formatTimeAgo(stats.lastWrite);
       });
 
     // Fade in new and updated links
@@ -1090,6 +1183,17 @@
 
   .link-group {
     transition: opacity 0.3s ease-in-out;
+  }
+
+  /* Link text styling */
+  .link-text-above {
+    font-weight: bold;
+    fill: #333;
+  }
+
+  .link-text-below {
+    fill: #666;
+    font-style: italic;
   }
 
   /* Highlighting styles */

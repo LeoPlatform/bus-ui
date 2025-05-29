@@ -68,7 +68,9 @@ export interface TreeNode {
   id: string;
   name?: string;
   type: "bot" | "queue" | "system";
-  size: number;
+  paused?: boolean;
+  alarmed?: boolean;
+  rogue?: boolean;
   parent?: TreeNode;
   depth: number;
   direction: "left" | "right";

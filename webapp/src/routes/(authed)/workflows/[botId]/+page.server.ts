@@ -35,7 +35,7 @@ function buildRelationShipTree(botSettings: BotSettings[], startingNodeId: strin
 
     // Initialize all nodes
     botSettings.forEach((bot) => {
-        if(!flatTree[bot.id] && !bot.archived) {
+        if(!bot.archived && !flatTree[bot.id]) {
             flatTree[bot.id] = {
                 id: bot.id,
                 name: bot.name,
@@ -53,10 +53,10 @@ function buildRelationShipTree(botSettings: BotSettings[], startingNodeId: strin
                 Object.keys(bot.checkpoints[type as CheckpointType]).forEach((queueId) => {
                     if (!flatTree[queueId] || (queueId.match(/\/_archive$/g) || queueId.match(/\/_snapshot$/g))) {
                     flatTree[queueId] = {
-                        id: queueId,
-                        children: [],
-                        parents: [],
-                    };
+                            id: queueId,
+                            children: [],
+                            parents: [],
+                        };
                     }
                 });
             })
@@ -65,6 +65,7 @@ function buildRelationShipTree(botSettings: BotSettings[], startingNodeId: strin
 
     // Establish the direct relationships in the flat tree
     botSettings.forEach((bot) => {
+        if (bot.archived) return;
         // Bot reads from queue -> queue is parent of bot
         if(bot.checkpoints?.read) {
             Object.keys(bot.checkpoints.read).forEach((queueId) => {

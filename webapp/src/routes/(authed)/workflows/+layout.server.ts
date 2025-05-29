@@ -3,7 +3,6 @@ import { error } from '@sveltejs/kit';
 export async function load({parent, params}) {
     console.log('getting ready to load the workflows');
     const {botData} = await parent();
-    console.log(params);
 
 
     if (!botData || botData.length == 0) {
