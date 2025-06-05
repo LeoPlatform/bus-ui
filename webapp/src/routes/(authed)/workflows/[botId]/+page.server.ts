@@ -40,6 +40,7 @@ function buildRelationShipTree(botSettings: BotSettings[], startingNodeId: strin
                 id: bot.id,
                 name: bot.name,
                 paused: bot.paused,
+                rogue: bot.errorCount ? bot.errorCount > 10 : false,
                 children: [],
                 parents: []
             };

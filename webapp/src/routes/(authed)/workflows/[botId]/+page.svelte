@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import * as d3 from "d3";
-  import type { RelationshipTree, TreeNode } from "$lib/types.js";
+  import type { MergedStatsRecord, RelationshipTree, StatsQueryResponse, TreeNode } from "$lib/types.js";
   import { error } from "@sveltejs/kit";
 
   const { data } = $props();
@@ -23,9 +23,61 @@
   let lastExpandedNode: string | null = null; // Track which node was last expanded
   let visibleNodes = $state(new Set<string>()); // Track which nodes are visible in the viewport so we can send this to the api
   let nodeCount = $derived(getVisibleNodeCount());
+  let stats: MergedStatsRecord[] = $state([]);
+  let linkStats: Map<string, { eventCount: number; lastWrite: number }> = $state(new Map());
 
-  // Mock data for link information - replace with actual API calls
-  let linkStats = new Map<string, { eventCount: number; lastWrite: number }>();
+  // Use $effect to handle the async stats fetching
+  $effect(() => {
+    const currentNodeCount = nodeCount;
+    async function fetchStats() {
+      if (currentNodeCount === 0) {
+        stats = [];
+        return;
+      }
+
+      try {
+        // statsLoading = true;
+        // statsError = null;
+        const visibleNodeIds = getVisibleNodeIds();
+        const newStats = await getStatsData(visibleNodeIds);
+        stats = newStats;
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+        // statsError = error instanceof Error ? error.message : 'Failed to fetch stats';
+        stats = [];
+      } finally {
+        // statsLoading = false;
+        console.log('done loading stats:', stats.length);
+        initializeLinkStats();
+      }
+    }
+
+    fetchStats();
+  });
+
+
+  async function getStatsData(visibleNodeIds: string[]) {
+    let response = await fetch('/api/workflow/stats', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        range: 'minute_15', //TODO: this will change based on the time range selected in the UI
+        count: 1, //TODO: this will need to be inferred from the range
+        timestamp: Date.now(),
+        node_ids: visibleNodeIds
+      }),
+    });
+
+    if (response.ok) {
+      let data: StatsQueryResponse = await response.json();
+      return data.stats;
+    } else {
+      error(500, 'Failed to fetch stats');
+    }
+  }
+ 
 
   onMount(() => {
     console.log("component mounted");
@@ -36,22 +88,31 @@
     }
 
     // Initialize mock link stats - replace with actual API call
-    initializeLinkStats();
     initializeVisualization();
   });
 
   // Function to initialize link statistics
   // TODO: Replace this with actual API call to get stats data
   function initializeLinkStats() {
-    // Mock data - replace with actual stats API call
-    linkStats.set("parent-child-key", { 
-      eventCount: 1247, 
-      lastWrite: Date.now() - 3600000 // 1 hour ago
-    });
-    linkStats.set("another-key", { 
-      eventCount: 89, 
-      lastWrite: Date.now() - 120000 // 2 minutes ago
-    });
+    if (stats.length === 0) {
+      return
+    }
+
+    stats.forEach((stat) => {
+      let idKey = stat.id;
+      if(stat.read) {
+        Object.entries(stat.read).forEach(([childId, readStat]) => {
+          let key = `${idKey}-${childId}`;
+          linkStats.set(key, { eventCount: readStat.units, lastWrite: new Date(readStat.timestamp).getTime()});
+        });
+      }
+      if(stat.write) {
+        Object.entries(stat.write).forEach(([parentId, writeStat]) => {
+          let key = `${parentId}-${idKey}`;
+          linkStats.set(key, { eventCount: writeStat.units, lastWrite: new Date(writeStat.timestamp).getTime()});
+        });
+      }
+    })
   }
 
   // Function to get link statistics for a parent-child relationship
@@ -59,8 +120,15 @@
   // TODO: we will also only want this to grab stats for freshly rendered nodes (don't refresh data we don't have to)
   // TODO: we will also want to fresh stats pull for all visible nodes every 30 seconds or so.
   function getLinkStats(parentId: string, childId: string) {
+    if(!linkStats) {
+      return { eventCount: 0, lastWrite: Date.now() }
+    }
     // TODO: Replace this with actual lookup logic based on your data structure
     const key = `${parentId}-${childId}`;
+    console.log('getLInkStats key:', key);
+    console.log('linkStats',linkStats);
+    const linkStat = linkStats.get(key);
+    console.log('linkStat', linkStat);
     return linkStats.get(key) || { eventCount: 0, lastWrite: Date.now() };
   }
 
@@ -250,7 +318,11 @@
 
       // Only include nodes that are visible (opacity > 0)
       if (opacity > 0) {
-        newVisibleNodes.add(d.data.id);
+        let id = d.data.id;
+        if (d.data.type == "bot") {
+          id = `bot:${d.data.id}`;
+        }
+        newVisibleNodes.add(id);
       }
     });
 
@@ -623,6 +695,8 @@
                  ${targetX},${targetY}`;
       });
 
+   
+
     // Update link text positions and content
     linkUpdate
       .select(".link-text-above")
@@ -631,7 +705,21 @@
       .attr("x", (d) => (d.source.x + d.target.x) / 2)
       .attr("y", (d) => (d.source.y + d.target.y) / 2 - 8)
       .text((d) => {
-        const stats = getLinkStats(d.source.data.id, d.target.data.id);
+         let linkSourceId;
+          let linkTargetId;
+
+          if (d.source.data.type == "bot") {
+            linkSourceId = `bot:${d.source.data.id}`;
+          } else {
+            linkSourceId = d.source.data.id;
+          }
+
+          if (d.target.data.type == "bot") {
+            linkTargetId = `bot:${d.target.data.id}`;
+          } else {
+            linkTargetId = d.target.data.id;
+          }
+        const stats = getLinkStats(linkSourceId, linkTargetId);
         return stats.eventCount.toLocaleString();
       });
 
@@ -642,7 +730,22 @@
       .attr("x", (d) => (d.source.x + d.target.x) / 2)
       .attr("y", (d) => (d.source.y + d.target.y) / 2 + 15)
       .text((d) => {
-        const stats = getLinkStats(d.source.data.id, d.target.data.id);
+         let linkSourceId;
+          let linkTargetId;
+
+          if (d.source.data.type == "bot") {
+            linkSourceId = `bot:${d.source.data.id}`;
+          } else {
+            linkSourceId = d.source.data.id;
+          }
+
+          if (d.target.data.type == "bot") {
+            linkTargetId = `bot:${d.target.data.id}`;
+          } else {
+            linkTargetId = d.target.data.id;
+          }
+          console.log(linkSourceId);
+        const stats = getLinkStats(linkSourceId, linkTargetId);
         return formatTimeAgo(stats.lastWrite);
       });
 

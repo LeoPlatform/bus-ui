@@ -84,13 +84,20 @@ export interface StatsQueryParams {
    */
   range: StatsRange;
   /**
-   * The number of chunks within the bucker
+   * The number of chunks within the bucket
    */
   count: number;
   /**
    * The URL-encoded timestamp for when the call was made.
    */
   timestamp: string;
+}
+
+export interface StatsQueryRequest {
+  range: StatsRange,
+  count: number,
+  timestamp: number,
+  node_ids: string[],
 }
 
 export enum StatsRange {
@@ -217,3 +224,51 @@ export type StatsResponse = TimeRange & {
     queue: Record<string, Node>;
   };
 };
+
+
+export type MergedStatsRecord = Stats & {
+  id: string,
+}
+
+
+export interface StatsDynamoRecord {
+  id: string,
+  bucket?: string,
+  current?: Stats,
+  period?: StatsRange,
+  previous?: Stats,
+  start_eid?: string,
+  time?: number
+}
+
+// export interface Stats {
+//   execution?: ExecutionStats,
+//   read?: Record<string, ReadWriteStats>,
+//   write?: Record<string, ReadWriteStats>,
+// }
+
+export type StatsRecord = Record<string, ReadWriteStats>;
+
+export type Stats = {
+  [key in CheckpointType]?: StatsRecord;
+} & {execution?: ExecutionStats};
+
+export interface ExecutionStats {
+  completions: number,
+  duration: number,
+  errors: number,
+  max_duration: number,
+  min_duration: number,
+  units: number
+}
+
+export interface ReadWriteStats {
+  checkpoint: string,
+  source_timestamp: number,
+  timestamp: number,
+  units: number,
+}
+
+export interface StatsQueryResponse {
+  stats: MergedStatsRecord[]
+}

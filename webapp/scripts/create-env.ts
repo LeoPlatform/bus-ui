@@ -24,6 +24,7 @@ async function main(): Promise<void> {
         aws_region: "us-east-1",
         environment: 'test',
         leo_cron_table: 'TestBus-LeoCron-OJ8ZNCEBL8GM',
+        leo_stats_table: 'TestBotmon-LeoStats-1X4QJ2RV6XCYA',
         local: true,
         auth_config_source: argv.configLocation,
         auth_secret:'',
