@@ -1,7 +1,5 @@
-import * as Icons from "$lib/components/icons";
-export interface AppState {
-  // TODO
-}
+import * as Icons from "$lib/client/components/icons";
+
 
 export interface AwsCreds {
 	accessKeyId: string;
@@ -33,6 +31,10 @@ export interface BotSettings {
   triggers?: string[];
   type?: string;
   health?: BotHealth;
+}
+
+export interface BotSettingsApiResponse {
+  botData: BotSettings[];
 }
 
 export interface BotHealth {
@@ -271,4 +273,11 @@ export interface ReadWriteStats {
 
 export interface StatsQueryResponse {
   stats: MergedStatsRecord[]
+}
+
+export interface UserData {
+  sub?: string,
+  name?: string,
+  email?: string,
+  image?: string,
 }

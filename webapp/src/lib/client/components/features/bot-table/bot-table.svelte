@@ -10,31 +10,29 @@
     type ColumnFiltersState,
     type VisibilityState,
   } from "@tanstack/table-core";
-  import { createSvelteTable, FlexRender, renderComponent } from "$lib/components/ui/data-table";
+  import { createSvelteTable, FlexRender, renderComponent } from "$lib/client/components/ui/data-table";
 
-  import * as Table from "$lib/components/ui/table";
-  import { Button } from "$lib/components/ui/button";
-  import BotTableHeaderSort from "$lib/components/bot-table-header-sort.svelte";
-  import BotTableNameCell from "$lib/components/bot-table-name-cell.svelte";
-  type TableProps<TData, TValue> = {
-    // columns: ColumnDef<TData, TValue>[];
-    data: TData[];
-    goToWorkflow: (id: string) => void;
-  };
+  import * as Table from "$lib/client/components/ui/table";
+  import { Button } from "$lib/client/components/ui/button";
+  import BotTableHeaderSort from "$lib/client/components/features/bot-table/bot-table-header-sort.svelte";
+  import BotTableNameCell from "$lib/client/components/features/bot-table/bot-table-name-cell.svelte";
 
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
-  import Input from "$lib/components/ui/input/input.svelte";
-  import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
+  import Input from "$lib/client/components/ui/input/input.svelte";
+  import * as DropdownMenu from "$lib/client/components/ui/dropdown-menu";
   import type { BotSettings } from "$lib/types";
+  import { getContext } from "svelte";
+  import type { AppState } from "$lib/client/appstate.svelte";
 
-  let { data, goToWorkflow }: TableProps<TData, TValue> = $props();
+  let appState = getContext<AppState>('appState');
+
+  let data: BotSettings[] = appState.botState.botSettings;
 
   let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 30 });
   let sorting = $state<SortingState>([]);
   let columnFilters = $state<ColumnFiltersState>([]);
-    let columnVisibility = $state<VisibilityState>({});
-
+  let columnVisibility = $state<VisibilityState>({});
 
   const columns: ColumnDef<BotSettings>[] = [
     {
@@ -56,7 +54,6 @@
             return renderComponent(BotTableNameCell, {
                 id: cell.row.original.id,
                 tags: cell.row.original.tags,
-                idLinkClicked: (id: string) => goToWorkflow(id)
             })
         },
         enableHiding: false,

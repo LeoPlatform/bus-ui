@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { AppState, Route } from "$lib/types";
-  import { Separator } from "$lib/components/ui/separator";
-  import * as Tooltip from '$lib/components/ui/tooltip/index';
-  import {Button} from "$lib/components/ui/button";
+  import type { Route } from "$lib/types";
+  import { Separator } from "$lib/client/components/ui/separator";
+  import * as Tooltip from '$lib/client/components/ui/tooltip/index';
+  import {Button} from "$lib/client/components/ui/button";
   import { page } from '$app/state';
 
   const currentRoute = $derived(page.url.pathname ? page.url.pathname : '/');
@@ -12,10 +12,9 @@
         // searches: any; //TODO: make this a type
         // dispatch: any;//TODO: make this a type
         routes: Route[];
-        appState: AppState;
     }
 
-    let {routes, appState} = $props();
+    let {routes} = $props();
 
     let hover = $state()
 

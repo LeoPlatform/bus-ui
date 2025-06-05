@@ -1,4 +1,4 @@
-import { getStats } from "$lib/services/dynamoService";
+import { getStats } from "$lib/server/services/dynamoService";
 import type { StatsQueryRequest } from "$lib/types";
 import { json, type RequestHandler } from "@sveltejs/kit";
 

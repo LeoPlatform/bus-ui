@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as Icons from '$lib/components/icons';
-  	import LeftNav from '$lib/components/left-nav.svelte';
+	import * as Icons from '$lib/client/components/icons';
+  	import LeftNav from '$lib/client/components/left-nav.svelte';
 	import '../app.pcss';
 	
 	//TODO remove this when we actually are ready

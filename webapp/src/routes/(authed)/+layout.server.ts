@@ -1,7 +1,5 @@
 import { redirect } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types.js";
-import { getRelationShips } from "$lib/services/dynamoService.js";
-
 
 export const load: LayoutServerLoad = async({ locals, url }) => {
     const session = await locals.auth();
@@ -12,11 +10,11 @@ export const load: LayoutServerLoad = async({ locals, url }) => {
         throw redirect(303, `/signin?redirectTo=${encodeURIComponent(currentPath)}`)
     }
 
-    const relationship =  await getRelationShips(session.aws_credentials!);
+    // const relationship =  await getRelationShips(session.aws_credentials!);
 
 
     return {
         user: session.user,
-        botData: relationship
+        // botData: relationship
     }
 }

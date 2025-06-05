@@ -5,8 +5,8 @@
     let { session } = $props();
     import { fade } from 'svelte/transition';
 
-    import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
+    import * as Card from '$lib/client/components/ui/card';
+	import { Button } from '$lib/client/components/ui/button';
 	import { page } from '$app/state';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
