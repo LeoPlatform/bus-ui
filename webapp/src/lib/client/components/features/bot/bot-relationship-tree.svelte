@@ -227,19 +227,84 @@
     return search(relationShipTree);
   }
 
-  function toggleNode(nodeId: string) {
-    lastExpandedNode = nodeId; // Track which node is being toggled
-
-    if (expandedNodes.has(nodeId)) {
-      expandedNodes.delete(nodeId);
-      console.log('Collapsed node:', nodeId);
+  function toggleNodeParents(nodeId: string) {
+    lastExpandedNode = nodeId;
+    
+    const isCurrentlyExpanded = expandedNodes.has(`${nodeId}-parents`);
+    const isCurrentlyCollapsed = expandedNodes.has(`${nodeId}-parents-collapsed`);
+    
+    // Clear both states first
+    expandedNodes.delete(`${nodeId}-parents`);
+    expandedNodes.delete(`${nodeId}-parents-collapsed`);
+    
+    if (isCurrentlyExpanded) {
+      // Was expanded, now collapse it
+      expandedNodes.add(`${nodeId}-parents-collapsed`);
+      console.log('Collapsed parents for node:', nodeId);
+    } else if (isCurrentlyCollapsed) {
+      // Was collapsed, now expand it
+      expandedNodes.add(`${nodeId}-parents`);
+      console.log('Expanded parents for node:', nodeId);
     } else {
-      expandedNodes.add(nodeId);
-      console.log('Expanded node:', nodeId);
+      // Default state - determine what to do based on current visibility
+      const originalData = findOriginalData(nodeId);
+      const hasMultipleParents = (originalData?.parents?.length || 0) > 1;
+      
+      if (hasMultipleParents) {
+        // Multiple parents exist but not shown by default, so expand
+        expandedNodes.add(`${nodeId}-parents`);
+        console.log('Expanded parents for node:', nodeId);
+      } else {
+        // Single parent chain shown by default, so collapse
+        expandedNodes.add(`${nodeId}-parents-collapsed`);
+        console.log('Collapsed parents for node:', nodeId);
+      }
     }
-    expandedNodes = new Set(expandedNodes); // Trigger reactivity
+    
+    expandedNodes = new Set(expandedNodes);
+    renderVisualization();
 
-    renderVisualization(); // Re-render the tree
+    setTimeout(() => {
+      updateVisibleNodesFromDOM();
+    }, 600);
+  }
+
+  function toggleNodeChildren(nodeId: string) {
+    lastExpandedNode = nodeId;
+    
+    const isCurrentlyExpanded = expandedNodes.has(`${nodeId}-children`);
+    const isCurrentlyCollapsed = expandedNodes.has(`${nodeId}-children-collapsed`);
+    
+    // Clear both states first
+    expandedNodes.delete(`${nodeId}-children`);
+    expandedNodes.delete(`${nodeId}-children-collapsed`);
+    
+    if (isCurrentlyExpanded) {
+      // Was expanded, now collapse it
+      expandedNodes.add(`${nodeId}-children-collapsed`);
+      console.log('Collapsed children for node:', nodeId);
+    } else if (isCurrentlyCollapsed) {
+      // Was collapsed, now expand it
+      expandedNodes.add(`${nodeId}-children`);
+      console.log('Expanded children for node:', nodeId);
+    } else {
+      // Default state - determine what to do based on current visibility
+      const originalData = findOriginalData(nodeId);
+      const hasMultipleChildren = (originalData?.children?.length || 0) > 1;
+      
+      if (hasMultipleChildren) {
+        // Multiple children exist but not shown by default, so expand
+        expandedNodes.add(`${nodeId}-children`);
+        console.log('Expanded children for node:', nodeId);
+      } else {
+        // Single child chain shown by default, so collapse
+        expandedNodes.add(`${nodeId}-children-collapsed`);
+        console.log('Collapsed children for node:', nodeId);
+      }
+    }
+    
+    expandedNodes = new Set(expandedNodes);
+    renderVisualization();
 
     setTimeout(() => {
       updateVisibleNodesFromDOM();
@@ -275,15 +340,24 @@
       _children: [],
     };
 
-    // Determine if this specific node should show its children
+    // Determine if this specific node should show its children/parents
     const hasMultipleRelations =
       (direction === "right" && (data.children?.length || 0) > 1) ||
       (direction === "left" && (data.parents?.length || 0) > 1);
 
+    // Default expansion logic: show children/parents until we hit a node with multiple relations
+    // OR if the user has explicitly expanded/collapsed via buttons
+    const isExplicitlyExpanded = 
+      (direction === "right" && expandedNodes.has(`${data.id}-children`)) ||
+      (direction === "left" && expandedNodes.has(`${data.id}-parents`));
+    
+    const isExplicitlyCollapsed = 
+      (direction === "right" && expandedNodes.has(`${data.id}-children-collapsed`)) ||
+      (direction === "left" && expandedNodes.has(`${data.id}-parents-collapsed`));
+
     const shouldShowChildren =
-      depth === 0 || // Always show root
-      !hasMultipleRelations || // Show if not complex
-      isNodeExpanded(data.id); // Show if explicitly expanded
+      isExplicitlyExpanded || // User explicitly expanded
+      (!isExplicitlyCollapsed && !hasMultipleRelations); // Default: show unless multiple relations or explicitly collapsed
 
     // Process children for right tree
     if (direction === "right" && data.children && data.children.length > 0) {
@@ -434,7 +508,7 @@
       if (Date.now() - stat.lastWrite < appState.botState.staleTime / 2) {
             return '-'
           } else {
-            return 'lag: ' + humanize(Date.now() - stat.lastWrite);
+            return 'lag:' + humanize(Date.now() - stat.lastWrite);
           }
     } else {
       return humanize(Date.now() - stat.lastWrite) + ' ago';
@@ -884,50 +958,135 @@
       // Add text labels with intelligent wrapping
       createNodeLabel(element, d);
 
-      // Add expand/collapse buttons for nodes that need them
-      const hasHiddenChildren = d.data._children && d.data._children.length > 0;
-      const hasVisibleChildren = d.data.children && d.data.children.length > 0;
+      // Check if this node should have expand/collapse buttons
       const originalData = findOriginalData(d.data.id);
-      const hasChildrenOrParents = 
-        (d.data.direction === "right" && (originalData?.children?.length || 0) > 0) ||
-        (d.data.direction === "left" && (originalData?.parents?.length || 0) > 0);
-      // const hasMultipleRelations =
-      //   originalData &&
-      //   ((d.data.direction === "right" &&
-      //     (originalData.children?.length || 0) > 1) ||
-      //     (d.data.direction === "left" &&
-      //       (originalData.parents?.length || 0) > 1));
+      const isRootNode = d.data.id === relationShipTree.id;
+      
+      // Check for available children/parents
+      const hasChildren = originalData?.children && originalData.children.length > 0;
+      const hasParents = originalData?.parents && originalData.parents.length > 0;
+      
+      // Check current state
+      const childrenExpanded = expandedNodes.has(`${d.data.id}-children`);
+      const parentsExpanded = expandedNodes.has(`${d.data.id}-parents`);
+      const childrenCollapsed = expandedNodes.has(`${d.data.id}-children-collapsed`);
+      const parentsCollapsed = expandedNodes.has(`${d.data.id}-parents-collapsed`);
+      
+      // Determine default visibility state for buttons
+      const defaultChildrenVisible = hasChildren && (originalData?.children?.length || 0) === 1;
+      const defaultParentsVisible = hasParents && (originalData?.parents?.length || 0) === 1;
 
-      // Debug logging
-      if (d.data.id === relationShipTree.id) {
-        // Only log for root to avoid spam
-        console.log("Root node button state:", {
-          hasHiddenChildren,
-          hasVisibleChildren,
-          // hasMultipleRelations,
-          isExpanded: isNodeExpanded(d.data.id),
-          originalChildrenCount: originalData?.children?.length || 0,
-          originalParentsCount: originalData?.parents?.length || 0,
-        });
+      let needsChildrenButton: boolean | undefined;
+      let needsParentsButton: boolean | undefined;
+      
+      // For root node, always show both buttons if there are children or parents available
+      if (isRootNode) {
+        needsChildrenButton = hasChildren;
+        needsParentsButton = hasParents;
+      } else {
+        // For non-root nodes, show buttons if:
+        // 1. There are multiple relations (need button to expand/collapse)
+        // 2. There are relations that are currently visible (need button to collapse)
+        // 3. There are relations that have been explicitly collapsed (need button to expand)
+        needsChildrenButton = hasChildren && (
+          (originalData?.children?.length || 0) > 1 || // Multiple children available
+          defaultChildrenVisible || // Single child shown by default
+          childrenExpanded || // Explicitly expanded
+          childrenCollapsed // Explicitly collapsed
+        );
+        
+        needsParentsButton = hasParents && (
+          (originalData?.parents?.length || 0) > 1 || // Multiple parents available
+          defaultParentsVisible || // Single parent shown by default
+          parentsExpanded || // Explicitly expanded
+          parentsCollapsed // Explicitly collapsed
+        );
       }
 
-      if (hasChildrenOrParents) {
-        const buttonGroup = element.append("g").attr("class", "button-group");
+      // Add left button (parents) if needed
+      if (needsParentsButton) {
+        const leftButtonGroup = element.append("g").attr("class", "left-button-group");
 
-        const buttonCircle = buttonGroup
+        const leftButtonCircle = leftButtonGroup
           .append("circle")
-          .attr("class", "button-circle")
+          .attr("class", "button-circle left-button")
+          .attr("cx", -nodeWidth! / 3)
+          .attr("cy", nodeWidth! / 3)
+          .attr("r", 10)
+          .style("stroke", "#333")
+          .style("stroke-width", 1)
+          .style("fill", "#FFFF")
+          .style("opacity", 0)
+          .style("cursor", "pointer");
+
+        const leftButtonText = leftButtonGroup
+          .append("text")
+          .attr("class", "button-text left-button-text")
+          .attr("x", -nodeWidth! / 3)
+          .attr("y", nodeWidth! / 3)
+          .attr("dy", ".35em")
+          .style("text-anchor", "middle")
+          .style("fill", "black")
+          .style("font-size", "18px")
+          .style("font-weight", "bold")
+          .style("opacity", 0)
+          .style("cursor", "pointer")
+          .style("pointer-events", "none");
+
+        // Add click handler for left button (parents)
+        leftButtonGroup.on("click", function (event, buttonData) {
+          event.stopPropagation();
+          toggleNodeParents(buttonData.data.id);
+        });
+
+        // Add hover effects for left button
+        element
+          .on("mouseenter.leftButton", function () {
+            // Determine button text based on current state
+            let buttonText;
+            const currentParentsExpanded = expandedNodes.has(`${d.data.id}-parents`);
+            const currentParentsCollapsed = expandedNodes.has(`${d.data.id}-parents-collapsed`);
+            const defaultParentsVisible = hasParents && (originalData?.parents?.length || 0) === 1;
+            
+            // If explicitly expanded OR (default visible and not explicitly collapsed)
+            const parentsCurrentlyShowing = currentParentsExpanded || 
+              (defaultParentsVisible && !currentParentsCollapsed);
+            
+            if (parentsCurrentlyShowing) {
+              buttonText = ">"; // Collapse parents (point away from node)
+            } else {
+              buttonText = "<"; // Expand parents (point toward parents)
+            }
+            
+            leftButtonText.text(buttonText);
+            leftButtonCircle.transition().duration(200).style("opacity", 1);
+            leftButtonText.transition().duration(200).style("opacity", 1);
+          })
+          .on("mouseleave.leftButton", function () {
+            leftButtonCircle.transition().duration(200).style("opacity", 0);
+            leftButtonText.transition().duration(200).style("opacity", 0);
+          });
+      }
+
+      // Add right button (children) if needed
+      if (needsChildrenButton) {
+        const rightButtonGroup = element.append("g").attr("class", "right-button-group");
+
+        const rightButtonCircle = rightButtonGroup
+          .append("circle")
+          .attr("class", "button-circle right-button")
           .attr("cx", nodeWidth! / 3)
           .attr("cy", nodeWidth! / 3)
           .attr("r", 10)
           .style("stroke", "#333")
           .style("stroke-width", 1)
+          .style("fill", "#FFFF")
           .style("opacity", 0)
-          .style("cursor", "pointer"); // Make button specifically clickable
+          .style("cursor", "pointer");
 
-        const buttonTextElement = buttonGroup
+        const rightButtonText = rightButtonGroup
           .append("text")
-          .attr("class", "button-text")
+          .attr("class", "button-text right-button-text")
           .attr("x", nodeWidth! / 3)
           .attr("y", nodeWidth! / 3)
           .attr("dy", ".35em")
@@ -936,54 +1095,41 @@
           .style("font-size", "18px")
           .style("font-weight", "bold")
           .style("opacity", 0)
-          .style("cursor", "pointer") // Make button text clickable too
-          .style("pointer-events", "none"); // But let clicks pass through to circle
+          .style("cursor", "pointer")
+          .style("pointer-events", "none");
 
-        // Add click handler specifically to the button
-        buttonGroup.on("click", function (event, buttonData) {
-          // Stop event from bubbling to the node
+        // Add click handler for right button (children)
+        rightButtonGroup.on("click", function (event, buttonData) {
           event.stopPropagation();
-
-          toggleNode(buttonData.data.id);
+          toggleNodeChildren(buttonData.data.id);
         });
 
-        // Add hover effects
+        // Add hover effects for right button
         element
-          .on("mouseenter", function () {
-            const isExplicitlyExpanded = isNodeExpanded(d.data.id);
-            const hasMultipleRelations =
-              originalData &&
-              ((d.data.direction === "right" && (originalData.children?.length || 0) > 1) ||
-                (d.data.direction === "left" && (originalData.parents?.length || 0) > 1)); 
-            let buttonText = isExplicitlyExpanded && hasHiddenChildren ? "<" : ">";
-
-            // // Show collapse button if:
-            // // 1. Node has visible children AND
-            // // 2. Node has multiple relations (meaning it can be collapsed) AND
-            // // 3. Node is explicitly expanded (user expanded it manually)
-            // if (hasVisibleChildren && hasMultipleRelations && isExplicitlyExpanded) {
-            //   buttonText = "<";
-            // } 
-            // // Show expand button if:
-            // // 1. Node has hidden children OR
-            // // 2. Node has potential to expand (multiple relations but not explicitly expanded)
-            // else if (hasHiddenChildren || (hasMultipleRelations && !isExplicitlyExpanded)) {
-            //   buttonText = ">";
-            // }
-            // // Default to expand for any expandable node
-            // else {
-            //   buttonText = ">";
-            // }
+          .on("mouseenter.rightButton", function () {
+            // Determine button text based on current state
+            let buttonText;
+            const currentChildrenExpanded = expandedNodes.has(`${d.data.id}-children`);
+            const currentChildrenCollapsed = expandedNodes.has(`${d.data.id}-children-collapsed`);
+            const defaultChildrenVisible = hasChildren && (originalData?.children?.length || 0) === 1;
             
-            buttonCircle.style("fill", "#FFFF");
-            buttonTextElement.text(buttonText);
-
-            buttonCircle.transition().duration(200).style("opacity", 1);
-            buttonTextElement.transition().duration(200).style("opacity", 1);
+            // If explicitly expanded OR (default visible and not explicitly collapsed)
+            const childrenCurrentlyShowing = currentChildrenExpanded || 
+              (defaultChildrenVisible && !currentChildrenCollapsed);
+            
+            if (childrenCurrentlyShowing) {
+              buttonText = "<"; // Collapse children (point away from children)
+            } else {
+              buttonText = ">"; // Expand children (point toward children)
+            }
+            
+            rightButtonText.text(buttonText);
+            rightButtonCircle.transition().duration(200).style("opacity", 1);
+            rightButtonText.transition().duration(200).style("opacity", 1);
           })
-          .on("mouseleave", function () {
-            buttonCircle.transition().duration(200).style("opacity", 0);
-            buttonTextElement.transition().duration(200).style("opacity", 0);
+          .on("mouseleave.rightButton", function () {
+            rightButtonCircle.transition().duration(200).style("opacity", 0);
+            rightButtonText.transition().duration(200).style("opacity", 0);
           });
       }
     });
@@ -994,81 +1140,67 @@
     // Update button states for all nodes (both new and existing)
     nodeUpdate.each(function (d) {
       const element = d3.select(this);
-      const buttonGroup = element.select(".button-group");
+      const originalData = findOriginalData(d.data.id);
+      const isRootNode = d.data.id === relationShipTree.id;
+      
+      // Update current state
+      const childrenExpanded = expandedNodes.has(`${d.data.id}-children`);
+      const parentsExpanded = expandedNodes.has(`${d.data.id}-parents`);
+      const childrenCollapsed = expandedNodes.has(`${d.data.id}-children-collapsed`);
+      const parentsCollapsed = expandedNodes.has(`${d.data.id}-parents-collapsed`);
+      
+      // Determine default visibility
+      const defaultChildrenVisible = originalData?.children && (originalData?.children?.length || 0) === 1;
+      const defaultParentsVisible = originalData?.parents && (originalData?.parents?.length || 0) === 1;
 
-      if (!buttonGroup.empty()) {
-        // Re-evaluate button state for existing buttons
-        const hasHiddenChildren =
-          d.data._children && d.data._children.length > 0;
-        const hasVisibleChildren =
-          d.data.children && d.data.children.length > 0;
-        const originalData = findOriginalData(d.data.id);
-        const hasMultipleRelations =
-          originalData &&
-          ((d.data.direction === "right" &&
-            (originalData.children?.length || 0) > 1) ||
-            (d.data.direction === "left" &&
-              (originalData.parents?.length || 0) > 1));
-
-        // Update the hover behavior with current state
+      // Update left button (parents) hover behavior
+      const leftButtonGroup = element.select(".left-button-group");
+      if (!leftButtonGroup.empty()) {
         element
-          .on("mouseenter", function () {
-            const isExplicitlyExpanded = isNodeExpanded(d.data.id);
-            let buttonColor, buttonText;
-
-            // Show collapse button if:
-            // 1. Node has visible children AND
-            // 2. Node has multiple relations (meaning it can be collapsed) AND
-            // 3. Node is explicitly expanded (user expanded it manually)
-            if (hasVisibleChildren && hasMultipleRelations && isExplicitlyExpanded) {
-              buttonText = "<";
-            } 
-            // Show expand button if:
-            // 1. Node has hidden children OR
-            // 2. Node has potential to expand (multiple relations but not explicitly expanded)
-            else if (hasHiddenChildren || (hasMultipleRelations && !isExplicitlyExpanded)) {
-              buttonText = ">";
-            }
-            // Default to expand for any expandable node
-            else {
-              buttonText = ">";
-            }
-
-            const buttonCircle = buttonGroup.select(".button-circle");
-            const buttonTextElement = buttonGroup.select(".button-text");
+          .on("mouseenter.leftButtonUpdate", function () {
+            const leftButtonText = leftButtonGroup.select(".left-button-text");
+            const leftButtonCircle = leftButtonGroup.select(".button-circle");
             
-            buttonCircle.style("fill", "#FFFF");
-            buttonTextElement.text(buttonText);
-
-            buttonCircle.transition().duration(200).style("opacity", 1);
-            buttonTextElement.transition().duration(200).style("opacity", 1);
+            // Determine if parents are currently showing
+            const parentsCurrentlyShowing = parentsExpanded || 
+              (defaultParentsVisible && !parentsCollapsed);
+            
+            let buttonText = parentsCurrentlyShowing ? ">" : "<";
+            leftButtonText.text(buttonText);
+            leftButtonCircle.transition().duration(200).style("opacity", 1);
+            leftButtonText.transition().duration(200).style("opacity", 1);
           })
-          .on("mouseleave", function () {
-            const buttonCircle = buttonGroup.select(".button-circle");
-            const buttonTextElement = buttonGroup.select(".button-text");
-
-            buttonCircle.transition().duration(200).style("opacity", 0);
-            buttonTextElement.transition().duration(200).style("opacity", 0);
+          .on("mouseleave.leftButtonUpdate", function () {
+            const leftButtonText = leftButtonGroup.select(".left-button-text");
+            const leftButtonCircle = leftButtonGroup.select(".button-circle");
+            leftButtonCircle.transition().duration(200).style("opacity", 0);
+            leftButtonText.transition().duration(200).style("opacity", 0);
           });
+      }
 
-        // Also update existing button click handlers
-        const existingButtonGroup = buttonGroup.select(".button-group");
-        if (!existingButtonGroup.empty()) {
-          existingButtonGroup.on("click", function (event, buttonData) {
-            // Stop event from bubbling to the node
-            event.stopPropagation();
-
-            // Handle expand/collapse logic
-            const hasHiddenChildren =
-              buttonData.data._children && buttonData.data._children.length > 0;
-            const hasVisibleChildren =
-              buttonData.data.children && buttonData.data.children.length > 0;
-
-            if (hasHiddenChildren || hasVisibleChildren) {
-              toggleNode(buttonData.data.id);
-            }
+      // Update right button (children) hover behavior
+      const rightButtonGroup = element.select(".right-button-group");
+      if (!rightButtonGroup.empty()) {
+        element
+          .on("mouseenter.rightButtonUpdate", function () {
+            const rightButtonText = rightButtonGroup.select(".right-button-text");
+            const rightButtonCircle = rightButtonGroup.select(".button-circle");
+            
+            // Determine if children are currently showing
+            const childrenCurrentlyShowing = childrenExpanded || 
+              (defaultChildrenVisible && !childrenCollapsed);
+            
+            let buttonText = childrenCurrentlyShowing ? "<" : ">";
+            rightButtonText.text(buttonText);
+            rightButtonCircle.transition().duration(200).style("opacity", 1);
+            rightButtonText.transition().duration(200).style("opacity", 1);
+          })
+          .on("mouseleave.rightButtonUpdate", function () {
+            const rightButtonText = rightButtonGroup.select(".right-button-text");
+            const rightButtonCircle = rightButtonGroup.select(".button-circle");
+            rightButtonCircle.transition().duration(200).style("opacity", 0);
+            rightButtonText.transition().duration(200).style("opacity", 0);
           });
-        }
       }
     });
 
@@ -1159,13 +1291,7 @@
           type: "expand",
           color: "#4CAF50",
           shape: "circle",
-          label: "Click to Expand",
-        },
-        {
-          type: "collapse",
-          color: "#f44336",
-          shape: "circle",
-          label: "Click to Collapse",
+          label: "< > Expand/Collapse",
         },
       ];
 
@@ -1236,10 +1362,20 @@
     renderVisualization();
   }
 
+  function collapseToRoot() {
+    // Clear all expanded nodes to show only the root
+    expandedNodes.clear();
+    expandedNodes = new Set(expandedNodes);
+    nodePositions.clear();
+    lastExpandedNode = null;
+    renderVisualization();
+  }
+
   function expandAll() {
-    // Add all node IDs to expanded set
+    // Add all node IDs to expanded set for both children and parents
     function addAllNodes(tree: RelationshipTree) {
-      expandedNodes.add(tree.id);
+      expandedNodes.add(`${tree.id}-children`);
+      expandedNodes.add(`${tree.id}-parents`);
       tree.children?.forEach(addAllNodes);
       tree.parents?.forEach(addAllNodes);
     }
@@ -1257,6 +1393,7 @@
     <button onclick={resetView}>Reset View</button>
     <button onclick={expandAll}>Expand All</button>
     <button onclick={collapseAll}>Collapse All</button>
+    <button onclick={collapseToRoot}>Collapse to Root</button>
     <button>Visible Nodes ({getVisibleNodeCount()})</button>
   </div>
   <div id="tree-container"></div>
@@ -1267,9 +1404,8 @@
       <p><strong>Instructions:</strong></p>
       <ul>
         <li>Click node: View details and highlight connections</li>
-        <li>Click green + button: Expand hidden children</li>
-        <li>Click red - button: Collapse visible children</li>
         <li>Hover over nodes to reveal action buttons</li>
+        <li>Root node shows both left and right buttons</li>
       </ul>
     </div>
   </div>
@@ -1292,8 +1428,10 @@
   }
 
   /* Enhanced transitions for all elements */
-  .button-group circle,
-  .button-group text {
+  .left-button-group circle,
+  .left-button-group text,
+  .right-button-group circle,
+  .right-button-group text {
     transition: opacity 0.2s ease-in-out;
   }
 
@@ -1377,5 +1515,10 @@
 
   button:hover {
     background-color: #36648b;
+  }
+
+  /* Button styling */
+  .left-button, .right-button {
+    filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.3));
   }
 </style>
