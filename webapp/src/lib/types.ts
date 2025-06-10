@@ -54,6 +54,8 @@ export type Checkpoints = {
 export interface CheckpointDetail {
   checkpoint?: string | number;
   records?: number;
+  ended_timestamp?: number;
+  source_timestamp?: number;
 }
 
 export interface RelationshipTree {
@@ -280,4 +282,8 @@ export interface UserData {
   name?: string,
   email?: string,
   image?: string,
+}
+
+export interface StatsApiResponse {
+  stats: MergedStatsRecord[]
 }

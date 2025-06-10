@@ -1,15 +1,16 @@
 <script lang="ts">
   import type { AppState } from "$lib/client/appstate.svelte";
   import type { MergedStatsRecord, RelationshipTree, TreeNode } from "$lib/types";
-  import { formatTimeAgo } from "$lib/utils";
+  import { humanize } from "$lib/utils";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
+  import type { LinkStats } from "./types";
 
   let appState = getContext<AppState>('appState');
     appState.botState.buildRelationShipTree();
   let relationShipTree = appState.botState.relationShipTree;
-  let botStats = appState.botState.stats;
+  let botStats = $derived(appState.botState.stats || []);
 
   let {
     // relationShipTree,
@@ -28,7 +29,9 @@
 
   let expandedNodes = $state(new Set<string>());
   let currentNodeCount = $derived(appState.botState.visibleIds.length);
-  let linkStats: Map<string, { eventCount: number; lastWrite: number }> = $state(new Map());
+
+  //TODO: will need to also track status, errors
+  let linkStats: Map<string, LinkStats> = $state(new Map());
 
   let svg: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
   let zoomHandler: d3.ZoomBehavior<Element, unknown>;
@@ -49,6 +52,19 @@
     initializeVisualization();
     initializeLinkStats();
     
+  })
+
+  $effect(() => {
+    const timer = setInterval(() => {
+      untrack( async() => {
+        console.log(`${appState.botState.staleTime / 1000} seconds elapsed - refreshing stats data`);
+        await appState.botState.fetchBotStats();
+        initializeLinkStats();
+        renderVisualization
+      })
+    }, appState.botState.staleTime);
+
+    return () => clearInterval(timer);
   })
 
   $effect(() => {
@@ -81,25 +97,43 @@
   })
 
   function initializeLinkStats() {
-    if (botStats.length === 0) {
+    console.log('initializeLinkStats called, botStats length:', botStats.length);
+    console.log('botStats:', botStats);
+    if (!botStats || botStats.length === 0) {
+      console.log('botStats is empty or undefined');
       return
     }
 
-    botStats.forEach((stat) => {
+    // Convert the botStats proxy object into an array
+    const statsArray = botStats;
+    console.log('botStats to array:', statsArray);
+
+    if (statsArray.length === 0) {
+      return;
+    }
+
+    linkStats.clear();
+
+    statsArray.forEach((stat: MergedStatsRecord) => {
+      $state.snapshot(stat);
       let idKey = stat.id;
       if(stat.read) {
+        // console.log('found read stats');
         Object.entries(stat.read).forEach(([childId, readStat]) => {
           let key = `${idKey}-${childId}`;
-          linkStats.set(key, { eventCount: readStat.units, lastWrite: new Date(readStat.timestamp).getTime()});
+          linkStats.set(key, { eventCount: readStat.units, lastWrite: new Date(readStat.timestamp).getTime(), linkType: 'read' });
         });
       }
       if(stat.write) {
+        // console.log('found write stats');
         Object.entries(stat.write).forEach(([parentId, writeStat]) => {
           let key = `${parentId}-${idKey}`;
-          linkStats.set(key, { eventCount: writeStat.units, lastWrite: new Date(writeStat.timestamp).getTime()});
+          linkStats.set(key, { eventCount: writeStat.units, lastWrite: new Date(writeStat.timestamp).getTime(), linkType: 'write' });
         });
       }
     })
+
+    linkStats = new Map(linkStats);
   }
 
   function initializeVisualization() {
@@ -140,9 +174,18 @@
     //TODO: we will want this to grab stats data from the api for any visibile nodes.
   // TODO: we will also only want this to grab stats for freshly rendered nodes (don't refresh data we don't have to)
   // TODO: we will also want to fresh stats pull for all visible nodes every 30 seconds or so.
-  function getLinkStats(parentId: string, childId: string) {
+  function getLinkStats(parentId: string, childId: string): LinkStats {
+
+    // remove bot: from the parent and child
+    const tempParentId = parentId.replace('bot:', '');
+    const tempChildId = childId.replace('bot:', '');
+
+    const botData = appState.botState.botSettings.find(bot => bot.id === tempParentId || bot.id === tempChildId);
+    const type = botData?.id == tempParentId ? 'write' : 'read';
+    const endedTimestamp = botData?.checkpoints?.[type]?.[tempChildId]?.ended_timestamp;
+
     if(!linkStats) {
-      return { eventCount: 0, lastWrite: Date.now() }
+      return { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type }
     }
     // TODO: Replace this with actual lookup logic based on your data structure
     const key = `${parentId}-${childId}`;
@@ -150,7 +193,8 @@
     console.log('linkStats',linkStats);
     const linkStat = linkStats.get(key);
     console.log('linkStat', linkStat);
-    return linkStats.get(key) || { eventCount: 0, lastWrite: Date.now() };
+
+    return linkStat || { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type };
   }
 
   function isNodeExpanded(nodeId: string): boolean {
@@ -188,12 +232,18 @@
 
     if (expandedNodes.has(nodeId)) {
       expandedNodes.delete(nodeId);
+      console.log('Collapsed node:', nodeId);
     } else {
       expandedNodes.add(nodeId);
+      console.log('Expanded node:', nodeId);
     }
     expandedNodes = new Set(expandedNodes); // Trigger reactivity
-    updateVisibleNodesFromDOM();
-    // renderVisualization(); // Re-render the tree
+
+    renderVisualization(); // Re-render the tree
+
+    setTimeout(() => {
+      updateVisibleNodesFromDOM();
+    }, 600);
   }
 
   function processTree(
@@ -375,6 +425,20 @@
         }
       }
     });
+  }
+
+  function getLowerText(stat: LinkStats): string {
+    if(Date.now() - stat.lastWrite == 0 && stat.eventCount == 0) {
+      return 'N/A';
+    } else if(stat.linkType === 'read') {
+      if (Date.now() - stat.lastWrite < appState.botState.staleTime / 2) {
+            return '-'
+          } else {
+            return 'lag: ' + humanize(Date.now() - stat.lastWrite);
+          }
+    } else {
+      return humanize(Date.now() - stat.lastWrite) + ' ago';
+    }
   }
 
 /**
@@ -683,6 +747,9 @@
         return stats.eventCount.toLocaleString();
       });
 
+      //TODO: if 'write' then 'ago' else prepend 'lag:'
+      // TODO: if lag is < 30s show '-'
+      // TODO: if never read from or written to show 'N/A'
     linkUpdate
       .select(".link-text-below")
       .transition()
@@ -692,21 +759,23 @@
       .text((d) => {
          let linkSourceId;
           let linkTargetId;
+          let sourceType = d.source.data.type;
+          let targetType = d.target.data.type;
 
-          if (d.source.data.type == "bot") {
+          if (sourceType == "bot") {
             linkSourceId = `bot:${d.source.data.id}`;
           } else {
             linkSourceId = d.source.data.id;
           }
 
-          if (d.target.data.type == "bot") {
+          if (targetType == "bot") {
             linkTargetId = `bot:${d.target.data.id}`;
           } else {
             linkTargetId = d.target.data.id;
           }
           console.log(linkSourceId);
         const stats = getLinkStats(linkSourceId, linkTargetId);
-        return formatTimeAgo(stats.lastWrite);
+        return getLowerText(stats);
       });
 
     // Fade in new and updated links
@@ -751,6 +820,7 @@
         // Node click only shows information and highlights - no expand/collapse
         d3.select("#node-info").html(`
           <p><strong>ID:</strong> ${d.data.id}</p>
+          <p><strong>Name:</strong> ${d.data.name}</p>
           <p><strong>Type:</strong> ${d.data.type}</p>
           <p><strong>Generation:</strong> ${d.depth === 0 ? "Root" : d.depth === 1 ? "1st" : d.depth === 2 ? "2nd" : "3rd"}</p>
           <p><strong>Direction:</strong> ${d.data.direction}</p>
@@ -818,12 +888,15 @@
       const hasHiddenChildren = d.data._children && d.data._children.length > 0;
       const hasVisibleChildren = d.data.children && d.data.children.length > 0;
       const originalData = findOriginalData(d.data.id);
-      const hasMultipleRelations =
-        originalData &&
-        ((d.data.direction === "right" &&
-          (originalData.children?.length || 0) > 1) ||
-          (d.data.direction === "left" &&
-            (originalData.parents?.length || 0) > 1));
+      const hasChildrenOrParents = 
+        (d.data.direction === "right" && (originalData?.children?.length || 0) > 0) ||
+        (d.data.direction === "left" && (originalData?.parents?.length || 0) > 0);
+      // const hasMultipleRelations =
+      //   originalData &&
+      //   ((d.data.direction === "right" &&
+      //     (originalData.children?.length || 0) > 1) ||
+      //     (d.data.direction === "left" &&
+      //       (originalData.parents?.length || 0) > 1));
 
       // Debug logging
       if (d.data.id === relationShipTree.id) {
@@ -831,18 +904,14 @@
         console.log("Root node button state:", {
           hasHiddenChildren,
           hasVisibleChildren,
-          hasMultipleRelations,
+          // hasMultipleRelations,
           isExpanded: isNodeExpanded(d.data.id),
           originalChildrenCount: originalData?.children?.length || 0,
           originalParentsCount: originalData?.parents?.length || 0,
         });
       }
 
-      if (
-        hasHiddenChildren ||
-        (hasVisibleChildren && hasMultipleRelations) ||
-        hasMultipleRelations
-      ) {
+      if (hasChildrenOrParents) {
         const buttonGroup = element.append("g").attr("class", "button-group");
 
         const buttonCircle = buttonGroup
@@ -875,40 +944,36 @@
           // Stop event from bubbling to the node
           event.stopPropagation();
 
-          // Handle expand/collapse logic
-          const hasHiddenChildren =
-            buttonData.data._children && buttonData.data._children.length > 0;
-          const hasVisibleChildren =
-            buttonData.data.children && buttonData.data.children.length > 0;
-
-          if (hasHiddenChildren || hasVisibleChildren) {
-            toggleNode(buttonData.data.id);
-          }
+          toggleNode(buttonData.data.id);
         });
 
         // Add hover effects
         element
           .on("mouseenter", function () {
             const isExplicitlyExpanded = isNodeExpanded(d.data.id);
-            let buttonColor, buttonText;
+            const hasMultipleRelations =
+              originalData &&
+              ((d.data.direction === "right" && (originalData.children?.length || 0) > 1) ||
+                (d.data.direction === "left" && (originalData.parents?.length || 0) > 1)); 
+            let buttonText = isExplicitlyExpanded && hasHiddenChildren ? "<" : ">";
 
-            // Show collapse button if:
-            // 1. Node has visible children AND
-            // 2. Node has multiple relations (meaning it can be collapsed) AND
-            // 3. Node is explicitly expanded (user expanded it manually)
-            if (hasVisibleChildren && hasMultipleRelations && isExplicitlyExpanded) {
-              buttonText = "<";
-            } 
-            // Show expand button if:
-            // 1. Node has hidden children OR
-            // 2. Node has potential to expand (multiple relations but not explicitly expanded)
-            else if (hasHiddenChildren || (hasMultipleRelations && !isExplicitlyExpanded)) {
-              buttonText = ">";
-            }
-            // Default to expand for any expandable node
-            else {
-              buttonText = ">";
-            }
+            // // Show collapse button if:
+            // // 1. Node has visible children AND
+            // // 2. Node has multiple relations (meaning it can be collapsed) AND
+            // // 3. Node is explicitly expanded (user expanded it manually)
+            // if (hasVisibleChildren && hasMultipleRelations && isExplicitlyExpanded) {
+            //   buttonText = "<";
+            // } 
+            // // Show expand button if:
+            // // 1. Node has hidden children OR
+            // // 2. Node has potential to expand (multiple relations but not explicitly expanded)
+            // else if (hasHiddenChildren || (hasMultipleRelations && !isExplicitlyExpanded)) {
+            //   buttonText = ">";
+            // }
+            // // Default to expand for any expandable node
+            // else {
+            //   buttonText = ">";
+            // }
             
             buttonCircle.style("fill", "#FFFF");
             buttonTextElement.text(buttonText);

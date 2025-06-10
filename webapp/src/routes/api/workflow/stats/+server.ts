@@ -1,5 +1,5 @@
 import { getStats } from "$lib/server/services/dynamoService";
-import type { StatsQueryRequest } from "$lib/types";
+import type { StatsApiResponse, StatsQueryRequest } from "$lib/types";
 import { json, type RequestHandler } from "@sveltejs/kit";
 
 export const POST: RequestHandler = async ({ locals, request }) => {
@@ -21,5 +21,5 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
   console.log("requestBody", requestBody);
 
-  return json({stats: await getStats(session.aws_credentials, requestBody)});
+  return json({stats: await getStats(session.aws_credentials, requestBody)} as StatsApiResponse);
 };

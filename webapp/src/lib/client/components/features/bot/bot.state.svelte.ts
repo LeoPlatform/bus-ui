@@ -4,9 +4,12 @@ import {
   type BotSettings,
   type BotSettingsApiResponse,
   type MergedStatsRecord,
+  type StatsResponse,
 } from "$lib/types";
 
 type GlobalFetch = typeof globalThis.fetch;
+
+const STALE_TIME = 1000 * 30; // 30 seconds
 
 export class BotState {
   #fetch: GlobalFetch;
@@ -14,11 +17,15 @@ export class BotState {
   #relationShipTree = $state<RelationshipTree | null>(null);
   #stats = $state<MergedStatsRecord[]>([]);
   #visibleIds = $state<string[]>([]);
+  #fetchedStats: Map<string, number>;
   #range: StatsRange = $state<StatsRange>(StatsRange.Minute15);
   #selectedBotId = $state<string | null>(null);
+  #staleTime: number;
 
-  constructor(fetch: GlobalFetch) {
+  constructor(fetch: GlobalFetch, staleTime: number = 1000 * 30) {
     this.#fetch = fetch;
+    this.#fetchedStats = new Map();
+    this.#staleTime = staleTime;
   }
 
   get stats() {
@@ -34,6 +41,10 @@ export class BotState {
 
   get visibleIds() {
     return this.#visibleIds;
+  }
+
+  get staleTime() {
+    return this.#staleTime;
   }
 
   set selectedBotId(id: string) {
@@ -53,7 +64,18 @@ export class BotState {
   }
 
   async fetchBotStats() {
-    if (this.#stats.length !== this.#visibleIds.length) {
+
+    const now = Date.now();
+    const staleIds = new Set<string>();
+
+    this.visibleIds.forEach((id) => {
+      if(!this.#fetchedStats.has(id) || now - this.#fetchedStats.get(id)! > this.#staleTime) {
+        staleIds.add(id);
+      }
+    });
+
+    // Filter the id's we are fetching to only include 'stale' nodes
+    if (staleIds.size > 0) {
       const res = await this.#fetch("/api/workflow/stats", {
         method: "POST",
         headers: {
@@ -63,11 +85,18 @@ export class BotState {
           range: this.#range,
           count: 1, //TODO: this will need to be inferred from the range
           timestamp: Date.now(),
-          node_ids: this.#visibleIds,
+          node_ids: Array.from(staleIds),
         }),
       });
-      const data = (await res.json()) as MergedStatsRecord[];
-      this.#stats = data;
+
+      const data = (await res.json()) as StatsResponse;
+
+      staleIds.forEach((id) => {
+        this.#fetchedStats.set(id, now);
+      });
+
+      // Merge the data in
+      this.mergeStatsIntoState(data.stats);
     }
   }
 
@@ -85,6 +114,17 @@ export class BotState {
       } else {
         this.#botSettings.push(bot);
       }
+    }
+  }
+
+  mergeStatsIntoState(stats: MergedStatsRecord[]) {
+    for (const stat of stats) {
+        const existingId = this.#stats.findIndex((s) => s.id === stat.id);
+        if (existingId !== -1) {
+          this.#stats[existingId] = stat;
+        } else {
+          this.#stats.push(stat);
+        }
     }
   }
   
@@ -119,7 +159,7 @@ export class BotState {
                       return
                   };
                   Object.keys(bot.checkpoints[type as CheckpointType]).forEach((queueId) => {
-                      if (!flatTree[queueId] || (queueId.match(/\/_archive$/g) || queueId.match(/\/_snapshot$/g))) {
+                      if (!flatTree[queueId] && !(queueId.match(/\/_archive$/g) || queueId.match(/\/_snapshot$/g))) {
                       flatTree[queueId] = {
                               id: queueId,
                               children: [],
@@ -137,24 +177,29 @@ export class BotState {
           // Bot reads from queue -> queue is parent of bot
           if(bot.checkpoints?.read) {
               Object.keys(bot.checkpoints.read).forEach((queueId) => {
-                  if(!flatTree[bot.id].parents.includes(queueId)) {
-                      flatTree[bot.id].parents.push(queueId);
-                  }
-                  if(!flatTree[queueId].children.includes(bot.id)) {
-                      flatTree[queueId].children.push(bot.id);
-                  }
+                 if(flatTree[queueId]) {
+                     if(!flatTree[bot.id].parents.includes(queueId)) {
+                         flatTree[bot.id].parents.push(queueId);
+                     }
+                     if(!flatTree[queueId].children.includes(bot.id)) {
+                         flatTree[queueId].children.push(bot.id);
+                     }
+
+                 }
               });
           }
   
           // Bot writes to queue -> queue is child of bot
           if (bot.checkpoints?.write) {
               Object.keys(bot.checkpoints.write).forEach((queueId) => {
-                  if(!flatTree[bot.id].children.includes(queueId)) {
-                      flatTree[bot.id].children.push(queueId);
-                  }
-                  if(!flatTree[queueId].parents.includes(bot.id)) {
-                      flatTree[queueId].parents.push(bot.id);
-                  }
+                if(flatTree[queueId]) {
+                    if(!flatTree[bot.id].children.includes(queueId)) {
+                        flatTree[bot.id].children.push(queueId);
+                    }
+                    if(!flatTree[queueId].parents.includes(bot.id)) {
+                        flatTree[queueId].parents.push(bot.id);
+                    }
+                }
               });
           }
       });

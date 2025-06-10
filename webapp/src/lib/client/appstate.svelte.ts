@@ -5,8 +5,8 @@ type GlobalFetch = typeof globalThis.fetch;
 
 export class AppState {
     #fetch: GlobalFetch;
-    #botState = $state<BotState>() as BotState;
-    #botTableState = $state<BotTableState>() as BotTableState;
+    #botState: BotState | undefined;
+    #botTableState: BotTableState | undefined;
     #userData: UserData;
 
     constructor(fetch: GlobalFetch, userData: UserData) {

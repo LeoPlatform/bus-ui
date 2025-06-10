@@ -97,7 +97,7 @@ export async function getStats(creds: AwsCreds, params: StatsQueryRequest): Prom
                 ExpressionAttributeValues: marshall(expressionAttributeValues),
             }))
         }
-        console.log("queries", JSON.stringify(queries, null, 2));
+        // console.log("queries", JSON.stringify(queries, null, 2));
         return await parallelQuery(client, queries, mergeStatsResults);
     } catch (err) {
         throw new Error(`Failed retrieving stats information from dynamo: ${err} `);
