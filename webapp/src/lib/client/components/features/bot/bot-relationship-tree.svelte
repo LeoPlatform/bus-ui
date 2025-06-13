@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { AppState } from "$lib/client/appstate.svelte";
-  import type { MergedStatsRecord, RelationshipTree, TreeNode } from "$lib/types";
+  import type { RelationshipTree, TreeNode } from "$lib/types";
   import { humanize } from "$lib/utils";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import type { LinkStats } from "./types";
+  import { findOriginalData, handleBackgroundNodeCircles, initializeLinkStats, processTree, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
 
   let appState = getContext<AppState>('appState');
     appState.botState.buildRelationShipTree();
@@ -50,7 +52,7 @@
     }
 
     initializeVisualization();
-    initializeLinkStats();
+    initializeLinkStats(botStats, linkStats);
     
   })
 
@@ -59,7 +61,7 @@
       untrack( async() => {
         console.log(`${appState.botState.staleTime / 1000} seconds elapsed - refreshing stats data`);
         await appState.botState.fetchBotStats();
-        initializeLinkStats();
+        initializeLinkStats(botStats, linkStats);
         renderVisualization
       })
     }, appState.botState.staleTime);
@@ -77,7 +79,7 @@
 
     untrack( async () => {
       await appState.botState.fetchBotStats();
-      initializeLinkStats();
+      initializeLinkStats(botStats, linkStats);
       renderVisualization();
     })
     // const currentNodeCount = appState.botState.visibleIds.length;
@@ -95,46 +97,6 @@
     // initializeLinkStats();
     // renderVisualization();
   })
-
-  function initializeLinkStats() {
-    console.log('initializeLinkStats called, botStats length:', botStats.length);
-    console.log('botStats:', botStats);
-    if (!botStats || botStats.length === 0) {
-      console.log('botStats is empty or undefined');
-      return
-    }
-
-    // Convert the botStats proxy object into an array
-    const statsArray = botStats;
-    console.log('botStats to array:', statsArray);
-
-    if (statsArray.length === 0) {
-      return;
-    }
-
-    linkStats.clear();
-
-    statsArray.forEach((stat: MergedStatsRecord) => {
-      $state.snapshot(stat);
-      let idKey = stat.id;
-      if(stat.read) {
-        // console.log('found read stats');
-        Object.entries(stat.read).forEach(([childId, readStat]) => {
-          let key = `${idKey}-${childId}`;
-          linkStats.set(key, { eventCount: readStat.units, lastWrite: new Date(readStat.timestamp).getTime(), linkType: 'read' });
-        });
-      }
-      if(stat.write) {
-        // console.log('found write stats');
-        Object.entries(stat.write).forEach(([parentId, writeStat]) => {
-          let key = `${parentId}-${idKey}`;
-          linkStats.set(key, { eventCount: writeStat.units, lastWrite: new Date(writeStat.timestamp).getTime(), linkType: 'write' });
-        });
-      }
-    })
-
-    linkStats = new Map(linkStats);
-  }
 
   function initializeVisualization() {
     // Clear any existing SVG
@@ -159,12 +121,7 @@
     nodeGroup = svg.append("g").attr("class", "nodes");
 
     // Add zoom behavior
-    zoomHandler = d3
-      .zoom()
-      .scaleExtent([0.1, 3])
-      .on("zoom", (event) => {
-        svg.attr("transform", event.transform);
-      });
+    zoomHandler = setupZoomBehavior(svg);
 
     d3.select("#tree-container svg").call(zoomHandler);
 
@@ -201,197 +158,6 @@
     return expandedNodes.has(nodeId);
   }
 
-  function findOriginalData(nodeId: string): RelationshipTree | null {
-    function search(data: RelationshipTree): RelationshipTree | null {
-      if (data.id === nodeId) return data;
-
-      // Search in children
-      if (data.children) {
-        for (const child of data.children) {
-          const result = search(child);
-          if (result) return result;
-        }
-      }
-
-      // Search in parents
-      if (data.parents) {
-        for (const parent of data.parents) {
-          const result = search(parent);
-          if (result) return result;
-        }
-      }
-
-      return null;
-    }
-
-    return search(relationShipTree);
-  }
-
-  function toggleNodeParents(nodeId: string) {
-    lastExpandedNode = nodeId;
-    
-    const isCurrentlyExpanded = expandedNodes.has(`${nodeId}-parents`);
-    const isCurrentlyCollapsed = expandedNodes.has(`${nodeId}-parents-collapsed`);
-    
-    // Clear both states first
-    expandedNodes.delete(`${nodeId}-parents`);
-    expandedNodes.delete(`${nodeId}-parents-collapsed`);
-    
-    if (isCurrentlyExpanded) {
-      // Was expanded, now collapse it
-      expandedNodes.add(`${nodeId}-parents-collapsed`);
-      console.log('Collapsed parents for node:', nodeId);
-    } else if (isCurrentlyCollapsed) {
-      // Was collapsed, now expand it
-      expandedNodes.add(`${nodeId}-parents`);
-      console.log('Expanded parents for node:', nodeId);
-    } else {
-      // Default state - determine what to do based on current visibility
-      const originalData = findOriginalData(nodeId);
-      const hasMultipleParents = (originalData?.parents?.length || 0) > 1;
-      
-      if (hasMultipleParents) {
-        // Multiple parents exist but not shown by default, so expand
-        expandedNodes.add(`${nodeId}-parents`);
-        console.log('Expanded parents for node:', nodeId);
-      } else {
-        // Single parent chain shown by default, so collapse
-        expandedNodes.add(`${nodeId}-parents-collapsed`);
-        console.log('Collapsed parents for node:', nodeId);
-      }
-    }
-    
-    expandedNodes = new Set(expandedNodes);
-    renderVisualization();
-
-    setTimeout(() => {
-      updateVisibleNodesFromDOM();
-    }, 600);
-  }
-
-  function toggleNodeChildren(nodeId: string) {
-    lastExpandedNode = nodeId;
-    
-    const isCurrentlyExpanded = expandedNodes.has(`${nodeId}-children`);
-    const isCurrentlyCollapsed = expandedNodes.has(`${nodeId}-children-collapsed`);
-    
-    // Clear both states first
-    expandedNodes.delete(`${nodeId}-children`);
-    expandedNodes.delete(`${nodeId}-children-collapsed`);
-    
-    if (isCurrentlyExpanded) {
-      // Was expanded, now collapse it
-      expandedNodes.add(`${nodeId}-children-collapsed`);
-      console.log('Collapsed children for node:', nodeId);
-    } else if (isCurrentlyCollapsed) {
-      // Was collapsed, now expand it
-      expandedNodes.add(`${nodeId}-children`);
-      console.log('Expanded children for node:', nodeId);
-    } else {
-      // Default state - determine what to do based on current visibility
-      const originalData = findOriginalData(nodeId);
-      const hasMultipleChildren = (originalData?.children?.length || 0) > 1;
-      
-      if (hasMultipleChildren) {
-        // Multiple children exist but not shown by default, so expand
-        expandedNodes.add(`${nodeId}-children`);
-        console.log('Expanded children for node:', nodeId);
-      } else {
-        // Single child chain shown by default, so collapse
-        expandedNodes.add(`${nodeId}-children-collapsed`);
-        console.log('Collapsed children for node:', nodeId);
-      }
-    }
-    
-    expandedNodes = new Set(expandedNodes);
-    renderVisualization();
-
-    setTimeout(() => {
-      updateVisibleNodesFromDOM();
-    }, 600);
-  }
-
-  function processTree(
-    data: RelationshipTree,
-    direction: "left" | "right",
-    parent: TreeNode | undefined = undefined,
-    depth = 0
-  ): TreeNode {
-    let dataType: "queue" | "system" | "bot";
-    if (data.id.startsWith("queue:")) {
-      dataType = "queue";
-    } else if (data.id.startsWith("system:")) {
-      dataType = "system";
-    } else {
-      dataType = "bot";
-    }
-
-    const node: TreeNode = {
-      id: data.id,
-      name: data.name,
-      type: dataType,
-      paused: data.paused,
-      alarmed: data.alarmed,
-      rogue: data.rogue,
-      parent: parent,
-      depth: depth,
-      direction: direction,
-      children: [],
-      _children: [],
-    };
-
-    // Determine if this specific node should show its children/parents
-    const hasMultipleRelations =
-      (direction === "right" && (data.children?.length || 0) > 1) ||
-      (direction === "left" && (data.parents?.length || 0) > 1);
-
-    // Default expansion logic: show children/parents until we hit a node with multiple relations
-    // OR if the user has explicitly expanded/collapsed via buttons
-    const isExplicitlyExpanded = 
-      (direction === "right" && expandedNodes.has(`${data.id}-children`)) ||
-      (direction === "left" && expandedNodes.has(`${data.id}-parents`));
-    
-    const isExplicitlyCollapsed = 
-      (direction === "right" && expandedNodes.has(`${data.id}-children-collapsed`)) ||
-      (direction === "left" && expandedNodes.has(`${data.id}-parents-collapsed`));
-
-    const shouldShowChildren =
-      isExplicitlyExpanded || // User explicitly expanded
-      (!isExplicitlyCollapsed && !hasMultipleRelations); // Default: show unless multiple relations or explicitly collapsed
-
-    // Process children for right tree
-    if (direction === "right" && data.children && data.children.length > 0) {
-      const processedChildren = data.children.map((child) =>
-        processTree(child, "right", node, depth + 1)
-      );
-
-      if (shouldShowChildren) {
-        node.children = processedChildren;
-        node._children = [];
-      } else {
-        node.children = [];
-        node._children = processedChildren;
-      }
-    }
-
-    // Process parents for left tree
-    if (direction === "left" && data.parents && data.parents.length > 0) {
-      const processedParents = data.parents.map((parent) =>
-        processTree(parent, "left", node, depth + 1)
-      );
-
-      if (shouldShowChildren) {
-        node.children = processedParents;
-        node._children = [];
-      } else {
-        node.children = [];
-        node._children = processedParents;
-      }
-    }
-
-    return node;
-  }
-
   function updateVisibleNodesFromDOM() {
     const visibleNodes = new Set<string>();
 
@@ -413,93 +179,7 @@
     appState.botState.visibleIds = Array.from(visibleNodes);
   }
 
-/**
-   * Wraps text in SVG text elements with intelligent line breaking for technical identifiers
-   * Splits at non-word characters like colons, underscores, dashes, dots, etc.
-   */
-  function wrapText(
-    text: d3.Selection<SVGTextElement, any, any, any>,
-    width: number,
-    maxLines: number = 3,
-    lineHeight: number = 1.1
-  ) {
-    text.each(function (d: any) {
-      const textElement = d3.select(this);
-      const originalText = textElement.text();
 
-      // Clear existing text
-      textElement.text(null);
-
-      // Split on non-word characters but keep the delimiters
-      // This regex splits on common technical separators: : _ - . / @ # $ % & + = ~ |
-      const parts = originalText
-        .split(/([:\-_./\\@#$%&+=~|])/)
-        .filter((part) => part.length > 0);
-
-      let currentLine = "";
-      let lineNumber = 0;
-      const dy = parseFloat(textElement.attr("dy")) || 0;
-      const y = textElement.attr("y") || 0;
-      const x = textElement.attr("x") || 0;
-
-      // Create first tspan
-      let tspan = textElement
-        .append("tspan")
-        .attr("x", x)
-        .attr("y", y)
-        .attr("dy", dy + "em");
-
-      for (let i = 0; i < parts.length && lineNumber < maxLines; i++) {
-        const part = parts[i];
-        const testLine = currentLine + part;
-
-        // Set test text to measure width
-        tspan.text(testLine);
-
-        // Check if line exceeds width
-        if (
-          tspan.node()!.getComputedTextLength() > width &&
-          currentLine.length > 0
-        ) {
-          // Current line is too long, start a new line
-          if (lineNumber < maxLines - 1) {
-            // Finalize current line
-            tspan.text(currentLine);
-
-            // Start new line
-            lineNumber++;
-            currentLine = part;
-            tspan = textElement
-              .append("tspan")
-              .attr("x", x)
-              .attr("dy", lineHeight + "em")
-              .text(currentLine);
-          } else {
-            // Last line - add ellipsis if needed
-            const availableText = currentLine;
-            if (availableText.length > 3) {
-              tspan.text(availableText.slice(0, -3) + "...");
-            } else {
-              tspan.text(availableText + "...");
-            }
-            break;
-          }
-        } else {
-          // Line fits, continue building it
-          currentLine = testLine;
-        }
-      }
-
-      // Handle case where we've processed all parts but need ellipsis
-      if (lineNumber >= maxLines - 1 && parts.length > 0) {
-        const finalText = tspan.text();
-        // Only add ellipsis if there was more content that couldn't fit
-        if (currentLine !== originalText && finalText.length > 3) {
-          tspan.text(finalText.slice(0, -3) + "...");
-        }
-      }
-    });
-  }
 
   function getLowerText(stat: LinkStats): string {
     if(Date.now() - stat.lastWrite == 0 && stat.eventCount == 0) {
@@ -515,117 +195,22 @@
     }
   }
 
-/**
-   * Enhanced node label creation with intelligent sizing and wrapping
-   */
-  function createNodeLabel(
-    element: d3.Selection<SVGGElement, any, any, any>,
-    d: any
-  ) {
-    // Determine appropriate width based on node depth and type
-    let maxWidth: number = 140;
-    let maxLines: number = 4;
-
-    // Create the text element
-    const textElement = element
-      .append("text")
-      .attr("class", "node-text")
-      .attr("dy", "0.35em")
-      .attr("y", nodeWidth! / 2 + 15)
-      .style("text-anchor", "middle")
-      .style("fill", "#333")
-      .style("font-weight", d.data.depth === 0 ? "bold" : "normal")
-      .style("font-size", () => {
-        if (d.depth === 0) return "14px";
-        if (d.depth === 1) return "12px";
-        return "10px";
-      })
-      .text(d.data.name || d.data.id); // Set initial text
-
-    // Apply wrapping
-    wrapText(textElement, maxWidth, maxLines);
-
-    return textElement;
-  }
-
   function renderVisualization() {
     const margin = { top: 50, right: 120, bottom: 50, left: 120 };
     const width = 1500 - margin.left - margin.right;
     const height = 800 - margin.top - margin.bottom;
 
     // Create separate trees for left and right directions
-    const rightRoot = processTree(relationShipTree, "right");
-    const leftRoot = processTree(relationShipTree, "left");
+    const rightRoot = processTree(relationShipTree, "right", expandedNodes);
+    const leftRoot = processTree(relationShipTree, "left", expandedNodes);
 
-    // Function to create tree layout and render trees
-    function createTreeLayout(root: TreeNode, direction: "left" | "right") {
-      const countNodes = (node: TreeNode): number => {
-        let count = 1;
-        if (node.children) {
-          node.children.forEach((child) => {
-            count += countNodes(child);
-          });
-        }
-        return count;
-      };
-
-      const countNodesPerLevel = (
-        node: TreeNode,
-        level: number = 0,
-        levelCounts: Record<number, number> = {}
-      ) => {
-        levelCounts[level] = (levelCounts[level] || 0) + 1;
-
-        if (node.children) {
-          node.children.forEach((child) => {
-            countNodesPerLevel(child, level + 1, levelCounts);
-          });
-        }
-        return levelCounts;
-      };
-
-      const totalNodes = countNodes(root);
-      const levelCounts = countNodesPerLevel(root);
-      const maxNodesAtAnyLevel = Math.max(...Object.values(levelCounts));
-
-      // Calculate the dynamic height based on the number of nodes
-      const dynamicHeight = Math.max(height, maxNodesAtAnyLevel * 50);
-
-      const treeLayout = d3
-        .tree()
-        .nodeSize([nodeWidth! + 50, nodeWidth! + 150]);
-
-      // Assigns x and y coordinates to each node
-      const rootNode = d3.hierarchy(root);
-      const treeData = treeLayout(rootNode);
-
-      // Adjust node positions based on direction
-      if (direction === "left") {
-        treeData.each((d) => {
-          // Flip x coordinates for left tree
-          d.y = -d.y;
-        });
-      }
-
-      // Translate positions to center the visualization
-      const centerY = height / 2;
-      const rootX = 0;
-
-      treeData.each((d) => {
-        // Swap x and y for horizontal layout
-        const tempX = d.x;
-        d.x = rootX + d.y;
-        d.y = centerY + tempX - height / 4;
-      });
-
-      return { treeData, dynamicHeight };
-    }
+    
 
     // Create tree data structures
-    const rightTreeResult = createTreeLayout(rightRoot, "right");
-    const leftTreeResult = createTreeLayout(leftRoot, "left");
-    const rightTree = rightTreeResult.treeData;
-    const leftTree = leftTreeResult.treeData;
+    const rightTreeResult = createTreeLayout(rightRoot, "right", height, nodeWidth!);
+    const leftTreeResult = createTreeLayout(leftRoot, "left", height, nodeWidth!);
+    const rightTree: d3.HierarchyPointNode<TreeNode> = rightTreeResult.treeData;
+    const leftTree: d3.HierarchyPointNode<TreeNode> = leftTreeResult.treeData;
 
     // Use the maximum height from either tree
     const maxDynamicHeight = Math.max(
@@ -640,7 +225,7 @@
     );
 
     // Combine nodes from both trees
-    const allNodes = [...rightTree.descendants(), ...leftTree.descendants()];
+    const allNodes: d3.HierarchyPointNode<TreeNode>[] = [...rightTree.descendants(), ...leftTree.descendants()];
     // Combine links from both trees
     const allLinks = [...rightTree.links(), ...leftTree.links()];
 
@@ -656,8 +241,8 @@
     // Helper function to check if two nodes are directly connected
     function isDirectlyConnected(nodeId1: string, nodeId2: string): boolean {
       // Check if node1 is a direct parent/child of node2 in the original data
-      const node1Data = findOriginalData(nodeId1);
-      const node2Data = findOriginalData(nodeId2);
+      const node1Data = findOriginalData(relationShipTree, nodeId1);
+      const node2Data = findOriginalData(relationShipTree, nodeId2);
 
       if (!node1Data || !node2Data) return false;
 
@@ -866,7 +451,7 @@
       .transition()
       .duration(500)
       .style("opacity", 0)
-      .attr("transform", (d) => {
+      .attr("transform", (d: any) => {
         // Exit nodes towards their parent's position
         const parent = d.parent;
         const parentPos = parent
@@ -917,6 +502,28 @@
         .style("stroke", strokeColor!)
         .style("stroke-width", d.data.depth === 0 ? 8 : 2);
 
+      
+      let expandCircleGroup = element.insert('g', ':first-child').attr('class', `unexpanded-circle-group-${d.data.id.replace(':','-')}`);
+
+      // Add visual circles to easily indicate whether a node has relationships that haven't been expanded yet
+      expandCircleGroup.append('circle')
+        .attr('class', 'node-circle-left')
+        .attr('r', 1e-6)
+        .style('opacity', .5)
+        .attr('transform', 'translate(-10, -20)')
+        .style('stroke', '#A8D6F2')
+        .style("stroke-width",  2)
+        .style('fill', 'transparent');
+
+      expandCircleGroup.append('circle')
+        .attr('class', 'node-circle-right')
+        .attr('r', 1e-6)
+        .style('opacity', .5)
+        .attr('transform', 'translate(13, -12)')
+        .style('stroke', '#A8D6F2')
+        .style("stroke-width",  2)
+        .style('fill', 'transparent');
+
       // Add type-specific images
       if (d.data.type === "queue") {
         element
@@ -956,10 +563,10 @@
       }
 
       // Add text labels with intelligent wrapping
-      createNodeLabel(element, d);
+      createNodeLabel(nodeWidth!, element, d);
 
       // Check if this node should have expand/collapse buttons
-      const originalData = findOriginalData(d.data.id);
+      const originalData = findOriginalData(relationShipTree, d.data.id);
       const isRootNode = d.data.id === relationShipTree.id;
       
       // Check for available children/parents
@@ -1003,6 +610,12 @@
         );
       }
 
+      const currentParentsExpanded = expandedNodes.has(`${d.data.id}-parents`);
+      const currentParentsCollapsed = expandedNodes.has(`${d.data.id}-parents-collapsed`);
+      
+      // If explicitly expanded OR (default visible and not explicitly collapsed)
+      const parentsCurrentlyShowing = currentParentsExpanded || 
+        (defaultParentsVisible && !currentParentsCollapsed);
       // Add left button (parents) if needed
       if (needsParentsButton) {
         const leftButtonGroup = element.append("g").attr("class", "left-button-group");
@@ -1036,7 +649,13 @@
         // Add click handler for left button (parents)
         leftButtonGroup.on("click", function (event, buttonData) {
           event.stopPropagation();
-          toggleNodeParents(buttonData.data.id);
+          let res = toggleNodeExpansion(buttonData.data.id, 'parents', expandedNodes, relationShipTree);
+          expandedNodes = res.expandedNodes;
+          lastExpandedNode = res.lastExpandedNode;
+          renderVisualization();
+          setTimeout(() => {
+            updateVisibleNodesFromDOM();
+          }, 600)
         });
 
         // Add hover effects for left button
@@ -1044,13 +663,7 @@
           .on("mouseenter.leftButton", function () {
             // Determine button text based on current state
             let buttonText;
-            const currentParentsExpanded = expandedNodes.has(`${d.data.id}-parents`);
-            const currentParentsCollapsed = expandedNodes.has(`${d.data.id}-parents-collapsed`);
-            const defaultParentsVisible = hasParents && (originalData?.parents?.length || 0) === 1;
             
-            // If explicitly expanded OR (default visible and not explicitly collapsed)
-            const parentsCurrentlyShowing = currentParentsExpanded || 
-              (defaultParentsVisible && !currentParentsCollapsed);
             
             if (parentsCurrentlyShowing) {
               buttonText = ">"; // Collapse parents (point away from node)
@@ -1067,6 +680,13 @@
             leftButtonText.transition().duration(200).style("opacity", 0);
           });
       }
+
+      const currentChildrenExpanded = expandedNodes.has(`${d.data.id}-children`);
+      const currentChildrenCollapsed = expandedNodes.has(`${d.data.id}-children-collapsed`);
+      
+      // If explicitly expanded OR (default visible and not explicitly collapsed)
+      const childrenCurrentlyShowing = currentChildrenExpanded || 
+        (defaultChildrenVisible && !currentChildrenCollapsed);
 
       // Add right button (children) if needed
       if (needsChildrenButton) {
@@ -1101,7 +721,14 @@
         // Add click handler for right button (children)
         rightButtonGroup.on("click", function (event, buttonData) {
           event.stopPropagation();
-          toggleNodeChildren(buttonData.data.id);
+          let res = toggleNodeExpansion(buttonData.data.id, 'children', expandedNodes, relationShipTree);
+          expandedNodes = res.expandedNodes;
+          lastExpandedNode = res.lastExpandedNode;
+          renderVisualization();
+
+          setTimeout(() => {
+            updateVisibleNodesFromDOM();
+          }, 600)
         });
 
         // Add hover effects for right button
@@ -1109,13 +736,6 @@
           .on("mouseenter.rightButton", function () {
             // Determine button text based on current state
             let buttonText;
-            const currentChildrenExpanded = expandedNodes.has(`${d.data.id}-children`);
-            const currentChildrenCollapsed = expandedNodes.has(`${d.data.id}-children-collapsed`);
-            const defaultChildrenVisible = hasChildren && (originalData?.children?.length || 0) === 1;
-            
-            // If explicitly expanded OR (default visible and not explicitly collapsed)
-            const childrenCurrentlyShowing = currentChildrenExpanded || 
-              (defaultChildrenVisible && !currentChildrenCollapsed);
             
             if (childrenCurrentlyShowing) {
               buttonText = "<"; // Collapse children (point away from children)
@@ -1132,6 +752,13 @@
             rightButtonText.transition().duration(200).style("opacity", 0);
           });
       }
+
+      if(needsParentsButton && !parentsCurrentlyShowing) {
+        handleBackgroundNodeCircles(d.data.id, 'expand');
+      } else if(needsChildrenButton && !childrenCurrentlyShowing) {
+        handleBackgroundNodeCircles(d.data.id, 'expand');
+      }
+
     });
 
     // Merge and update all nodes
@@ -1140,7 +767,7 @@
     // Update button states for all nodes (both new and existing)
     nodeUpdate.each(function (d) {
       const element = d3.select(this);
-      const originalData = findOriginalData(d.data.id);
+      const originalData = findOriginalData(relationShipTree, d.data.id);
       const isRootNode = d.data.id === relationShipTree.id;
       
       // Update current state
