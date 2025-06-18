@@ -215,11 +215,18 @@ export function toggleNodeExpansion(
  * @param type The type of action, expand or contract
  */
 export function handleBackgroundNodeCircles(nodeId: string, type: 'expand' | 'contract') {
-  const element = d3.select(`.unexpanded-circle-group-${nodeId.replace(':', '-')}`);
+  const nodeNewIdentifier = '.'+createGoodIdentifier('unexpanded-circle-group-', nodeId);
+  const element = d3.select(nodeNewIdentifier);
   if(type == 'expand') {
     element.selectChildren().attr('r', 37.5);
 
   } else {
     element.selectChildren().attr('r', 1e-6);
   }
+}
+
+
+export function createGoodIdentifier(prefix: string, nodeId: string): string {
+  const re = /[^a-zA-Z_-]/gm;
+  return `${prefix}${nodeId}`.replace(re, '-');
 }

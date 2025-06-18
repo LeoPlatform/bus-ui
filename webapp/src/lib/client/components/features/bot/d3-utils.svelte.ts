@@ -196,3 +196,55 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
 
   return { treeData, dynamicHeight };
 }
+
+// function resetView() {
+//     d3.select("#tree-container svg")
+//       .transition()
+//       .duration(750)
+//       .call(zoomHandler.transform, d3.zoomIdentity);
+
+//     // Reset highlighting
+//     nodeGroup
+//       .selectAll(".node")
+//       .classed("highlighted", false)
+//       .classed("faded", false);
+//     linkGroup
+//       .selectAll(".link")
+//       .classed("highlighted", false)
+//       .classed("faded", false);
+
+//     // Clear node info
+//     d3.select("#node-info").html("<p>Click on a node to see information</p>");
+//   }
+
+//   function collapseAll() {
+//     expandedNodes.clear();
+//     expandedNodes = new Set(expandedNodes);
+//     nodePositions.clear(); // Clear stored positions for fresh layout
+//     lastExpandedNode = null; // Reset expansion tracking
+//     renderVisualization();
+//   }
+
+//   function collapseToRoot() {
+//     // Clear all expanded nodes to show only the root
+//     expandedNodes.clear();
+//     expandedNodes = new Set(expandedNodes);
+//     nodePositions.clear();
+//     lastExpandedNode = null;
+//     renderVisualization();
+//   }
+
+//   function expandAll() {
+//     // Add all node IDs to expanded set for both children and parents
+//     function addAllNodes(tree: RelationshipTree) {
+//       expandedNodes.add(`${tree.id}-children`);
+//       expandedNodes.add(`${tree.id}-parents`);
+//       tree.children?.forEach(addAllNodes);
+//       tree.parents?.forEach(addAllNodes);
+//     }
+
+//     addAllNodes(relationShipTree);
+//     expandedNodes = new Set(expandedNodes);
+//     renderVisualization();
+//   }
+

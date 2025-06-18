@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { AppState } from "$lib/client/appstate.svelte";
-  import type { RelationshipTree, TreeNode } from "$lib/types";
+  import type { TreeNode } from "$lib/types";
   import { humanize } from "$lib/utils";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import type { LinkStats } from "./types";
-  import { findOriginalData, handleBackgroundNodeCircles, initializeLinkStats, processTree, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createGoodIdentifier, findOriginalData, handleBackgroundNodeCircles, initializeLinkStats, processTree, toggleNodeExpansion } from "./tree-utils.svelte";
   import { createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
 
   let appState = getContext<AppState>('appState');
@@ -42,10 +42,28 @@
   let nodePositions = new Map<string, { x: number; y: number }>(); // Track node positions
   let lastExpandedNode: string | null = null; // Track which node was last expanded
 
+  let containerElement: HTMLElement;
+  let containerWidth = $state(0);
+  let containerHeight = $state(0);
 
 
   onMount(() => {
+
+    containerElement = document.getElementById('tree-container')!;
+    updateContainerDimensions();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateContainerDimensions();
+      if (svg) {
+        renderVisualization(); // Re-render when container resizes
+      }
+    });
+  
+    resizeObserver.observe(containerElement);
+    
     const treeData = relationShipTree;
+
+
     if (!treeData) {
       error(500, "failed to generate tree data");
       return;
@@ -53,8 +71,20 @@
 
     initializeVisualization();
     initializeLinkStats(botStats, linkStats);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
     
   })
+
+  function updateContainerDimensions() {
+    if (containerElement) {
+      const rect = containerElement.getBoundingClientRect();
+      containerWidth = rect.width;
+      containerHeight = rect.height;
+    }
+}
 
   $effect(() => {
     const timer = setInterval(() => {
@@ -82,38 +112,23 @@
       initializeLinkStats(botStats, linkStats);
       renderVisualization();
     })
-    // const currentNodeCount = appState.botState.visibleIds.length;
-    
-    // async function getStats() {
-      
-    //   if (currentNodeCount === 0) {
-    //     return;
-    //   }
-
-    //   await appState.botState.fetchBotStats();
-      
-    // }
-    // getStats();
-    // initializeLinkStats();
-    // renderVisualization();
   })
 
   function initializeVisualization() {
     // Clear any existing SVG
     d3.select("#tree-container").selectAll("*").remove();
-
     // Set up SVG dimensions and margins
     //TODO: this needs to be updated to take in the full window size rather than a static value
     const margin = { top: 50, right: 120, bottom: 50, left: 120 };
-    const width = 1500 - margin.left - margin.right;
-    const height = 800 - margin.top - margin.bottom;
+    // const width = containerWidth - margin.left - margin.right;
+    // const height = containerHeight - margin.top - margin.bottom;
 
     // Create the SVG container
     svg = d3
       .select("#tree-container")
       .append("svg")
-      .attr("width", width)
-      .attr("height", height)
+      .attr("width", containerWidth)
+      .attr("height", containerHeight)
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -129,9 +144,6 @@
     renderVisualization();
   }
 
-    //TODO: we will want this to grab stats data from the api for any visibile nodes.
-  // TODO: we will also only want this to grab stats for freshly rendered nodes (don't refresh data we don't have to)
-  // TODO: we will also want to fresh stats pull for all visible nodes every 30 seconds or so.
   function getLinkStats(parentId: string, childId: string): LinkStats {
 
     // remove bot: from the parent and child
@@ -198,8 +210,8 @@
 
   function renderVisualization() {
     const margin = { top: 50, right: 120, bottom: 50, left: 120 };
-    const width = 1500 - margin.left - margin.right;
-    const height = 800 - margin.top - margin.bottom;
+    const width = containerWidth - margin.left - margin.right;
+    const height = containerHeight - margin.top - margin.bottom;
 
     // Create separate trees for left and right directions
     const rightRoot = processTree(relationShipTree, "right", expandedNodes);
@@ -564,7 +576,7 @@
         .style("stroke-width", d.data.depth === 0 ? 8 : 2);
 
       
-      let expandCircleGroup = element.insert('g', ':first-child').attr('class', `unexpanded-circle-group-${d.data.id.replace(':','-')}`);
+      let expandCircleGroup = element.insert('g', ':first-child').attr('class', createGoodIdentifier('unexpanded-circle-group-',d.data.id));
 
       // Add visual circles to easily indicate whether a node has relationships that haven't been expanded yet
       expandCircleGroup.append('circle')
@@ -814,11 +826,12 @@
           });
       }
 
-      if(needsParentsButton && !parentsCurrentlyShowing) {
+      if((needsParentsButton && !parentsCurrentlyShowing) || (needsChildrenButton && !childrenCurrentlyShowing)) {
         handleBackgroundNodeCircles(d.data.id, 'expand');
-      } else if(needsChildrenButton && !childrenCurrentlyShowing) {
-        handleBackgroundNodeCircles(d.data.id, 'expand');
-      }
+      } 
+      // else if(needsChildrenButton && !childrenCurrentlyShowing) {
+      //   handleBackgroundNodeCircles(d.data.id, 'expand');
+      // }
 
     });
 
@@ -964,53 +977,6 @@
       });
     }
 
-    // Add legend (only if it doesn't exist)
-    if (svg.select(".legend").empty()) {
-      const legend = svg
-        .append("g")
-        .attr("class", "legend")
-        .attr("transform", `translate(${width - 200}, 20)`);
-
-      const legendItems = [
-        { type: "queue", color: "#8da0cb", shape: "rect", label: "Queue" },
-        { type: "bot", color: "#66c2a5", shape: "circle", label: "Bot" },
-        { type: "system", color: "#fc8d62", shape: "circle", label: "System" },
-        {
-          type: "expand",
-          color: "#4CAF50",
-          shape: "circle",
-          label: "< > Expand/Collapse",
-        },
-      ];
-
-      legendItems.forEach((item, i) => {
-        const yPos = i * 25;
-
-        if (item.shape === "rect") {
-          legend
-            .append("rect")
-            .attr("x", 0)
-            .attr("y", yPos)
-            .attr("width", 15)
-            .attr("height", 15)
-            .style("fill", item.color);
-        } else {
-          legend
-            .append("circle")
-            .attr("cx", 8)
-            .attr("cy", yPos + 8)
-            .attr("r", 7)
-            .style("fill", item.color);
-        }
-
-        legend
-          .append("text")
-          .attr("x", 20)
-          .attr("y", yPos + 12)
-          .text(item.label)
-          .style("font-size", "12px");
-      });
-    }
 
     setTimeout(() => {
       updateVisibleNodesFromDOM()
@@ -1021,82 +987,10 @@
   function getVisibleNodeCount(): number {
     return appState.botState.visibleIds.length;
   }
+</script>
 
-  function resetView() {
-    d3.select("#tree-container svg")
-      .transition()
-      .duration(750)
-      .call(zoomHandler.transform, d3.zoomIdentity);
-
-    // Reset highlighting
-    nodeGroup
-      .selectAll(".node")
-      .classed("highlighted", false)
-      .classed("faded", false);
-    linkGroup
-      .selectAll(".link")
-      .classed("highlighted", false)
-      .classed("faded", false);
-
-    // Clear node info
-    d3.select("#node-info").html("<p>Click on a node to see information</p>");
-  }
-
-  function collapseAll() {
-    expandedNodes.clear();
-    expandedNodes = new Set(expandedNodes);
-    nodePositions.clear(); // Clear stored positions for fresh layout
-    lastExpandedNode = null; // Reset expansion tracking
-    renderVisualization();
-  }
-
-  function collapseToRoot() {
-    // Clear all expanded nodes to show only the root
-    expandedNodes.clear();
-    expandedNodes = new Set(expandedNodes);
-    nodePositions.clear();
-    lastExpandedNode = null;
-    renderVisualization();
-  }
-
-  function expandAll() {
-    // Add all node IDs to expanded set for both children and parents
-    function addAllNodes(tree: RelationshipTree) {
-      expandedNodes.add(`${tree.id}-children`);
-      expandedNodes.add(`${tree.id}-parents`);
-      tree.children?.forEach(addAllNodes);
-      tree.parents?.forEach(addAllNodes);
-    }
-
-    addAllNodes(relationShipTree);
-    expandedNodes = new Set(expandedNodes);
-    renderVisualization();
-  }
-
-  </script>
-
-  <div class="workflow-container">
-  <h1>Bot and Queue Workflow Visualization</h1>
-  <div class="controls">
-    <button onclick={resetView}>Reset View</button>
-    <button onclick={expandAll}>Expand All</button>
-    <button onclick={collapseAll}>Collapse All</button>
-    <button onclick={collapseToRoot}>Collapse to Root</button>
-    <button>Visible Nodes ({getVisibleNodeCount()})</button>
-  </div>
+<div class="workflow-container">
   <div id="tree-container"></div>
-  <div class="info-panel">
-    <h3>Node Information</h3>
-    <div id="node-info">
-      <p>Click on a node to see information</p>
-      <p><strong>Instructions:</strong></p>
-      <ul>
-        <li>Click node: View details and highlight connections</li>
-        <li>Hover over nodes to reveal action buttons</li>
-        <li>Root node shows both left and right buttons</li>
-      </ul>
-    </div>
-  </div>
 </div>
 
 <style>
@@ -1106,83 +1000,6 @@
     padding: 20px;
   }
 
-  .node {
-    cursor: pointer;
-  }
-
-  .link {
-    fill: none;
-    stroke-width: 1px;
-  }
-
-  /* Enhanced transitions for all elements */
-  .left-button-group circle,
-  .left-button-group text,
-  .right-button-group circle,
-  .right-button-group text {
-    transition: opacity 0.2s ease-in-out;
-  }
-
-  .node {
-    transition:
-      opacity 0.3s ease-in-out,
-      transform 0.3s ease-in-out;
-  }
-
-  .link-group {
-    transition: opacity 0.3s ease-in-out;
-  }
-
-  /* Link text styling */
-  .link-text-above {
-    font-weight: bold;
-    fill: #333;
-  }
-
-  .link-text-below {
-    fill: #666;
-    font-style: italic;
-  }
-
-  /* Highlighting styles */
-  .highlighted .node-circle {
-    stroke: #ff5722 !important;
-    stroke-width: 3px !important;
-  }
-
-  .faded {
-    opacity: 0.3;
-  }
-
-  .highlighted {
-    opacity: 1;
-  }
-
-  .controls {
-    margin-bottom: 20px;
-  }
-
-  .info-panel {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background-color: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    max-width: 250px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  }
-
-  .info-panel ul {
-    font-size: 11px;
-    margin: 10px 0 0 0;
-    padding-left: 15px;
-  }
-
-  .info-panel li {
-    margin-bottom: 3px;
-  }
 
   #tree-container {
     /* border: 1px solid #ddd;
@@ -1191,22 +1008,5 @@
     min-height: 800px;
   }
 
-  button {
-    padding: 8px 16px;
-    background-color: #4682b4;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-right: 10px;
-  }
 
-  button:hover {
-    background-color: #36648b;
-  }
-
-  /* Button styling */
-  .left-button, .right-button {
-    filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.3));
-  }
 </style>
