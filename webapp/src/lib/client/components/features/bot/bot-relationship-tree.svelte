@@ -103,6 +103,7 @@
     d3.select("#tree-container").selectAll("*").remove();
 
     // Set up SVG dimensions and margins
+    //TODO: this needs to be updated to take in the full window size rather than a static value
     const margin = { top: 50, right: 120, bottom: 50, left: 120 };
     const width = 1500 - margin.left - margin.right;
     const height = 800 - margin.top - margin.bottom;
@@ -111,8 +112,8 @@
     svg = d3
       .select("#tree-container")
       .append("svg")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
+      .attr("width", width)
+      .attr("height", height)
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -338,6 +339,15 @@
       .style("stroke-width", "2px")
       .style("fill", "none");
 
+    // Add white background rectangle for text above the link
+    linkEnter
+      .append("rect")
+      .attr("class", "link-text-above-bg")
+      .style("fill", "white")
+      .style("rx", "3") // Rounded corners
+      .style("ry", "3")
+      .style("pointer-events", "none");
+
     // Add text above the link (event count)
     linkEnter
       .append("text")
@@ -347,6 +357,15 @@
       .style("font-weight", "bold")
       .style("fill", "#333")
       .style("pointer-events", "none"); // Prevent text from interfering with interactions
+
+    // Add white background rectangle for text below the link
+    linkEnter
+      .append("rect")
+      .attr("class", "link-text-below-bg")
+      .style("fill", "white")
+      .style("rx", "3") // Rounded corners
+      .style("ry", "3")
+      .style("pointer-events", "none");
 
     // Add text below the link (time ago)
     linkEnter
@@ -382,7 +401,7 @@
 
     // Update link text positions and content
     linkUpdate
-      .select(".link-text-above")
+      .selectAll(".link-text-above")
       .transition()
       .duration(500)
       .attr("x", (d) => (d.source.x + d.target.x) / 2)
@@ -404,13 +423,33 @@
           }
         const stats = getLinkStats(linkSourceId, linkTargetId);
         return stats.eventCount.toLocaleString();
+      }).each(function(d) {
+    // After text is set, get its dimensions and update background
+        try {
+          const bbox = this.getBBox();
+          const padding = 4;
+          
+          d3.select(this.parentNode)
+            .select(".link-text-above-bg")
+            .attr("x", bbox.x - padding)
+            .attr("y", bbox.y - padding)
+            .attr("width", bbox.width + (padding * 2))
+            .attr("height", bbox.height + (padding * 2));
+        } catch (error) {
+          // Fallback if getBBox fails
+          console.warn("getBBox failed for link-text-above, using fallback", error);
+          d3.select(this.parentNode)
+            .select(".link-text-above-bg")
+            .attr("x", -25)
+            .attr("y", -8)
+            .attr("width", 50)
+            .attr("height", 16);
+        }
       });
 
-      //TODO: if 'write' then 'ago' else prepend 'lag:'
-      // TODO: if lag is < 30s show '-'
-      // TODO: if never read from or written to show 'N/A'
+
     linkUpdate
-      .select(".link-text-below")
+      .selectAll(".link-text-below")
       .transition()
       .duration(500)
       .attr("x", (d) => (d.source.x + d.target.x) / 2)
@@ -435,6 +474,28 @@
           console.log(linkSourceId);
         const stats = getLinkStats(linkSourceId, linkTargetId);
         return getLowerText(stats);
+      }).each(function(d) {
+        // After text is set, get its dimensions and update background
+        try {
+          const bbox = this.getBBox();
+          const padding = 4;
+          
+          d3.select(this.parentNode)
+            .select(".link-text-below-bg")
+            .attr("x", bbox.x - padding)
+            .attr("y", bbox.y - padding)
+            .attr("width", bbox.width + (padding * 2))
+            .attr("height", bbox.height + (padding * 2));
+        } catch (error) {
+          // Fallback if getBBox fails
+          console.warn("getBBox failed for link-text-below, using fallback", error);
+          d3.select(this.parentNode)
+            .select(".link-text-below-bg")
+            .attr("x", -30)
+            .attr("y", -8)
+            .attr("width", 60)
+            .attr("height", 16);
+        }
       });
 
     // Fade in new and updated links
@@ -1124,9 +1185,9 @@
   }
 
   #tree-container {
-    border: 1px solid #ddd;
+    /* border: 1px solid #ddd;
     border-radius: 5px;
-    background-color: #f9f9f9;
+    background-color: #f9f9f9; */
     min-height: 800px;
   }
 
