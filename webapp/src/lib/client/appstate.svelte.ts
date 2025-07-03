@@ -1,6 +1,7 @@
 import type { UserData } from "$lib/types";
 import { BotTableState } from "./components/features/bot-table/bot-table.state.svelte";
 import { BotState } from "./components/features/bot/bot.state.svelte";
+import { TimePickerState } from "./components/features/time-picker/time-picker.state.svelte";
 type GlobalFetch = typeof globalThis.fetch;
 
 export class AppState {
@@ -8,6 +9,7 @@ export class AppState {
     #botState: BotState | undefined;
     #botTableState: BotTableState | undefined;
     #userData: UserData;
+    #timePickerState: TimePickerState | undefined;
 
     constructor(fetch: GlobalFetch, userData: UserData) {
         this.#fetch = fetch;
@@ -31,5 +33,12 @@ export class AppState {
             this.#botTableState = new BotTableState(this.#fetch);
         }
         return this.#botTableState;
+    }
+
+    get timePickerState() {
+        if(!this.#timePickerState) {
+            this.#timePickerState = new TimePickerState(this.#fetch);
+        }
+        return this.#timePickerState;
     }
 }

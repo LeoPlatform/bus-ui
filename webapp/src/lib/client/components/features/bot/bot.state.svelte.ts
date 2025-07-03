@@ -6,6 +6,7 @@ import {
   type MergedStatsRecord,
   type StatsResponse,
 } from "$lib/types";
+import type { TimePickerState } from "../time-picker/time-picker.state.svelte";
 
 type GlobalFetch = typeof globalThis.fetch;
 
@@ -18,7 +19,6 @@ export class BotState {
   #stats = $state<MergedStatsRecord[]>([]);
   #visibleIds = $state<string[]>([]);
   #fetchedStats: Map<string, number>;
-  #range: StatsRange = $state<StatsRange>(StatsRange.Minute15);
   #selectedBotId = $state<string | null>(null);
   #staleTime: number;
 
@@ -55,15 +55,12 @@ export class BotState {
     this.#visibleIds = ids;
   }
 
-  set range(range: StatsRange) {
-    this.#range = range;
-  }
 
   set relationShipTree(tree: RelationshipTree) {
     this.#relationShipTree = tree;
   }
 
-  async fetchBotStats() {
+  async fetchBotStats(pickerState: TimePickerState) {
 
     const now = Date.now();
     const staleIds = new Set<string>();
@@ -81,12 +78,7 @@ export class BotState {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          range: this.#range,
-          count: 1, //TODO: this will need to be inferred from the range
-          timestamp: Date.now(),
-          node_ids: Array.from(staleIds),
-        }),
+        body: JSON.stringify(pickerState.createStatsQueryRequest(Array.from(staleIds)))
       });
 
       const data = (await res.json()) as StatsResponse;

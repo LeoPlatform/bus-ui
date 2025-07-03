@@ -74,8 +74,8 @@ export async function getStats(creds: AwsCreds, params: StatsQueryRequest): Prom
     const bucketUtils = bucketsData[params.range];
 
 
-    const endTime = bucketUtils.next(new Date(params.timestamp), params.count);
-    const startTime = bucketUtils.prev(endTime, params.count);
+    const endTime = params.endTime ? bucketUtils.value(new Date(params.endTime)) : bucketUtils.next(new Date(params.startTime), params.count);
+    const startTime = params.endTime ? bucketUtils.value(new Date(params.startTime)) : bucketUtils.prev(endTime, params.count);
 
     const expressionAttributeValues: Record<string, string> = {
         ":start": bucketUtils.transform(startTime),
@@ -85,7 +85,7 @@ export async function getStats(creds: AwsCreds, params: StatsQueryRequest): Prom
     try {
 
         const queries = [];
-        for (const id of params.node_ids) {
+        for (const id of params.nodeIds) {
             expressionAttributeValues[":id"] = id;
             queries.push(new QueryCommand({
                 TableName: LEO_STATS_TABLE,

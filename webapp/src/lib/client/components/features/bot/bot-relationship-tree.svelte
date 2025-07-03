@@ -90,7 +90,7 @@
     const timer = setInterval(() => {
       untrack( async() => {
         console.log(`${appState.botState.staleTime / 1000} seconds elapsed - refreshing stats data`);
-        await appState.botState.fetchBotStats();
+        await appState.botState.fetchBotStats(appState.timePickerState);
         initializeLinkStats(botStats, linkStats);
         renderVisualization
       })
@@ -108,7 +108,7 @@
     }
 
     untrack( async () => {
-      await appState.botState.fetchBotStats();
+      await appState.botState.fetchBotStats(appState.timePickerState);
       initializeLinkStats(botStats, linkStats);
       renderVisualization();
     })

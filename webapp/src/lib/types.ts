@@ -100,16 +100,19 @@ export interface StatsQueryParams {
 export interface StatsQueryRequest {
   range: StatsRange,
   count: number,
-  timestamp: number,
-  node_ids: string[],
+  startTime: number,
+  endTime?: number,
+  nodeIds: string[],
 }
 
 export enum StatsRange {
   Minute = "minute",
-  Hour = "hour",
-  Day = "day",
   Minute1 = "minute_1",
   Minute15 = "minute_15",
+  Hour = "hour",
+  Hour6 = "hour_6",
+  Day = "day",
+  Week = "week",
 }
 
 export enum NodeType {

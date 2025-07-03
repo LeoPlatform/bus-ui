@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
   const requestBody: StatsQueryRequest  = await request.json();
 
-  if (!requestBody.node_ids) {
+  if (!requestBody.nodeIds) {
     return new Response(JSON.stringify({ error: "node_ids are required to get stats" }), {
       status: 400,
     });
