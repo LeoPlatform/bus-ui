@@ -26,3 +26,4 @@ vite.config.ts.timestamp-*
 node_modules
 
 *.config.json
+NOTES.md
