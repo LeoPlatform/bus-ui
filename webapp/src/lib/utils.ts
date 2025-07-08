@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { NodeType } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
@@ -33,4 +34,15 @@ export function humanize(milliseconds: number, showMilliseconds: boolean = false
 			}
 		}
 	}
+}
+
+export function getNodeTypeLink(nodeType: NodeType): string {
+    switch (nodeType) {
+		case NodeType.Bot:
+			return '/bot.png';
+		case NodeType.Queue:
+			return '/queue.png';
+		case NodeType.System:
+			return '/system.png';
+    }
 }

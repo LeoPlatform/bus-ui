@@ -17,20 +17,7 @@
   const mockBadgeCount = 142;
 </script>
 
-<div class="h-screen w-16 bg-lime-400 flex flex-col shadow-lg">
-  <!-- Logo Section -->
-  <div class="flex items-center justify-center py-4 bg-black">
-    <Button 
-      href='/'
-      variant="ghost"
-      size="icon"
-      class="w-12 h-12 hover:bg-white/10 transition-colors"
-      aria-disabled={currentRoute === '/'}
-    >
-      <img src="//cdnleo.s3.amazonaws.com/logos/leo_icon.png" alt="Leo Logo" class="w-8 h-8" />
-    </Button>
-  </div>
-
+<div class="h-screen w-16 bg-lime-600 flex flex-col shadow-lg">
   <!-- Navigation Items -->
   <div class="flex-1 flex flex-col space-y-1 px-2 items-center">
     {#each routes as route, index}
@@ -46,7 +33,7 @@
                   transition-all duration-200 ease-in-out mt-3
                   ${isActive 
                     ? 'bg-gray-50/20 shadow-lg transform scale-105' 
-                    : 'bg-lime-400 hover:bg-slate-600'
+                    : 'bg-lime-600 hover:bg-slate-600'
                   }
                   hover:transform hover:scale-105 hover:shadow-lg
                   group relative

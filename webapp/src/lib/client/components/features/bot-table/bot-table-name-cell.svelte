@@ -15,13 +15,11 @@
 
     function goToRelationshipView(id: string) {
         console.log('attempting to navigate to ',id);
-        appState.botTableState.selectedBotId = id;
-        appState.botTableState.navigateToRelationshipView();
+        appState.navigateToRelationshipView(id);
     }
 
     function goToDashboardView(id: string) {
-        appState.botTableState.selectedBotId = id;
-        appState.botTableState.navigateToDashboardView();
+        appState.navigateToDashboardView(id);
     }
 
 </script>

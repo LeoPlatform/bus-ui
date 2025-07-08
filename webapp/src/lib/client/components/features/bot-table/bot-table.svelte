@@ -164,7 +164,7 @@
   });
 </script>
 
-<div>
+<div class="pl-2 pr-2">
   <div class="flex items-center justify-end space-x-2 py-4">
     <Input 
       placeholder="Filter Bots..."

@@ -46,7 +46,7 @@
 
 </script>
 
-<div class="flex min-h-screen items-center justify-center p-4">
+<div class="flex min-h-screen min-w-screen items-center justify-center p-4">
 
   <Card.Root class="w-full max-w-md mx-auto">
     <Card.Header>

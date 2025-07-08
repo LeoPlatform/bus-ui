@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Icons from '$lib/client/components/icons';
   	import LeftNav from '$lib/client/components/left-nav.svelte';
+  import TopHeader from '$lib/client/components/top-header.svelte';
 	import '../app.pcss';
 	
 	//TODO remove this when we actually are ready
@@ -31,12 +32,18 @@
 
 <!-- <AuthProvider> -->
 	<!-- {#if $auth.isAuthenticated && !isAuthRoute} -->
-<div class="flex h-screen w-full overflow-hidden">
-	<LeftNav routes={routes} appState={appState}/>
-	<main class="flex-1 overflow-auto p-4">
-		{@render children()}
+<!-- <div class="flex h-screen w-full overflow-hidden"> -->
+	<main class="flex-row h-screen w-full overflow-hidden">
+		<div class="flex-col w-full">
+			
+			<TopHeader />
+			<div class="flex w-full justify-items-stretch">
+				<LeftNav routes={routes} appState={appState}/>
+				{@render children()}
+			</div>
+		</div>
 	</main>
-</div>
+<!-- </div> -->
 	<!-- {:else}
 		<main class="w-full">
 			{@render children()}

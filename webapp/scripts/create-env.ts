@@ -25,6 +25,8 @@ async function main(): Promise<void> {
         environment: 'test',
         leo_cron_table: 'TestBus-LeoCron-OJ8ZNCEBL8GM',
         leo_stats_table: 'TestBotmon-LeoStats-1X4QJ2RV6XCYA',
+        leo_event_table: 'TestBus-LeoEvent-FNSO733D68CR',
+        leo_system_table: 'TestBus-LeoSystem-L9OY6AV8E954',
         local: true,
         auth_config_source: argv.configLocation,
         auth_secret:'',

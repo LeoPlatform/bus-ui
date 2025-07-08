@@ -1,14 +1,13 @@
 import { getStats } from "$lib/server/services/dynamoService";
+import { getSession } from "$lib/server/utils";
 import type { StatsApiResponse, StatsQueryRequest } from "$lib/types";
 import { json, type RequestHandler } from "@sveltejs/kit";
 
 export const POST: RequestHandler = async ({ locals, request }) => {
-  const session = await locals.auth();
-
-  if (!session?.user || !session.aws_credentials) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-    });
+  const session = await getSession(locals);
+  
+  if (session instanceof Response) {
+    return session;
   }
 
   const requestBody: StatsQueryRequest  = await request.json();
@@ -21,5 +20,5 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
   console.log("requestBody", requestBody);
 
-  return json({stats: await getStats(session.aws_credentials, requestBody)} as StatsApiResponse);
+  return json({stats: await getStats(session.aws_credentials!, requestBody)} as StatsApiResponse);
 };

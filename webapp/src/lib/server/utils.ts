@@ -10,3 +10,16 @@ export function getLeoCronTable(): string {
         return result;
     }
 }
+
+export async function getSession(locals: App.Locals) {
+    const session = await locals.auth();
+
+  if (!session?.user || !session.aws_credentials) {
+    // throw new Error('unauthorized');
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+    });
+  }
+
+  return session;
+}

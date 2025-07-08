@@ -290,3 +290,20 @@ export interface UserData {
 export interface StatsApiResponse {
   stats: MergedStatsRecord[]
 }
+
+export interface QueueSettings {
+  event: string,
+  archived?: boolean,
+  name?: string,
+  paused?: boolean,
+  timestamp?: number,
+}
+
+export interface SystemSettings {
+  id: string,
+  icon?: string,
+  label?: string,
+  settings?: {
+    system: string
+  }
+}

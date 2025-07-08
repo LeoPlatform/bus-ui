@@ -4,7 +4,7 @@ import {
   type BotSettings,
   type BotSettingsApiResponse,
   type MergedStatsRecord,
-  type StatsResponse,
+  type StatsApiResponse,
 } from "$lib/types";
 import type { TimePickerState } from "../time-picker/time-picker.state.svelte";
 
@@ -81,7 +81,7 @@ export class BotState {
         body: JSON.stringify(pickerState.createStatsQueryRequest(Array.from(staleIds)))
       });
 
-      const data = (await res.json()) as StatsResponse;
+      const data = (await res.json()) as StatsApiResponse;
 
       staleIds.forEach((id) => {
         this.#fetchedStats.set(id, now);
@@ -252,7 +252,7 @@ export class BotState {
           return hierarchicalNode;
       }
   
-      this.#relationShipTree = buildHierarchicalTree(this.#selectedBotId, "both");
+      this.#relationShipTree = buildHierarchicalTree(this.#selectedBotId!, "both");
   }
   
 }

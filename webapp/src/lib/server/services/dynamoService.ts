@@ -4,8 +4,8 @@ import { getLeoCronTable } from "$lib/server/utils";
 import { botDetailLoading, botDetailError, botDetailStore } from "$lib/stores/botDetailStore";
 import { statsDetailLoading } from "$lib/stores/statsDetailStore";
 import type { AwsCreds, BotSettings, MergedStatsRecord, StatsQueryRequest } from "$lib/types";
-import { DynamoDBClient, QueryCommand, type QueryOutput } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBClient, QueryCommand, ReturnConsumedCapacity, type QueryOutput } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { bucketsData, ranges } from "$lib/bucketUtils";
 import { marshall } from "@aws-sdk/util-dynamodb";
 import { mergeStatsResults } from "$lib/stats/utils";
@@ -127,4 +127,68 @@ export async function parallelQuery<T>(client: DynamoDBClient, queries: QueryCom
 
 }
 
+export interface ScanOpts {
+    tableName: string,
+    returnConsumedCapacity?: ReturnConsumedCapacity;
+}
 
+export async function parallelScan<T>(client: DynamoDBClient, opts: ScanOpts, segments: number) {
+    const docClient = DynamoDBDocumentClient.from(client);
+    const input: ScanCommandInput = {
+        TableName: opts.tableName,
+        ReturnConsumedCapacity: opts.returnConsumedCapacity,
+    };
+
+    let requests = [];
+
+    for (let i = 0; i < segments; i++) {
+        input.TotalSegments = segments;
+        input.Segment = i;
+        requests.push(scan(docClient,input));
+    }
+
+    return Promise.all(requests).then(data => {
+        let response = data.reduce((all, one) => {
+            all.Items = all.Items.concat(one.Items!);
+            all.ScannedCount += one.ScannedCount!;
+            all.Count += one.Count!;
+            return all;
+        }, {
+            Items: [] as Record<string, NativeAttributeValue>[],
+            ScannedCount: 0,
+            Count: 0
+        });
+        return response.Items as T[];
+    });
+
+
+    
+}
+
+async function scan(client: DynamoDBDocumentClient, input: ScanCommandInput): Promise<ScanCommandOutput> {
+     try {
+        let response: ScanCommandOutput | null = null;
+        do {
+            if(response?.LastEvaluatedKey) {
+                input.ExclusiveStartKey = response.LastEvaluatedKey;
+            }
+            const command = new ScanCommand(input);
+    
+            const response2: ScanCommandOutput = await client.send(command);
+            if(!response) {
+                response = response2
+            } else {
+                response.LastEvaluatedKey = response2.LastEvaluatedKey;
+                response.Items = (response.Items?? []).concat(response2.Items ?? [])
+            }
+            
+
+        } while(response.LastEvaluatedKey != null)
+
+        return response;
+
+
+    } catch (err) {
+        throw new Error(`scan failed for ${input.TableName}:  ${err}`);
+    } 
+}
