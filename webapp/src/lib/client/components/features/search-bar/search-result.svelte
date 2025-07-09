@@ -1,43 +1,67 @@
 <script lang="ts">
-    import type { AppState } from '$lib/client/appstate.svelte';
-    import { getContext } from 'svelte';
+  import type { AppState } from '$lib/client/appstate.svelte';
+  import { getContext } from 'svelte';
   import type { SearchItem } from './types';
   import Button from '../../ui/button/button.svelte';
   import { getLogicalId, getNodeTypeLink } from '$lib/utils';
-  import Cog from '@lucide/svelte/icons/cog'
+  import Cog from '@lucide/svelte/icons/cog';
 
-    type SearchResultProps = {
-        item: SearchItem,
-    }
+  type SearchResultProps = {
+    item: SearchItem,
+  }
 
-    let appState = getContext<AppState>('appState');
-    let {item}: SearchResultProps = $props();
-    
-    function goToRelationshipView(item: SearchItem) {
-        console.log('attempting to navigate to ',item.id);
-        appState.navigateToRelationshipView(getLogicalId(item));
-    }
+  let appState = getContext<AppState>('appState');
+  let {item}: SearchResultProps = $props();
+  
+  function goToRelationshipView(item: SearchItem) {
+    console.log('attempting to navigate to ', item.id);
+    appState.navigateToRelationshipView(getLogicalId(item));
+  }
 
-    function goToDashboardView(item: SearchItem) {
-        appState.navigateToDashboardView(getLogicalId(item));
-    }
-    
+  function goToDashboardView(item: SearchItem) {
+    appState.navigateToDashboardView(getLogicalId(item));
+  }
 </script>
 
-<div class="flex-row h-full">
-    <div class="flex justify-between h-14">
-       
-        <Button
-            variant="ghost"
-            class="flex-row items-center w-7/8 h-auto"
-            onclick={() => goToRelationshipView(item)}
-        >
-            <img src={getNodeTypeLink(item.type)} class="w-1/16 mt-auto mb-auto ml-auto mr-auto" alt={item.type}/>
-            <span class="w-15/16 mt-auto mb-auto text-left">{item.id}</span>
-        </Button>
-        <Button variant="ghost" class='w-1/8 h-auto' onclick={() => goToDashboardView(item)}>
-            <Cog class='m-1/4 h-auto' />
-        </Button>
+<div class="border-b border-slate-700 last:border-b-0">
+  <div class="flex items-center gap-2 p-2 hover:bg-slate-700/50 transition-colors min-w-0">
+    <!-- Main result button -->
+    <Button
+      variant="ghost"
+      class="flex-1 flex items-center gap-3 h-auto p-2 justify-start text-left hover:bg-transparent min-w-0 overflow-hidden"
+      onclick={() => goToRelationshipView(item)}
+    >
+      <!-- Node type icon -->
+      <div class="flex-shrink-0">
+        <img 
+          src={getNodeTypeLink(item.type)} 
+          class="w-6 h-6 rounded" 
+          alt={item.type}
+        />
+      </div>
+      
+      <!-- Item details -->
+      <div class="flex-1 min-w-0 overflow-hidden">
+        <div class="text-sm font-medium text-white truncate">
+          {item.id}
+        </div>
+        {#if item.name && item.name !== item.id}
+          <div class="text-xs text-white/60 truncate">
+            {item.name}
+          </div>
+        {/if}
+      </div>
+    </Button>
 
-    </div>
+    <!-- Dashboard button -->
+    <Button 
+      variant="ghost" 
+      size="icon"
+      class="flex-shrink-0 h-8 w-8 text-white/50 hover:text-white hover:bg-slate-600/50" 
+      onclick={() => goToDashboardView(item)}
+      aria-label="Go to dashboard"
+    >
+      <Cog class="h-5 w-5" />
+    </Button>
+  </div>
 </div>

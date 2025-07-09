@@ -21,7 +21,8 @@ export class SearchBarState {
 			threshold: 0.2,
 	    };
 
-
+	#debounceTimer: undefined | ReturnType<typeof setTimeout> = undefined;
+	#debounceDelay: number = 300;
 
     constructor(fetch: GlobalFetch, maxResults?: number) {
         this.#fetch = fetch;
@@ -37,6 +38,8 @@ export class SearchBarState {
 
 	set searchQuery(val: string) {
 		this.#searchQuery = val;
+
+		this.debouncedSearch();
 	}
 
 	get showClearButton() {
@@ -51,8 +54,18 @@ export class SearchBarState {
 		return this.#searchResults;
 	}
 
-	protected set searchResults(val: SearchItem[]) {
+	private set searchResults(val: SearchItem[]) {
 		this.#searchResults = val;
+	}
+
+	private debouncedSearch() {
+		if(this.#debounceTimer) {
+			clearTimeout(this.#debounceTimer)
+		}
+
+		this.#debounceTimer = setTimeout(() => {
+			this.performSearch();
+		}, this.#debounceDelay);
 	}
 
 
@@ -69,26 +82,36 @@ export class SearchBarState {
 	}
 
     performSearch() {
-		console.log('performing search');
+		// console.log('performing search');
         const results = this.searchItems();
-		console.log('search results', results.length);
+		// console.log('search results', results.length);
         this.#searchResults = results;
         this.#selectedIndex = -1;
         // this.isOpen = results.length > 0;
     }
 
-	clearSearch() {
+	clearSearch = () => {
+
+		if (this.#debounceTimer) {
+            clearTimeout(this.#debounceTimer);
+            this.#debounceTimer = undefined;
+        }
+
 		this.#searchQuery = '';
 		// this.isOpen = false;
 		this.#searchResults = [];
 	}
 
 	async getSearchResources() {
-		console.log('fetching search resources');
+		// console.log('fetching search resources');
 		const resources = await this.#fetch('/api/resources');
 		const data = (await resources.json()) as ResourcesApiResponse;
 		this.#items = data.items;
 		this.fuse = new Fuse(this.#items, this.fuseOptions);
+	}
+
+	setDebounceDelay(delay: number) {
+		this.#debounceDelay = delay;
 	}
 }
 

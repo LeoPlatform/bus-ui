@@ -2,8 +2,7 @@
   import { page } from "$app/state";
   import Button from "$lib/client/components/ui/button/button.svelte";
   import * as DropdownMenu from "$lib/client/components/ui/dropdown-menu/";
-  import Menu from "@lucide/svelte/icons/menu"
-  import UnderConstruction from "./under-construction.svelte";
+  import Ellipsis from '@lucide/svelte/icons/ellipsis';
 
  const currentRoute = $derived(page.url.pathname ? page.url.pathname : '/');
     let pageTitle = $derived(currentRoute.split('/')[1] || 'Dashboard');
@@ -31,7 +30,7 @@
         <DropdownMenu.Root>
             <DropdownMenu.Trigger>
                 
-                <Menu color="white" class="justify-self-end pr-4 w-12"/>
+                <Ellipsis color="white" class="justify-self-end pr-4 w-12"/>
                 
             </DropdownMenu.Trigger>
             <DropdownMenu.Content class="w-56" align="end">

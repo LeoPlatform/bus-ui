@@ -90,7 +90,7 @@ const getContractedDisplay = $derived(() => {
                     onValueChange={()=>{
                         componentState.dateSelectorExpanded = false;
                     }}
-                    captionLayout="dropdown-picker"
+                    captionLayout="label"
                     maxValue={today(getLocalTimeZone())}
                 />
             </Popover.Content>
@@ -115,7 +115,7 @@ const getContractedDisplay = $derived(() => {
                     size="sm"
                     onclick={() => selectRange(range.value)}
                     class={cn(
-                    "h-8 px-3 text-xs font-medium hover:bg-gray-700",
+                    "h-8 px-3 text-xs font-medium hover:bg-gray-700 hover:text-white",
                     componentState.selectedRange === range.value 
                         ? "bg-gray-600 text-white" 
                         : "text-gray-300"
@@ -128,7 +128,7 @@ const getContractedDisplay = $derived(() => {
                 variant="ghost"
                 size="sm"
                 onclick={setToNow}
-                class="h-8 px-3 text-xs font-medium hover:bg-gray-700 text-gray-300 border-l border-gray-600 ml-2 pl-3"
+                class="h-8 px-3 text-xs font-medium hover:bg-gray-700 hover:text-white text-gray-300 border-l border-gray-600 ml-2 pl-3"
             >
                 Now
             </Button>
