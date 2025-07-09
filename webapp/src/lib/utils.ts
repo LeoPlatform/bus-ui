@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { NodeType } from "./types";
+import type { SearchItem } from "./client/components/features/search-bar/types";
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
@@ -45,4 +46,15 @@ export function getNodeTypeLink(nodeType: NodeType): string {
 		case NodeType.System:
 			return '/system.png';
     }
+}
+
+export function getLogicalId(item: SearchItem): string {
+	switch (item.type) {
+		case 'bot':
+			return item.id;
+		case 'queue':
+			return item.type + ':' + item.id;
+		case 'system':
+			return item.type + ':' + item.id;
+	}
 }

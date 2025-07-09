@@ -10,14 +10,15 @@ export class SearchBarState {
     #selectedIndex: number = $state(-1);
     isOpen: boolean = $derived(this.searchResults.length > 0);
     #searchResults: SearchItem[] = $state([]);
-	#showClearButton: boolean = $state(false);
+	#showClearButton: boolean = $derived(this.#searchQuery.length > 0);
 
     #items = $state<SearchItem[]>([]);
 	fuse: Fuse<SearchItem>;
 	fuseOptions: IFuseOptions<SearchItem> = {
-			keys: ['name'],
+			keys: ['id'],
+			shouldSort: true,
 			// includeScore: true,
-			// threshold: 0.3,
+			threshold: 0.2,
 	    };
 
 
@@ -35,16 +36,16 @@ export class SearchBarState {
 	}
 
 	set searchQuery(val: string) {
-		this.searchQuery = val;
+		this.#searchQuery = val;
 	}
 
 	get showClearButton() {
 		return this.#showClearButton;
 	}
 
-	set showClearButton(val: boolean) {
-		this.showClearButton = val;
-	}
+	// set showClearButton(val: boolean) {
+	// 	this.#showClearButton = val;
+	// }
 
 	get searchResults() {
 		return this.#searchResults;
@@ -62,13 +63,15 @@ export class SearchBarState {
 			return [];
 		}
 
-		return this.fuse.search(this.#searchQuery, { limit: this.#maxResults }).map(result => result.item);
+		return this.fuse.search(this.#searchQuery).map(result => result.item);
 
 		
 	}
 
     performSearch() {
+		console.log('performing search');
         const results = this.searchItems();
+		console.log('search results', results.length);
         this.#searchResults = results;
         this.#selectedIndex = -1;
         // this.isOpen = results.length > 0;
@@ -77,10 +80,11 @@ export class SearchBarState {
 	clearSearch() {
 		this.#searchQuery = '';
 		// this.isOpen = false;
-		this.searchResults = [];
+		this.#searchResults = [];
 	}
 
 	async getSearchResources() {
+		console.log('fetching search resources');
 		const resources = await this.#fetch('/api/resources');
 		const data = (await resources.json()) as ResourcesApiResponse;
 		this.#items = data.items;

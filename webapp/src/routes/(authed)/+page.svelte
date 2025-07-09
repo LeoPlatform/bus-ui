@@ -8,7 +8,7 @@
 </script>
 
 <div class="flex flex-col w-full">
-  <div class="w-1/4 pt-2 pl-2">
+  <div class="w-1/2 pt-2 pl-2">
     <SearchBar/> 
 
   </div>

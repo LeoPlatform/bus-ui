@@ -30,10 +30,28 @@
 	// $: isAuthRoute = window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/auth');
 </script>
 
+<!-- Main container with proper height and overflow -->
+<div class="flex flex-col h-screen w-full">
+	<!-- Fixed header -->
+	<TopHeader />
+	
+	<!-- Main content area with sidebar and scrollable content -->
+	<div class="flex flex-1 w-full overflow-hidden">
+		<!-- Fixed left navigation -->
+		<LeftNav {routes} {appState} />
+		
+		<!-- Scrollable content area -->
+		<main class="flex-1 overflow-auto">
+			{@render children()}
+		</main>
+	</div>
+</div>
+
+
 <!-- <AuthProvider> -->
 	<!-- {#if $auth.isAuthenticated && !isAuthRoute} -->
 <!-- <div class="flex h-screen w-full overflow-hidden"> -->
-	<main class="flex-row h-screen w-full overflow-hidden">
+	<!-- <main class="flex-row h-screen w-full overflow-hidden">
 		<div class="flex-col w-full">
 			
 			<TopHeader />
@@ -42,7 +60,7 @@
 				{@render children()}
 			</div>
 		</div>
-	</main>
+	</main> -->
 <!-- </div> -->
 	<!-- {:else}
 		<main class="w-full">

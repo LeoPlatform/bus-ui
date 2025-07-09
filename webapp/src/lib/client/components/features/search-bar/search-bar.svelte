@@ -20,6 +20,8 @@
 
     function handleInputChange(event: Event) {
       componentState.searchQuery = (event.target as HTMLInputElement).value;
+      console.log('searchQuery:', componentState.searchQuery);
+      console.log('showClearButton:', componentState.showClearButton);
       componentState.performSearch();
     }
 
@@ -28,14 +30,14 @@
 
 <div class="relative w-full">
   <div class="relative">
-    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/50">
 			<Search class="h-4 w-4" />
 		</div>
 
     <Input
       placeholder="Search..."
       class={cn(
-				'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border pl-10 pr-10 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+				'border-input bg-slate-700 ring-offset-background placeholder:text-white/50 focus-visible:ring-ring flex h-10 w-full rounded-md border pl-10 pr-10 py-2 text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
         className
 			)}
       bind:value={componentState.searchQuery}
@@ -43,11 +45,11 @@
       aria-expanded={componentState.isOpen}
     />
 
-    {#if componentState.showClearButton && componentState.searchQuery}
+    {#if componentState.showClearButton}
         <Button
           variant="ghost"
           size="icon"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-foreground"
           aria-label="Clear search"
           onclick={componentState.clearSearch}
         >
