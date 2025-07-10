@@ -68,14 +68,14 @@ export function getBotById(id: string) {
 export async function getStats(creds: AwsCreds, params: StatsQueryRequest): Promise<MergedStatsRecord[]> {
     const client = createDynamoClient(creds);
     statsDetailLoading.set(true);
-
-    const range = ranges[params.range];
-    
     const bucketUtils = bucketsData[params.range];
 
-
     const endTime = params.endTime ? bucketUtils.value(new Date(params.endTime)) : bucketUtils.next(new Date(params.startTime), params.count);
-    const startTime = params.endTime ? bucketUtils.value(new Date(params.startTime)) : bucketUtils.prev(endTime, params.count);
+    const startTime = bucketUtils.value(new Date(params.startTime));
+    // const endTime = params.endTime ? bucketUtils.value(new Date(params.endTime)) : bucketUtils.next(new Date(params.startTime), params.count);
+    // const startTime = params.endTime ? bucketUtils.value(new Date(params.startTime)) : bucketUtils.prev(endTime, params.count);
+
+    console.log("startTime", startTime, "endTime", endTime);
 
     const expressionAttributeValues: Record<string, string> = {
         ":start": bucketUtils.transform(startTime),

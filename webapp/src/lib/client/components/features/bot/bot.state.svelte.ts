@@ -254,5 +254,9 @@ export class BotState {
   
       this.#relationShipTree = buildHierarchicalTree(this.#selectedBotId!, "both");
   }
+
+  clearStatsCache() {
+    this.#fetchedStats = new Map();
+  }
   
 }

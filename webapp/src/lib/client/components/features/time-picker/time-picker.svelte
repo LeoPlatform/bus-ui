@@ -2,12 +2,12 @@
   import { AppState } from "$lib/client/appstate.svelte";
   import { StatsRange } from "$lib/types";
   import { getContext } from "svelte";
-  import  CalendarDays from '@lucide/svelte/icons/calendar-days'
+  import CalendarDays from '@lucide/svelte/icons/calendar-days'
   import { RightChevron, LeftChevron } from "../../icons";
   import type { TimePickerState } from "./time-picker.state.svelte";
   import * as Popover from '$lib/client/components/ui/popover';
   import { CalendarDateTime, getLocalTimeZone, today } from "@internationalized/date";
-  import Calendar from "../../ui/calendar/calendar.svelte";
+  import Calendar from "./calendar-with-time.svelte";
   import { cn } from "$lib/utils";
   import {Button} from "$lib/client/components/ui/button";
 
@@ -16,13 +16,8 @@
   const availableRanges = componentState.getAvailableRanges();
 
   function setToNow() {
-    componentState.startTime = Date.now();
-    componentState.endTime = undefined;
+    componentState.bucketToNow();
   }
-
-//   function expandCalendarSelection() {
-//     componentState.dateSelectorExpanded(true)
-//   }
 
   function goToNext() { 
     componentState.nextDateRange()
@@ -38,16 +33,18 @@
     console.log('selected range', componentState.range);
   }
 
-//   function adjustTimeRange() {
-//     componentState
-//   }
-const getContractedDisplay = $derived(() => {
+  // Handle calendar date selection
+  function handleDateChange() {
+    // The calendar binding automatically updates componentState.selectedDate
+    // which triggers the setter in the state class to update the times
+    componentState.dateSelectorExpanded = false;
+  }
+
+  const getContractedDisplay = $derived(() => {
     return availableRanges
       .map(r => r.short)
       .join(' ');
   });
-
-
 </script>
 
 <div class="inline-flex items-center bg-gray-800 text-white rounded-lg overflow-hidden shadow-lg">
@@ -67,7 +64,6 @@ const getContractedDisplay = $derived(() => {
 
         <Popover.Root bind:open={componentState.dateSelectorExpanded}>
             <Popover.Trigger>
-                <!-- <div class="px-2"> -->
                 {#snippet child({props})}
                     <Button
                         {...props}
@@ -77,14 +73,12 @@ const getContractedDisplay = $derived(() => {
                     >
                         <CalendarDays class="h-4 w-4 text-gray-400" />
                     </Button>
-                    
                 {/snippet}
-                <!-- </div> -->
             </Popover.Trigger>
 
             <Popover.Content class="w-auto overflow-hidden p-0" align='center'>
-                <Calendar
-                    type="single"
+                <Calendar />
+                <!-- <Calendar
                     bind:value={componentState.selectedDate}
                     class="rounded-md border shadow-sm"
                     onValueChange={()=>{
@@ -92,10 +86,9 @@ const getContractedDisplay = $derived(() => {
                     }}
                     captionLayout="label"
                     maxValue={today(getLocalTimeZone())}
-                />
+                /> -->
             </Popover.Content>
         </Popover.Root>
-
 
         <div class="flex items-center">
             <Button
@@ -141,5 +134,4 @@ const getContractedDisplay = $derived(() => {
         </span>
         </div>
     {/if}
-
 </div>

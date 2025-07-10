@@ -47,6 +47,22 @@
   let containerHeight = $state(0);
 
 
+   // Function to handle time range changes
+  async function handleTimeRangeChange() {
+    console.log('Bot relationship tree: Time range changed, fetching new stats');
+    untrack(async () => {
+      // Clear the fetched stats cache in bot state to force refresh
+      appState.botState.clearStatsCache?.();
+      
+      // Fetch new stats with current visible nodes
+      if (appState.botState.visibleIds.length > 0) {
+        await appState.botState.fetchBotStats(appState.timePickerState);
+        initializeLinkStats(botStats, linkStats);
+        renderVisualization();
+      }
+    });
+  }
+
   onMount(() => {
 
     containerElement = document.getElementById('tree-container')!;
@@ -69,11 +85,16 @@
       return;
     }
 
+    appState.timePickerState.setOnTimeRangeChangeCallback(handleTimeRangeChange);
+
+
     initializeVisualization();
     initializeLinkStats(botStats, linkStats);
 
     return () => {
       resizeObserver.disconnect();
+
+      appState.timePickerState.clearOnTimeRangeChangeCallback();
     };
     
   })
