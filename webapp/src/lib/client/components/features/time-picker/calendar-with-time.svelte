@@ -8,6 +8,8 @@
   import type { TimePickerState } from "./time-picker.state.svelte";
   import { getContext } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
+  import { Button } from "../../ui/button";
+  import Check from "@lucide/svelte/icons/check";
 
 	let componentState: TimePickerState = getContext<AppState>("appState").timePickerState;
 
@@ -19,10 +21,6 @@
 		<Calendar type="single" 
 			bind:value={componentState.selectedDate} 
 			class="bg-transparent p-0"
-			onValueChange={() => {
-				//TODO Might need to adjust this so that it closes when the user clicks outside the calendar
-				componentState.dateSelectorExpanded = false;
-			}} 
 			captionLayout="label"
 			maxValue={today(getLocalTimeZone())}
 		/>
@@ -40,6 +38,15 @@
 					bind:value={componentState.customTime}
 					class="appearance-none pl-8 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
 				/>
+				<Button
+                        variant="ghost"
+                        size="sm"
+                        class="h-8 w-8 p-0 hover:bg-lime-600"
+						onclick={() => componentState.submitDateChanges()}
+                    >
+                        <Check class="h-4 w-4 text-black-400" />
+				</Button>
+
 			</div>
 		</div>
 		<!-- <div class="flex w-full flex-col gap-3">

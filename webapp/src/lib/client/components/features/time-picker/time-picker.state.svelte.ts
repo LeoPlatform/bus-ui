@@ -27,7 +27,6 @@ export class TimePickerState {
 
     constructor(fetch: GlobalFetch) {
         this.#fetch = fetch;
-        // const {range, count} = this.calculateCountAndRange(undefined);
         this.#range = StatsRange.Minute15;
         this.#count = 1;
         this.updateTimeRangeForSelectedRange();
@@ -114,7 +113,6 @@ export class TimePickerState {
             this.#endTime = val > now ? undefined : val;
         } else {
             this.#endTime = val;
-
         }
     }
 
@@ -122,8 +120,6 @@ export class TimePickerState {
         let rangeData = ranges[val];
         console.log('hit the range set | ', val);
         this.selectedRange = val;
-        // const {range, count} = this.calculateCountAndRange(val);
-        // console.log('resulting range', range);
         this.#range = rangeData.period as StatsRange;
         this.#count = rangeData.count;
         
@@ -137,16 +133,57 @@ export class TimePickerState {
 
     set selectedDate(val: CalendarDateTime) {
         console.log('selected date set', val);
-        
-        val.set({hour: 0, minute: 0, second: 0});
         this.#selectedDate = val;
         
         // Update the start time when a date is selected
-        this.updateTimeForSelectedDate(val);
+        // this.updateTimeForSelectedDate(val);
     }
 
     set customTime(val: string) {
         this.#customTime = val;
+    }
+
+    submitDateChanges() {
+        this.updateSelectedDateWithTime();
+        this.dateSelectorExpanded = false;
+    }
+
+    /**
+     * Combine the current selectedDate with the customTime to create a complete DateTime
+     * and update the startTime accordingly
+     */
+    updateSelectedDateWithTime() {
+        const currentDate = this.selectedDate;
+        const timeValue = this.customTime;
+        
+        if (currentDate && timeValue) {
+            try {
+                // Parse the time string (format: "HH:MM" or "HH:MM:SS")
+                const [hours, minutes, seconds = 0] = timeValue.split(':').map(Number);
+                
+                // Validate the time values
+                if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) {
+                    console.warn('Invalid time values:', { hours, minutes, seconds });
+                    return;
+                }
+                
+                // Create a new CalendarDateTime with the updated time
+                const updatedDate = currentDate.set({
+                    hour: hours,
+                    minute: minutes,
+                    second: seconds
+                });
+                
+                // Update the internal selectedDate and corresponding start time
+                this.selectedDate = updatedDate;
+
+                this.updateTimeForSelectedDate(this.selectedDate);
+                
+                // console.log('Updated selectedDate with time:', updatedDate);
+            } catch (error) {
+                console.error('Error parsing time:', error);
+            }
+        }
     }
 
     /**
@@ -171,13 +208,15 @@ export class TimePickerState {
             calendarDate.year,
             calendarDate.month - 1, // CalendarDateTime months are 1-based, JS Date months are 0-based
             calendarDate.day,
-            calendarDate.hour, // Set to midnight
-            calendarDate.minute, // 0 minutes
-            calendarDate.second // 0 seconds
+            calendarDate.hour,
+            calendarDate.minute,
+            calendarDate.second
         );
 
-        // Set the start time to midnight of the selected date
+        // Set the start time to the selected date and time
         this.#startTime = jsDate.getTime();
+
+        this.calculateEndTimeForRange()
         
         // Keep the end time unchanged - don't recalculate it
         // This preserves "Now" or whatever end time was previously set
@@ -219,11 +258,8 @@ export class TimePickerState {
         }
 
         const startDate = new Date(this.#startTime);
-        
         let potentialEndDate = bucketUtil.next(startDate, this.#count).getTime();
-
         this.endTime = potentialEndDate;
-        
     }
 
     nextDateRange() {
@@ -242,7 +278,6 @@ export class TimePickerState {
         const bucketUtil = bucketsData[this.#range];
         if (bucketUtil) {
             this.#startTime = bucketUtil.prev(new Date(this.#startTime), this.#count).getTime();
-            // If we don't have an end time, set it to the next bucket using the startTime
             if (!this.#endTime) {
                 this.endTime = bucketUtil.next(new Date(this.#startTime), this.#count).getTime();
             } else {
@@ -333,7 +368,7 @@ export class TimePickerState {
     }
 
     bucketToNow() {
-      const bucketUtil = bucketsData[this.#range];
+        const bucketUtil = bucketsData[this.#range];
         
         if (bucketUtil) {
             this.#startTime = bucketUtil.value(new Date()).getTime();
