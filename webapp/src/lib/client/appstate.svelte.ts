@@ -26,6 +26,8 @@ export class AppState {
     get botState() {
         if(!this.#botState) {
             this.#botState = new BotState(this.#fetch);
+
+            this.#botState.setTimePickerState(this.timePickerState);
         }
         return this.#botState;
     }

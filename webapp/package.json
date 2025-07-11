@@ -38,6 +38,7 @@
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.11",
     "@tanstack/table-core": "^8.21.3",
+    "@types/node": "^24.0.13",
     "@types/yargs": "^17.0.33",
     "@vitest/browser": "^3.1.1",
     "@vitest/coverage-v8": "^3.1.1",

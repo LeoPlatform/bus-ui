@@ -21,11 +21,32 @@ export class BotState {
   #fetchedStats: Map<string, number>;
   #selectedBotId = $state<string | null>(null);
   #staleTime: number;
+  #refreshOnTime = $derived.by(() => {
+    if(!this.#timePickerState?.endTime) {
+      //Real time mode
+      return true;
+    }
+
+    const now = Date.now();
+    const endTime = this.#timePickerState.endTime;
+
+    if(endTime < now) {
+      console.log('endTIme is in the past disabling automatic refresh');
+      return false;
+    }
+
+    return true;
+  });
+  #timePickerState: TimePickerState | null = null;
 
   constructor(fetch: GlobalFetch, staleTime: number = 1000 * 30) {
     this.#fetch = fetch;
     this.#fetchedStats = new Map();
     this.#staleTime = staleTime;
+  }
+
+  setTimePickerState(timePickerState: TimePickerState) {
+    this.#timePickerState = timePickerState;
   }
 
   get stats() {
@@ -47,6 +68,10 @@ export class BotState {
     return this.#staleTime;
   }
 
+  get refreshOnTime() {
+    return this.#refreshOnTime;
+  }
+
   set selectedBotId(id: string) {
     this.#selectedBotId = id;
   }
@@ -60,7 +85,8 @@ export class BotState {
     this.#relationShipTree = tree;
   }
 
-  async fetchBotStats(pickerState: TimePickerState) {
+
+  async fetchBotStats() {
 
     const now = Date.now();
     const staleIds = new Set<string>();
@@ -78,7 +104,7 @@ export class BotState {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(pickerState.createStatsQueryRequest(Array.from(staleIds)))
+        body: JSON.stringify(this.#timePickerState?.createStatsQueryRequest(Array.from(staleIds)))
       });
 
       const data = (await res.json()) as StatsApiResponse;

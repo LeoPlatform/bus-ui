@@ -56,7 +56,7 @@
       
       // Fetch new stats with current visible nodes
       if (appState.botState.visibleIds.length > 0) {
-        await appState.botState.fetchBotStats(appState.timePickerState);
+        await appState.botState.fetchBotStats();
         initializeLinkStats(botStats, linkStats);
         renderVisualization();
       }
@@ -108,16 +108,39 @@
 }
 
   $effect(() => {
-    const timer = setInterval(() => {
-      untrack( async() => {
-        console.log(`${appState.botState.staleTime / 1000} seconds elapsed - refreshing stats data`);
-        await appState.botState.fetchBotStats(appState.timePickerState);
-        initializeLinkStats(botStats, linkStats);
-        renderVisualization
-      })
-    }, appState.botState.staleTime);
 
-    return () => clearInterval(timer);
+    const shouldRefresh = appState.botState.refreshOnTime;
+    const staleTime = appState.botState.staleTime;
+
+    if(!shouldRefresh) return;
+
+    let isActive = true;
+
+    const timer = setInterval(() => {
+      if(!isActive || !shouldRefresh) {
+        console.log('timer is cancelled - auto refresh no longer active');
+      }
+
+      untrack(async () => {
+        try {
+          console.log(`${staleTime / 1000} seconds elapsed - refreshing stats data`);
+          await appState.botState.fetchBotStats();
+
+          if(isActive) {
+            initializeLinkStats(botStats, linkStats);
+            renderVisualization();
+          }
+        } catch (error) {
+          console.error('Error during auto-refresh:', error);
+        }
+      })
+    }, staleTime);
+
+    return () => {
+      console.log('Cleaning up auto-refresh timer');
+      isActive = false;
+      clearInterval(timer);
+    }
   })
 
   $effect(() => {
@@ -129,7 +152,7 @@
     }
 
     untrack( async () => {
-      await appState.botState.fetchBotStats(appState.timePickerState);
+      await appState.botState.fetchBotStats();
       initializeLinkStats(botStats, linkStats);
       renderVisualization();
     })
