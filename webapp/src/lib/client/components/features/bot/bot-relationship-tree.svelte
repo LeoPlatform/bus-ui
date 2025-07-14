@@ -6,7 +6,7 @@
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import type { LinkStats } from "./types";
-  import { createGoodIdentifier, findOriginalData, handleBackgroundNodeCircles, initializeLinkStats, processTree, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, handleBackgroundNodeCircles, initializeLinkStats, processTree, processTreeSimple, toggleNodeExpansion } from "./tree-utils.svelte";
   import { createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
 
   let appState = getContext<AppState>('appState');
@@ -206,7 +206,7 @@ function updateContainerDimensions() {
     zoomHandler = setupZoomBehavior(svg);
 
     // Set initial transform to maintain centering
-    const initialTransform = d3.zoomIdentity.translate(containerWidth / 2, 200);
+    const initialTransform = d3.zoomIdentity.translate(containerWidth / 2, 0);
 
     d3.select("#tree-container svg").call(zoomHandler).call(zoomHandler.transform, initialTransform);
 
@@ -214,10 +214,13 @@ function updateContainerDimensions() {
   }
 
   function getLinkStats(parentId: string, childId: string): LinkStats {
+    // Extract original IDs if they exist
+    const originalParentId = parentId.includes('-') ? parentId.split('-')[0] : parentId;
+    const originalChildId = childId.includes('-') ? childId.split('-')[0] : childId;
 
-    // remove bot: from the parent and child
-    const tempParentId = parentId.replace('bot:', '');
-    const tempChildId = childId.replace('bot:', '');
+    // Remove bot: prefix for lookup
+    const tempParentId = originalParentId.replace('bot:', '');
+    const tempChildId = originalChildId.replace('bot:', '');
 
     const botData = appState.botState.botSettings.find(bot => bot.id === tempParentId || bot.id === tempChildId);
     const type = botData?.id == tempParentId ? 'write' : 'read';
@@ -226,12 +229,9 @@ function updateContainerDimensions() {
     if(!linkStats) {
       return { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type }
     }
-    // TODO: Replace this with actual lookup logic based on your data structure
-    const key = `${parentId}-${childId}`;
-    console.log('getLInkStats key:', key);
-    console.log('linkStats',linkStats);
+
+    const key = `${originalParentId}-${originalChildId}`;
     const linkStat = linkStats.get(key);
-    console.log('linkStat', linkStat);
 
     return linkStat || { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type };
   }
@@ -283,8 +283,8 @@ function updateContainerDimensions() {
     const height = containerHeight - margin.top - margin.bottom;
 
     // Create separate trees for left and right directions
-    const rightRoot = processTree(relationShipTree, "right", expandedNodes);
-    const leftRoot = processTree(relationShipTree, "left", expandedNodes);
+    const rightRoot = processTreeSimple(relationShipTree, "right", expandedNodes);
+    const leftRoot = processTreeSimple(relationShipTree, "left", expandedNodes);
 
     
 
@@ -302,10 +302,14 @@ function updateContainerDimensions() {
       leftTreeResult.dynamicHeight
     );
 
-    // Adjust the height of the view using the dynamic height
+    const maxHeight = Math.max(
+      maxDynamicHeight + margin.top + margin.bottom,
+      containerHeight
+    );
+
     d3.select("#tree-container svg").attr(
       "height",
-      containerHeight
+      maxHeight
     );
 
     // Combine nodes from both trees
@@ -710,7 +714,8 @@ function updateContainerDimensions() {
       createNodeLabel(nodeWidth!, element, d);
 
       // Check if this node should have expand/collapse buttons
-      const originalData = findOriginalData(relationShipTree, d.data.id);
+      const nodeOriginalId = getOriginalNodeId(d.data);
+      const originalData = findOriginalData(relationShipTree, nodeOriginalId);
       const isRootNode = d.data.id === relationShipTree.id;
       
       // Check for available children/parents
@@ -718,10 +723,10 @@ function updateContainerDimensions() {
       const hasParents = originalData?.parents && originalData.parents.length > 0;
       
       // Check current state
-      const childrenExpanded = expandedNodes.has(`${d.data.id}-children`);
-      const parentsExpanded = expandedNodes.has(`${d.data.id}-parents`);
-      const childrenCollapsed = expandedNodes.has(`${d.data.id}-children-collapsed`);
-      const parentsCollapsed = expandedNodes.has(`${d.data.id}-parents-collapsed`);
+      const childrenExpanded = expandedNodes.has(`${nodeOriginalId}-children`);
+      const parentsExpanded = expandedNodes.has(`${nodeOriginalId}-parents`);
+      const childrenCollapsed = expandedNodes.has(`${nodeOriginalId}-children-collapsed`);
+      const parentsCollapsed = expandedNodes.has(`${nodeOriginalId}-parents-collapsed`);
       
       // Determine default visibility state for buttons
       const defaultChildrenVisible = hasChildren && (originalData?.children?.length || 0) === 1;
@@ -793,7 +798,8 @@ function updateContainerDimensions() {
         // Add click handler for left button (parents)
         leftButtonGroup.on("click", function (event, buttonData) {
           event.stopPropagation();
-          let res = toggleNodeExpansion(buttonData.data.id, 'parents', expandedNodes, relationShipTree);
+          const originalId = getOriginalNodeId(buttonData.data);
+          let res = toggleNodeExpansion(originalId, 'parents', expandedNodes, relationShipTree);
           expandedNodes = res.expandedNodes;
           lastExpandedNode = res.lastExpandedNode;
           renderVisualization();
@@ -865,7 +871,8 @@ function updateContainerDimensions() {
         // Add click handler for right button (children)
         rightButtonGroup.on("click", function (event, buttonData) {
           event.stopPropagation();
-          let res = toggleNodeExpansion(buttonData.data.id, 'children', expandedNodes, relationShipTree);
+          const originalId = getOriginalNodeId(buttonData.data);
+          let res = toggleNodeExpansion(originalId, 'children', expandedNodes, relationShipTree);
           expandedNodes = res.expandedNodes;
           lastExpandedNode = res.lastExpandedNode;
           renderVisualization();
@@ -916,10 +923,11 @@ function updateContainerDimensions() {
       const isRootNode = d.data.id === relationShipTree.id;
       
       // Update current state
-      const childrenExpanded = expandedNodes.has(`${d.data.id}-children`);
-      const parentsExpanded = expandedNodes.has(`${d.data.id}-parents`);
-      const childrenCollapsed = expandedNodes.has(`${d.data.id}-children-collapsed`);
-      const parentsCollapsed = expandedNodes.has(`${d.data.id}-parents-collapsed`);
+      const nodeOriginalId = getOriginalNodeId(d.data);
+      const childrenExpanded = expandedNodes.has(`${nodeOriginalId}-children`);
+      const parentsExpanded = expandedNodes.has(`${nodeOriginalId}-parents`);
+      const childrenCollapsed = expandedNodes.has(`${nodeOriginalId}-children-collapsed`);
+      const parentsCollapsed = expandedNodes.has(`${nodeOriginalId}-parents-collapsed`);
       
       // Determine default visibility
       const defaultChildrenVisible = originalData?.children && (originalData?.children?.length || 0) === 1;

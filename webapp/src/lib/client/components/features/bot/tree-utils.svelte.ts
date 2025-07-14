@@ -208,6 +208,161 @@ export function toggleNodeExpansion(
     return {expandedNodes: new Set(nodes), lastExpandedNode: nodeId};
 }
 
+export function processTreeSimple(
+  data: RelationshipTree,
+  direction: "left" | "right",
+  expandedNodes: Set<string>,
+  parent: TreeNode | undefined = undefined,
+  depth = 0,
+  relationshipPath: string[] = [] // Track the path to ensure uniqueness
+): TreeNode {
+  let dataType: "queue" | "system" | "bot";
+  if (data.id.startsWith("queue:")) {
+    dataType = "queue";
+  } else if (data.id.startsWith("system:")) {
+    dataType = "system";
+  } else {
+    dataType = "bot";
+  }
+
+  // Create unique ID based on relationship path to avoid duplicates
+  const uniqueId = relationshipPath.length > 0 
+    ? `${data.id}-${relationshipPath.join('-')}-${depth}`
+    : data.id;
+
+  const node: TreeNode = {
+    id: uniqueId,
+    originalId: data.id, // Keep original ID for data lookups
+    name: data.name || data.id,
+    type: dataType,
+    paused: data.paused,
+    alarmed: data.alarmed,
+    rogue: data.rogue,
+    parent: parent,
+    depth: depth,
+    direction: direction,
+    children: [],
+    _children: [],
+  };
+
+  // Prevent infinite loops by checking relationship path
+  if (relationshipPath.includes(data.id)) {
+    return node; // Don't process further to avoid cycles
+  }
+
+  const newPath = [...relationshipPath, data.id];
+
+  // Determine if this specific node should show its children/parents
+  const hasMultipleRelations =
+    (direction === "right" && (data.children?.length || 0) > 1) ||
+    (direction === "left" && (data.parents?.length || 0) > 1);
+
+  const isExplicitlyExpanded =
+    (direction === "right" && expandedNodes.has(`${data.id}-children`)) ||
+    (direction === "left" && expandedNodes.has(`${data.id}-parents`));
+
+  const isExplicitlyCollapsed =
+    (direction === "right" && expandedNodes.has(`${data.id}-children-collapsed`)) ||
+    (direction === "left" && expandedNodes.has(`${data.id}-parents-collapsed`));
+
+  const shouldShowChildren =
+    isExplicitlyExpanded || 
+    (!isExplicitlyCollapsed && !hasMultipleRelations);
+
+  // Process children for right tree
+  if (direction === "right" && data.children && data.children.length > 0) {
+    const processedChildren = data.children.map((child, index) =>
+      processTreeSimple(
+        child, 
+        "right", 
+        expandedNodes, 
+        node, 
+        depth + 1,
+        [...newPath, `child-${index}`] // Add index to ensure uniqueness
+      )
+    );
+
+    if (shouldShowChildren) {
+      node.children = processedChildren;
+      node._children = [];
+    } else {
+      node.children = [];
+      node._children = processedChildren;
+    }
+  }
+
+  // Process parents for left tree
+  if (direction === "left" && data.parents && data.parents.length > 0) {
+    const processedParents = data.parents.map((parent, index) =>
+      processTreeSimple(
+        parent, 
+        "left", 
+        expandedNodes, 
+        node, 
+        depth + 1,
+        [...newPath, `parent-${index}`] // Add index to ensure uniqueness
+      )
+    );
+
+    if (shouldShowChildren) {
+      node.children = processedParents;
+      node._children = [];
+    } else {
+      node.children = [];
+      node._children = processedParents;
+    }
+  }
+
+  return node;
+}
+
+// Helper function to get original ID for data lookups
+export function getOriginalNodeId(node: TreeNode): string {
+  return (node as any).originalId || node.id;
+}
+
+export function adjustForCollisions(treeData: d3.HierarchyPointNode<TreeNode>, nodeWidth: number) {
+  const nodes = treeData.descendants();
+  const nodeRadius = nodeWidth / 2 + 10; // Add some padding
+  
+  // Group nodes by depth level
+  const nodesByLevel = new Map<number, d3.HierarchyPointNode<TreeNode>[]>();
+  nodes.forEach(node => {
+    const level = node.depth;
+    if (!nodesByLevel.has(level)) {
+      nodesByLevel.set(level, []);
+    }
+    nodesByLevel.get(level)!.push(node);
+  });
+  
+  // Adjust positions within each level to prevent overlaps
+  nodesByLevel.forEach((levelNodes, level) => {
+    if (levelNodes.length <= 1) return;
+    
+    // Sort nodes by their y position
+    levelNodes.sort((a, b) => a.y - b.y);
+    
+    // Adjust positions to prevent overlaps
+    for (let i = 1; i < levelNodes.length; i++) {
+      const currentNode = levelNodes[i];
+      const previousNode = levelNodes[i - 1];
+      
+      const minDistance = nodeRadius * 2;
+      const currentDistance = currentNode.y - previousNode.y;
+      
+      if (currentDistance < minDistance) {
+        const adjustment = minDistance - currentDistance;
+        currentNode.y += adjustment;
+        
+        // Propagate adjustment to subsequent nodes
+        for (let j = i + 1; j < levelNodes.length; j++) {
+          levelNodes[j].y += adjustment;
+        }
+      }
+    }
+  });
+}
+
 /**
  * Handles the expansion and contraction of the background circles around nodes.
  * 

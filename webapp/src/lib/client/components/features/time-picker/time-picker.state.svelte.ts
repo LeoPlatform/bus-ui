@@ -246,7 +246,10 @@ export class TimePickerState {
         const bucketUtil = bucketsData[this.#range];
         
         if (bucketUtil) {
-            // return bucketUtil.value(date).getTime();
+            if(!this.#endTime) {
+                return bucketUtil.value(new Date()).getTime();
+
+            }
             return bucketUtil.value(bucketUtil.prev(date, this.#count)).getTime();
         }
         
@@ -364,8 +367,8 @@ export class TimePickerState {
         const bucketUtil = bucketsData[this.#range];
         
         if (bucketUtil) {
-            this.#startTime = this.alignTimeToRange(this.#startTime);
             this.endTime = undefined;
+            this.#startTime = this.alignTimeToRange(this.#startTime);
         }
         this.triggerTimeRangeChange();
     }

@@ -166,14 +166,24 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
   const levelCounts = countNodesPerLevel(root);
   const maxNodesAtAnyLevel = Math.max(...Object.values(levelCounts));
 
-  // Calculate the dynamic height based on the number of nodes
-  const dynamicHeight = Math.max(height, maxNodesAtAnyLevel * 50);
+  const verticalSpacing = nodeWidth + 50;
+  
+  const horizontalSpacing = nodeWidth + 150; // More space between levels
 
-  const treeLayout = d3.tree().nodeSize([nodeWidth + 50, nodeWidth + 150]);
-
-  // Assigns x and y coordinates to each node
+  const treeLayout = d3.cluster().nodeSize([verticalSpacing, horizontalSpacing]);
   const rootNode = d3.hierarchy(root);
   const treeData = treeLayout(rootNode);
+  minimizeCrossings(treeData);
+
+  // Calculate dynamic height based on actual node spread
+  const allNodes = treeData.descendants();
+  const yPositions = allNodes.map(d => d.x); // Note: x and y are swapped in D3 tree
+  const minY = Math.min(...yPositions);
+  const maxY = Math.max(...yPositions);
+  const actualSpread = maxY - minY;
+  
+  // Dynamic height with padding
+  const dynamicHeight = Math.max(height, actualSpread + verticalSpacing * 2);
 
   // Adjust node positions based on direction
   if (direction === "left") {
@@ -183,68 +193,57 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
     });
   }
 
-  // Translate positions to center the visualization
-  const centerY = height / 2;
-  const rootX = 0;
+  // Center the tree in the available space
+  const centerY = dynamicHeight / 2;
+  const centerOffset = -(minY + maxY) / 2;
+
+  const topNode = treeData;
+  const rootOriginalPos = rootNode.x;
 
   treeData.each((d) => {
-    // Swap x and y for horizontal layout
+    // Swap x and y for horizontal layout and center
     const tempX = d.x;
-    d.x = rootX + d.y;
-    d.y = centerY + tempX - height / 4;
+    d.x = d.y;
+    d.y = centerY + (tempX - rootOriginalPos);
   });
 
   return { treeData, dynamicHeight };
 }
 
-// function resetView() {
-//     d3.select("#tree-container svg")
-//       .transition()
-//       .duration(750)
-//       .call(zoomHandler.transform, d3.zoomIdentity);
+function minimizeCrossings(treeData: d3.HierarchyPointNode<TreeNode>) {
+  // Group nodes by depth level
+  const nodesByLevel = new Map<number, d3.HierarchyPointNode<TreeNode>[]>();
+  
+  treeData.descendants().forEach(node => {
+    const level = node.depth;
+    if (!nodesByLevel.has(level)) {
+      nodesByLevel.set(level, []);
+    }
+    nodesByLevel.get(level)!.push(node);
+  });
 
-//     // Reset highlighting
-//     nodeGroup
-//       .selectAll(".node")
-//       .classed("highlighted", false)
-//       .classed("faded", false);
-//     linkGroup
-//       .selectAll(".link")
-//       .classed("highlighted", false)
-//       .classed("faded", false);
-
-//     // Clear node info
-//     d3.select("#node-info").html("<p>Click on a node to see information</p>");
-//   }
-
-//   function collapseAll() {
-//     expandedNodes.clear();
-//     expandedNodes = new Set(expandedNodes);
-//     nodePositions.clear(); // Clear stored positions for fresh layout
-//     lastExpandedNode = null; // Reset expansion tracking
-//     renderVisualization();
-//   }
-
-//   function collapseToRoot() {
-//     // Clear all expanded nodes to show only the root
-//     expandedNodes.clear();
-//     expandedNodes = new Set(expandedNodes);
-//     nodePositions.clear();
-//     lastExpandedNode = null;
-//     renderVisualization();
-//   }
-
-//   function expandAll() {
-//     // Add all node IDs to expanded set for both children and parents
-//     function addAllNodes(tree: RelationshipTree) {
-//       expandedNodes.add(`${tree.id}-children`);
-//       expandedNodes.add(`${tree.id}-parents`);
-//       tree.children?.forEach(addAllNodes);
-//       tree.parents?.forEach(addAllNodes);
-//     }
-
-//     addAllNodes(relationShipTree);
-//     expandedNodes = new Set(expandedNodes);
-//     renderVisualization();
-//   }
-
+  // Process each level (except root) to minimize crossings
+  for (let level = 1; level <= Math.max(...nodesByLevel.keys()); level++) {
+    const currentLevelNodes = nodesByLevel.get(level) || [];
+    const parentLevelNodes = nodesByLevel.get(level - 1) || [];
+    
+    if (currentLevelNodes.length <= 1) continue;
+    
+    // Sort nodes to minimize crossings with their parents
+    currentLevelNodes.sort((a, b) => {
+      const aParentY = a.parent?.x || 0;
+      const bParentY = b.parent?.x || 0;
+      return aParentY - bParentY;
+    });
+    
+    // Redistribute the sorted nodes evenly
+    const spacing = currentLevelNodes.length > 1 ? 
+      (Math.max(...currentLevelNodes.map(n => n.x)) - Math.min(...currentLevelNodes.map(n => n.x))) / (currentLevelNodes.length - 1) : 0;
+    
+    const minPos = Math.min(...currentLevelNodes.map(n => n.x));
+    
+    currentLevelNodes.forEach((node, index) => {
+      node.x = minPos + (index * spacing);
+    });
+  }
+}
