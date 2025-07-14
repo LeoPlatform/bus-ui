@@ -30,7 +30,7 @@ async function main(): Promise<void> {
         local: true,
         auth_config_source: argv.configLocation ?? existingEnvFileData['AUTH_CONFIG_SOURCE'],
         auth_secret: existingEnvFileData['AUTH_SECRET'],
-        debug_auth: true,
+        debug_auth: false,
     };
     const creds = await fromIni({profile: "default"})();
 

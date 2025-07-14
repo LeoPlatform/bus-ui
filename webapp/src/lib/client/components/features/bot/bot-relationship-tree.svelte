@@ -49,7 +49,7 @@
 
    // Function to handle time range changes
   async function handleTimeRangeChange() {
-    console.log('Bot relationship tree: Time range changed, fetching new stats');
+    // console.log('Bot relationship tree: Time range changed, fetching new stats');
     untrack(async () => {
       // Clear the fetched stats cache in bot state to force refresh
       appState.botState.clearStatsCache?.();
@@ -76,6 +76,15 @@
     });
   
     resizeObserver.observe(containerElement);
+
+    const handleWindowResize = () => {
+      updateContainerDimensions();
+      if (svg) {
+        renderVisualization();
+      }
+    };
+
+    window.addEventListener('resize', handleWindowResize);
     
     const treeData = relationShipTree;
 
@@ -93,18 +102,27 @@
 
     return () => {
       resizeObserver.disconnect();
-
+      window.removeEventListener('resize', handleWindowResize);
       appState.timePickerState.clearOnTimeRangeChangeCallback();
     };
     
   })
 
-  function updateContainerDimensions() {
-    if (containerElement) {
+function updateContainerDimensions() {
+  if (containerElement) {
+    // Get the parent container's dimensions
+    const parentElement = containerElement.parentElement;
+    if (parentElement) {
+      const parentRect = parentElement.getBoundingClientRect();
+      containerWidth = parentRect.width;
+      containerHeight = parentRect.height;
+    } else {
+      // Fallback to container's own dimensions
       const rect = containerElement.getBoundingClientRect();
-      containerWidth = rect.width;
-      containerHeight = rect.height;
+      containerWidth = rect.width || window.innerWidth;
+      containerHeight = rect.height || window.innerHeight;
     }
+  }
 }
 
   $effect(() => {
@@ -123,7 +141,7 @@
 
       untrack(async () => {
         try {
-          console.log(`${staleTime / 1000} seconds elapsed - refreshing stats data`);
+          // console.log(`${staleTime / 1000} seconds elapsed - refreshing stats data`);
           await appState.botState.fetchBotStats();
 
           if(isActive) {
@@ -137,7 +155,7 @@
     }, staleTime);
 
     return () => {
-      console.log('Cleaning up auto-refresh timer');
+      // console.log('Cleaning up auto-refresh timer');
       isActive = false;
       clearInterval(timer);
     }
@@ -173,8 +191,12 @@
       .append("svg")
       .attr("width", containerWidth)
       .attr("height", containerHeight)
+      .attr("viewBox", `0 0 ${containerWidth} ${containerHeight}`)
+      .attr("preserveAspectRatio", "xMidYMid meet")
+      .style("max-width", "100%")
+      .style("max-height", "100%")
       .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+      .attr("transform", `translate(0, 0)`);
 
     // Create persistent groups for links and nodes
     linkGroup = svg.append("g").attr("class", "links");
@@ -183,7 +205,10 @@
     // Add zoom behavior
     zoomHandler = setupZoomBehavior(svg);
 
-    d3.select("#tree-container svg").call(zoomHandler);
+    // Set initial transform to maintain centering
+    const initialTransform = d3.zoomIdentity.translate(containerWidth / 2, 200);
+
+    d3.select("#tree-container svg").call(zoomHandler).call(zoomHandler.transform, initialTransform);
 
     renderVisualization();
   }
@@ -253,7 +278,7 @@
   }
 
   function renderVisualization() {
-    const margin = { top: 50, right: 120, bottom: 50, left: 120 };
+    const margin = { top: 0, right: 0, bottom: 0, left: 0 };
     const width = containerWidth - margin.left - margin.right;
     const height = containerHeight - margin.top - margin.bottom;
 
@@ -263,9 +288,11 @@
 
     
 
+    const constrainedHeight = Math.min(height, containerHeight - margin.top - margin.bottom);
+
     // Create tree data structures
-    const rightTreeResult = createTreeLayout(rightRoot, "right", height, nodeWidth!);
-    const leftTreeResult = createTreeLayout(leftRoot, "left", height, nodeWidth!);
+    const rightTreeResult = createTreeLayout(rightRoot, "right", constrainedHeight, nodeWidth!);
+    const leftTreeResult = createTreeLayout(leftRoot, "left", constrainedHeight, nodeWidth!);
     const rightTree: d3.HierarchyPointNode<TreeNode> = rightTreeResult.treeData;
     const leftTree: d3.HierarchyPointNode<TreeNode> = leftTreeResult.treeData;
 
@@ -278,7 +305,7 @@
     // Adjust the height of the view using the dynamic height
     d3.select("#tree-container svg").attr(
       "height",
-      maxDynamicHeight + margin.top + margin.bottom
+      containerHeight
     );
 
     // Combine nodes from both trees
@@ -1041,16 +1068,27 @@
   .workflow-container {
     font-family: Arial, sans-serif;
     margin: 0;
-    padding: 20px;
+    padding: 0;
+    width: 100%;
+    height: calc(100vh - 128px); /* Subtract header height - adjust as needed */
+    overflow: hidden;
+    position: relative;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
-
 
   #tree-container {
-    /* border: 1px solid #ddd;
-    border-radius: 5px;
-    background-color: #f9f9f9; */
-    min-height: 800px;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
   }
 
-
+  #tree-container svg {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+  }
 </style>

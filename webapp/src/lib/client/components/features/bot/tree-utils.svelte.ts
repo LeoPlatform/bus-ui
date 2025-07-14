@@ -89,16 +89,16 @@ export function initializeLinkStats(
   botStats: MergedStatsRecord[],
   linkStats: Map<string, LinkStats>
 ) {
-  console.log("initializeLinkStats called, botStats length:", botStats.length);
-  console.log("botStats:", botStats);
+  // console.log("initializeLinkStats called, botStats length:", botStats.length);
+  // console.log("botStats:", botStats);
   if (!botStats || botStats.length === 0) {
-    console.log("botStats is empty or undefined");
+    // console.log("botStats is empty or undefined");
     return;
   }
 
   // Convert the botStats proxy object into an array
   const statsArray = botStats;
-  console.log("botStats to array:", statsArray);
+  // console.log("botStats to array:", statsArray);
 
   if (statsArray.length === 0) {
     return;

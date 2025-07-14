@@ -25,7 +25,7 @@ export class TimePickerState {
         const startTime = this.#startTime;
         const endTime = this.#endTime;
 
-        console.log('hit time range string derive');
+        // console.log('hit time range string derive');
         return this.formatTimeRange();
     });
 

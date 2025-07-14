@@ -14,6 +14,12 @@
   appState.botState.selectedBotId = data.id!;
 </script>
 
-<SearchBarWithTimePicker />
-
-<BotRelationshipTree />
+<div class="h-full flex flex-col">
+  <div class="flex-shrink-0">
+    <SearchBarWithTimePicker />
+  </div>
+  
+  <div class="flex-1 min-h-0">
+    <BotRelationshipTree />
+  </div>
+</div>

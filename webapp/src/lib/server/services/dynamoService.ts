@@ -75,7 +75,7 @@ export async function getStats(creds: AwsCreds, params: StatsQueryRequest): Prom
     // const endTime = params.endTime ? bucketUtils.value(new Date(params.endTime)) : bucketUtils.next(new Date(params.startTime), params.count);
     // const startTime = params.endTime ? bucketUtils.value(new Date(params.startTime)) : bucketUtils.prev(endTime, params.count);
 
-    console.log("startTime", startTime, "endTime", endTime);
+    // console.log("startTime", startTime, "endTime", endTime);
 
     const expressionAttributeValues: Record<string, string> = {
         ":start": bucketUtils.transform(startTime),

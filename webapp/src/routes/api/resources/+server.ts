@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({locals}) => {
   }
 
   let searchItems = await getResources(session.aws_credentials!);
-  console.log('search items', searchItems.length);
+  // console.log('search items', searchItems.length);
 
   return json({items: searchItems})
   

@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     });
   }
 
-  console.log("requestBody", requestBody);
+  // console.log("requestBody", requestBody);
 
   return json({stats: await getStats(session.aws_credentials!, requestBody)} as StatsApiResponse);
 };

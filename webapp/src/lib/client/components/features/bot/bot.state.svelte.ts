@@ -31,7 +31,7 @@ export class BotState {
     const endTime = this.#timePickerState.endTime;
 
     if(endTime < now) {
-      console.log('endTIme is in the past disabling automatic refresh');
+      // console.log('endTIme is in the past disabling automatic refresh');
       return false;
     }
 
