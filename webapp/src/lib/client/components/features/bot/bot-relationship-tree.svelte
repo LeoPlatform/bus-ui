@@ -1,13 +1,17 @@
 <script lang="ts">
   import type { AppState } from "$lib/client/appstate.svelte";
-  import type { TreeNode } from "$lib/types";
+  import type { RelationshipTree, TreeNode } from "$lib/types";
   import { humanize } from "$lib/utils";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
-  import type { LinkStats } from "./types";
-  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, handleBackgroundNodeCircles, initializeLinkStats, processTree, processTreeSimple, toggleNodeExpansion } from "./tree-utils.svelte";
-  import { createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
+  import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats } from "./types";
+  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, processTree, processTreeSimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createLucideIconComponent, createLucideIconFromComponent, createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
+  import RelationshipFilterControls from "./relationship-filter-controls.svelte";
+  import Filter from '@lucide/svelte/icons/filter';
+  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
   let appState = getContext<AppState>('appState');
     appState.botState.buildRelationShipTree();
@@ -46,6 +50,31 @@
   let containerWidth = $state(0);
   let containerHeight = $state(0);
 
+  let relationshipFilters = $state(new Map<string, FilterOptions>());
+  let activeFilterControls = $state(new Set<string>());
+
+  let nodesNeedingFilters = $derived.by(() => {
+    if (!relationShipTree) return new Set<string>();
+    
+    const needsFilters = new Set<string>();
+    
+    function checkNode(node: RelationshipTree) {
+      // Check if this node has many children or parents
+      if (node.children && node.children.length > 10) {
+        needsFilters.add(`${node.id}-children`);
+      }
+      if (node.parents && node.parents.length > 10) {
+        needsFilters.add(`${node.id}-parents`);
+      }
+      
+      // Recursively check children and parents
+      node.children?.forEach(child => checkNode(child));
+      node.parents?.forEach(parent => checkNode(parent));
+    }
+    
+    checkNode(relationShipTree);
+    return needsFilters;
+  });
 
    // Function to handle time range changes
   async function handleTimeRangeChange() {
@@ -277,15 +306,66 @@ function updateContainerDimensions() {
     }
   }
 
+  function handleFilterChange(nodeId: string, direction: 'children' | 'parents', newOptions: FilterOptions) {
+    const key = `${nodeId}-${direction}`;
+    
+    // Only update if the options actually changed (prevent unnecessary re-renders)
+    const currentOptions = relationshipFilters.get(key);
+    if (currentOptions && JSON.stringify(currentOptions) === JSON.stringify(newOptions)) {
+      return; // No change, exit early
+    }
+    
+    relationshipFilters.set(key, newOptions);
+    relationshipFilters = new Map(relationshipFilters); // Trigger reactivity
+    
+    // Use untrack to prevent this update from triggering reactive loops
+    untrack(() => {
+      renderVisualization();
+    });
+  }
+
+  // Also update your toggleFilterControls to be more robust:
+function toggleFilterControls(nodeId: string, direction: 'children' | 'parents') {
+  const key = `${nodeId}-${direction}`;
+  
+  if (activeFilterControls.has(key)) {
+    activeFilterControls.delete(key);
+  } else {
+    activeFilterControls.add(key);
+    
+    // Initialize default filter options if they don't exist
+    if (!relationshipFilters.has(key)) {
+      relationshipFilters.set(key, { ...DEFAULT_FILTER_OPTIONS });
+      relationshipFilters = new Map(relationshipFilters);
+    }
+  }
+  
+  activeFilterControls = new Set(activeFilterControls); // Trigger reactivity
+}
+
   function renderVisualization() {
     const margin = { top: 0, right: 0, bottom: 0, left: 0 };
     const width = containerWidth - margin.left - margin.right;
     const height = containerHeight - margin.top - margin.bottom;
 
     // Create separate trees for left and right directions
-    const rightRoot = processTreeSimple(relationShipTree, "right", expandedNodes);
-    const leftRoot = processTreeSimple(relationShipTree, "left", expandedNodes);
-
+    // const rightRoot = processTreeSimple(relationShipTree, "right", expandedNodes);
+    // const leftRoot = processTreeSimple(relationShipTree, "left", expandedNodes);
+    const rightRoot = processTreeWithImportanceFiltering(
+      relationShipTree, 
+      "right", 
+      expandedNodes,
+      linkStats,
+      relationshipFilters
+    );
+  
+  const leftRoot = processTreeWithImportanceFiltering(
+    relationShipTree, 
+    "left", 
+    expandedNodes,
+    linkStats,
+    relationshipFilters
+  );
     
 
     const constrainedHeight = Math.min(height, containerHeight - margin.top - margin.bottom);
@@ -781,19 +861,19 @@ function updateContainerDimensions() {
           .style("opacity", 0)
           .style("cursor", "pointer");
 
-        const leftButtonText = leftButtonGroup
-          .append("text")
-          .attr("class", "button-text left-button-text")
-          .attr("x", -nodeWidth! / 3)
-          .attr("y", nodeWidth! / 3)
-          .attr("dy", ".35em")
-          .style("text-anchor", "middle")
-          .style("fill", "black")
-          .style("font-size", "18px")
-          .style("font-weight", "bold")
-          .style("opacity", 0)
-          .style("cursor", "pointer")
-          .style("pointer-events", "none");
+          let leftChevronIcon = createLucideIconFromComponent(
+            leftButtonGroup,
+            ChevronLeft,
+            -nodeWidth! / 3,
+            nodeWidth! / 3,
+            12,
+            'left-chevron'
+          );
+
+          if(leftChevronIcon) {
+            leftChevronIcon.style("opacity", 0).style("color", "black");
+            (leftButtonGroup.node() as any).__chevronIcon = leftChevronIcon;
+          }
 
         // Add click handler for left button (parents)
         leftButtonGroup.on("click", function (event, buttonData) {
@@ -812,22 +892,34 @@ function updateContainerDimensions() {
         element
           .on("mouseenter.leftButton", function () {
             // Determine button text based on current state
-            let buttonText;
-            
-            
-            if (parentsCurrentlyShowing) {
-              buttonText = ">"; // Collapse parents (point away from node)
-            } else {
-              buttonText = "<"; // Expand parents (point toward parents)
+
+            const shouldPointRight = parentsCurrentlyShowing;
+
+            if(leftChevronIcon) {
+              leftChevronIcon.remove()
             }
-            
-            leftButtonText.text(buttonText);
+
+            leftChevronIcon = createLucideIconFromComponent(
+              leftButtonGroup,
+              shouldPointRight ? ChevronRight : ChevronLeft,
+              -nodeWidth! / 3,
+              nodeWidth! / 3,
+              12,
+              'left-chevron'
+            );
+
+            if (leftChevronIcon) {
+              leftChevronIcon.style("color", "black");
+              leftChevronIcon.transition().duration(200).style("opacity", 1);
+            }
+
             leftButtonCircle.transition().duration(200).style("opacity", 1);
-            leftButtonText.transition().duration(200).style("opacity", 1);
           })
           .on("mouseleave.leftButton", function () {
             leftButtonCircle.transition().duration(200).style("opacity", 0);
-            leftButtonText.transition().duration(200).style("opacity", 0);
+            if(leftChevronIcon) {
+              leftChevronIcon.transition().duration(200).style("opacity", 0);
+            }
           });
       }
 
@@ -854,19 +946,33 @@ function updateContainerDimensions() {
           .style("opacity", 0)
           .style("cursor", "pointer");
 
-        const rightButtonText = rightButtonGroup
-          .append("text")
-          .attr("class", "button-text right-button-text")
-          .attr("x", nodeWidth! / 3)
-          .attr("y", nodeWidth! / 3)
-          .attr("dy", ".35em")
-          .style("text-anchor", "middle")
-          .style("fill", "black")
-          .style("font-size", "18px")
-          .style("font-weight", "bold")
-          .style("opacity", 0)
-          .style("cursor", "pointer")
-          .style("pointer-events", "none");
+          let rightChevronIcon = createLucideIconFromComponent(
+            rightButtonGroup,
+            ChevronRight,
+            -nodeWidth! / 3,
+            nodeWidth! / 3,
+            12,
+            'right-chevron'
+          );
+
+          if(rightChevronIcon) {
+            rightChevronIcon.style("opacity", 0).style("color", "black");
+            (rightButtonGroup.node() as any).__chevronIcon = rightChevronIcon;
+          }
+
+        // const rightButtonText = rightButtonGroup
+        //   .append("text")
+        //   .attr("class", "button-text right-button-text")
+        //   .attr("x", nodeWidth! / 3)
+        //   .attr("y", nodeWidth! / 3)
+        //   .attr("dy", ".35em")
+        //   .style("text-anchor", "middle")
+        //   .style("fill", "black")
+        //   .style("font-size", "18px")
+        //   .style("font-weight", "bold")
+        //   .style("opacity", 0)
+        //   .style("cursor", "pointer")
+        //   .style("pointer-events", "none");
 
         // Add click handler for right button (children)
         rightButtonGroup.on("click", function (event, buttonData) {
@@ -886,30 +992,105 @@ function updateContainerDimensions() {
         element
           .on("mouseenter.rightButton", function () {
             // Determine button text based on current state
-            let buttonText;
-            
-            if (childrenCurrentlyShowing) {
-              buttonText = "<"; // Collapse children (point away from children)
-            } else {
-              buttonText = ">"; // Expand children (point toward children)
+            const shouldPointLeft = childrenCurrentlyShowing;
+            console.log('shouldPointLeft:', shouldPointLeft);
+
+            if(rightChevronIcon) {
+              rightChevronIcon.remove()
             }
-            
-            rightButtonText.text(buttonText);
+
+            rightChevronIcon = createLucideIconFromComponent(
+              rightButtonGroup,
+              shouldPointLeft ? ChevronLeft : ChevronRight,
+              nodeWidth! / 3,
+              nodeWidth! / 3,
+              12,
+              'right-chevron'
+            );
+
+            if (rightChevronIcon) {
+              rightChevronIcon.style("color", "black");
+              rightChevronIcon.transition().duration(200).style("opacity", 1);
+            }
+
             rightButtonCircle.transition().duration(200).style("opacity", 1);
-            rightButtonText.transition().duration(200).style("opacity", 1);
           })
           .on("mouseleave.rightButton", function () {
             rightButtonCircle.transition().duration(200).style("opacity", 0);
-            rightButtonText.transition().duration(200).style("opacity", 0);
+            if(rightChevronIcon) {
+              rightChevronIcon.transition().duration(200).style("opacity", 0);
+
+            }
           });
       }
 
       if((needsParentsButton && !parentsCurrentlyShowing) || (needsChildrenButton && !childrenCurrentlyShowing)) {
         handleBackgroundNodeCircles(d.data.id, 'expand');
       } 
-      // else if(needsChildrenButton && !childrenCurrentlyShowing) {
-      //   handleBackgroundNodeCircles(d.data.id, 'expand');
-      // }
+      
+      const hasMany = (originalData?.children?.length || 0) > 10 || (originalData?.parents?.length || 0) > 10;
+      const hasManyChildren = (originalData?.children?.length || 0) > 10 
+      const hasManyParents = (originalData?.parents?.length || 0) > 10
+
+      if (hasMany) {
+        // Add filter icon button
+        const filterButtonGroup = element.append("g").attr("class", "filter-button-group");
+        
+        const filterButton = filterButtonGroup
+          .append("circle")
+          .attr("class", "filter-button")
+          .attr("cx", 0)
+          .attr("cy", -nodeWidth! / 2 - 15)
+          .attr("r", 8)
+          .style("fill", "#f3f4f6")
+          .style("stroke", "#6b7280")
+          .style("stroke-width", 1)
+          .style("cursor", "pointer")
+          .style("opacity", 0);
+
+          const filterIcon = createLucideIconFromComponent(
+            filterButtonGroup,
+            Filter,
+            0,
+            -nodeWidth! / 2 - 15,
+            12,
+            'filter-icon'
+          );
+
+          if(filterIcon) {
+            filterIcon
+            .style("opacity", "0")
+            .style("transform-origin", "center")
+            .style("transition", "all 0.2s ease");
+          }
+
+          (filterButtonGroup.node() as any).__iconInstance = filterIcon;
+          
+          
+        // Show filter button on hover
+        element
+          .on("mouseenter.filter", function() {
+            filterButton.transition().duration(200).style("opacity", 1);
+            if(filterIcon) {
+              filterIcon.transition().duration(200).style("opacity", 1);
+
+            }
+          })
+          .on("mouseleave.filter", function() {
+            filterButton.transition().duration(200).style("opacity", 0);
+            if (filterIcon) {
+              filterIcon.transition().duration(200).style("opacity", 0);
+            }
+          });
+          
+        // Handle filter button click
+        filterButtonGroup.on("click", function(event, d) {
+          event.stopPropagation();
+          const direction = (originalData?.children?.length || 0) > 10 ? 'children' : 'parents';
+          toggleFilterControls(d.data.id, direction);
+        });
+      }
+
 
     });
 
@@ -1070,9 +1251,63 @@ function updateContainerDimensions() {
 
 <div class="workflow-container">
   <div id="tree-container"></div>
+  <div class="filter-controls-container">
+  {#each Array.from(activeFilterControls) as controlKey}
+    {@const [nodeId, direction] = controlKey.split('-') as [string, 'children' | 'parents']}
+    {@const originalData = findOriginalData(relationShipTree, nodeId)}
+    {@const relationships = direction === 'children' ? originalData?.children : originalData?.parents}
+    {@const filterOptions = relationshipFilters.get(controlKey) || DEFAULT_FILTER_OPTIONS}
+    {@const summary = getRelationshipSummary(relationships, linkStats, nodeId, direction, filterOptions)}
+    
+    <div class="filter-control-wrapper" style="position: absolute; z-index: 1000;">
+      <RelationshipFilterControls
+        {nodeId}
+        {direction}
+        {filterOptions}
+        {summary}
+        isVisible={true}
+        filterChange={(e) => handleFilterChange(nodeId, direction, e.detail)}
+        toggleVisibility={() => toggleFilterControls(nodeId, direction)}
+      />
+    </div>
+  {/each}
+</div>
 </div>
 
 <style>
+  .filter-controls-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  
+  .filter-control-wrapper {
+    pointer-events: all;
+  }
+  
+  /* Enhanced node styles for filter indicators */
+  :global(.node.has-filters) {
+    outline: 2px dashed rgba(59, 130, 246, 0.3);
+    outline-offset: 4px;
+  }
+  
+  :global(.node.filters-active) {
+    outline: 2px solid #3b82f6;
+    outline-offset: 4px;
+  }
+  
+  /* Filter button animations */
+  :global(.filter-button) {
+    transition: all 0.2s ease;
+  }
+  
+  :global(.filter-button:hover) {
+    fill: #e5e7eb !important;
+    transform: scale(1.1);
+  }
+
   .workflow-container {
     font-family: Arial, sans-serif;
     margin: 0;

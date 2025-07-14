@@ -70,6 +70,7 @@ export interface RelationshipTree {
 
 export interface TreeNode {
   id: string;
+  originalId?: string;
   name?: string;
   type: "bot" | "queue" | "system";
   paused?: boolean;

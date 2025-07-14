@@ -1,6 +1,7 @@
 import type { TreeNode } from "$lib/types";
 import * as d3 from "d3";
 import type { TreeLayoutResult } from "./types";
+import { mount, unmount } from "svelte";
 
 /**
  * Wraps text in SVG text elements with intelligent line breaking for technical identifiers
@@ -170,7 +171,7 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
   
   const horizontalSpacing = nodeWidth + 150; // More space between levels
 
-  const treeLayout = d3.cluster().nodeSize([verticalSpacing, horizontalSpacing]);
+  const treeLayout = d3.tree().nodeSize([verticalSpacing, horizontalSpacing]);
   const rootNode = d3.hierarchy(root);
   const treeData = treeLayout(rootNode);
   minimizeCrossings(treeData);
@@ -246,4 +247,117 @@ function minimizeCrossings(treeData: d3.HierarchyPointNode<TreeNode>) {
       node.x = minPos + (index * spacing);
     });
   }
+}
+
+export function createLucideIconComponent(
+  parent: d3.Selection<any, any, any, any>,
+  IconComponent: any,
+  x: number,
+  y: number,
+  size: number = 16,
+  className: string = ''
+) {
+  // Create foreignObject container
+  const foreignObject = parent
+    .append('foreignObject')
+    .attr('x', x - size/2)
+    .attr('y', y - size/2)
+    .attr('width', size)
+    .attr('height', size)
+    .attr('class', `lucide-icon-container ${className}`)
+    .style('pointer-events', 'none')
+    .style('opacity', 0);
+
+  // Create a div inside the foreignObject
+  const div = foreignObject
+    .append('xhtml:div')
+    .style('width', '100%')
+    .style('height', '100%')
+    .style('display', 'flex')
+    .style('align-items', 'center')
+    .style('justify-content', 'center');
+
+  // Mount the Svelte component
+  const iconContainer = div.node() as HTMLElement;
+  const iconInstance = mount(IconComponent, {
+    target: iconContainer,
+    props: {
+      size: size,
+      class: 'lucide-d3-icon'
+    }
+  });
+
+  return {
+    foreignObject,
+    iconInstance,
+    destroy: () => {
+      unmount(iconInstance);
+      foreignObject.remove();
+    }
+  };
+}
+
+export function createLucideIconFromComponent(
+  parent: d3.Selection<any, any, any, any>,
+  IconComponent: any,
+  x: number,
+  y: number,
+  size: number = 16,
+  className: string = ''
+) {
+  // Create a temporary container to render the icon
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'absolute';
+  tempContainer.style.left = '-9999px';
+  tempContainer.style.top = '-9999px';
+  document.body.appendChild(tempContainer);
+
+  // Mount the icon component temporarily
+  const iconInstance = mount(IconComponent, {
+    target: tempContainer,
+    props: { size: size }
+  });
+
+  // Extract the SVG content
+  const svgElement = tempContainer.querySelector('svg');
+  if (!svgElement) {
+    console.error('Could not find SVG in Lucide component');
+    document.body.removeChild(tempContainer);
+    return null;
+  }
+
+  // Clone the SVG content
+  const svgContent = svgElement.innerHTML;
+  const viewBox = svgElement.getAttribute('viewBox') || '0 0 24 24';
+
+  // Cleanup temporary elements
+  unmount(iconInstance);
+  document.body.removeChild(tempContainer);
+
+  // Create the icon group in D3
+  const iconGroup = parent
+    .append('g')
+    .attr('class', `lucide-icon ${className}`)
+    .attr('transform', `translate(${x}, ${y})`);
+
+  // Add the SVG content
+  const svg = iconGroup
+    .append('svg')
+    .attr('width', size)
+    .attr('height', size)
+    .attr('viewBox', viewBox)
+    .attr('x', -size/2)
+    .attr('y', -size/2)
+    .style('overflow', 'visible')
+    .html(svgContent);
+
+  // Apply Lucide's default styles
+  svg.selectAll('*')
+    .style('fill', 'none')
+    .style('stroke', 'currentColor')
+    .style('stroke-width', 2)
+    .style('stroke-linecap', 'round')
+    .style('stroke-linejoin', 'round');
+
+  return iconGroup;
 }

@@ -1,5 +1,5 @@
 import type { MergedStatsRecord, RelationshipTree, TreeNode } from "$lib/types";
-import type { LinkStats } from "./types";
+import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats, type RelationshipScore } from "./types";
 import * as d3 from 'd3';
 
 export function processTree(
@@ -384,4 +384,285 @@ export function handleBackgroundNodeCircles(nodeId: string, type: 'expand' | 'co
 export function createGoodIdentifier(prefix: string, nodeId: string): string {
   const re = /[^a-zA-Z_-]/gm;
   return `${prefix}${nodeId}`.replace(re, '-');
+}
+
+/**
+ * Calculate importance score for relationships based on multiple factors
+ */
+export function calculateRelationshipImportance(
+  relationship: RelationshipTree,
+  linkStats: Map<string, LinkStats>,
+  parentId: string,
+  direction: 'children' | 'parents'
+): RelationshipScore {
+  const childId = relationship.id;
+  const key = direction === 'children' ? `${parentId}-${childId}` : `${childId}-${parentId}`;
+  const stats = linkStats.get(key) || { eventCount: 0, lastWrite: Date.now(), linkType: 'read' };
+  
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const timeSinceLastActivity = now - stats.lastWrite;
+  
+  // Base importance factors
+  const eventWeight = Math.log(stats.eventCount + 1) * 10; // Logarithmic scaling for event count
+  const recencyWeight = Math.max(0, 100 - (timeSinceLastActivity / dayMs)); // Decay over days
+  const typeWeight = stats.linkType === 'write' ? 20 : 10; // Writers are more important
+  
+  // Special conditions
+  const isRecent = timeSinceLastActivity < (2 * dayMs); // Active in last 2 days
+  const isPriority = relationship.alarmed || relationship.rogue || stats.eventCount > 100;
+  
+  // Bonus points
+  let bonusPoints = 0;
+  if (relationship.alarmed) bonusPoints += 50;
+  if (relationship.rogue) bonusPoints += 30;
+  if (relationship.paused) bonusPoints -= 20; // Paused items are less important
+  if (isRecent) bonusPoints += 25;
+  
+  const totalScore = eventWeight + recencyWeight + typeWeight + bonusPoints;
+  
+  return {
+    id: relationship.id,
+    score: totalScore,
+    lastActivity: stats.lastWrite,
+    eventCount: stats.eventCount,
+    isRecent,
+    isPriority
+  };
+}
+
+/**
+ * Filter and sort relationships based on importance and user preferences
+ */
+export function filterRelationshipsByImportance(
+  relationships: RelationshipTree[],
+  linkStats: Map<string, LinkStats>,
+  parentId: string,
+  direction: 'children' | 'parents',
+  filterOptions: FilterOptions = DEFAULT_FILTER_OPTIONS
+): RelationshipTree[] {
+  if (!relationships || relationships.length === 0) return [];
+  
+  // Calculate importance scores
+  const scoredRelationships = relationships.map(rel => ({
+    relationship: rel,
+    score: calculateRelationshipImportance(rel, linkStats, parentId, direction)
+  }));
+  
+  // Apply search filter
+  let filtered = scoredRelationships;
+  if (filterOptions.searchTerm) {
+    const searchLower = filterOptions.searchTerm.toLowerCase();
+    filtered = filtered.filter(item => 
+      item.relationship.name?.toLowerCase().includes(searchLower) ||
+      item.relationship.id.toLowerCase().includes(searchLower)
+    );
+  }
+  
+  // Apply activity filter
+  if (!filterOptions.includeInactive) {
+    filtered = filtered.filter(item => item.score.eventCount > 0 || item.score.isRecent);
+  }
+  
+  // Sort by user preference
+  filtered.sort((a, b) => {
+    switch (filterOptions.sortBy) {
+      case 'importance':
+        return b.score.score - a.score.score;
+      case 'recent':
+        return b.score.lastActivity - a.score.lastActivity;
+      case 'activity':
+        return b.score.eventCount - a.score.eventCount;
+      case 'alphabetical':
+        return (a.relationship.name || a.relationship.id).localeCompare(
+          b.relationship.name || b.relationship.id
+        );
+      default:
+        return b.score.score - a.score.score;
+    }
+  });
+  
+  // Take top N relationships
+  const topRelationships = filtered.slice(0, filterOptions.showCount);
+  
+  return topRelationships.map(item => item.relationship);
+}
+
+/**
+ * Enhanced tree processing with importance-based filtering
+ */
+export function processTreeWithImportanceFiltering(
+  data: RelationshipTree,
+  direction: "left" | "right",
+  expandedNodes: Set<string>,
+  linkStats: Map<string, LinkStats>,
+  filterOptions: Map<string, FilterOptions> = new Map(),
+  parent: TreeNode | undefined = undefined,
+  depth = 0,
+  relationshipPath: string[] = []
+): TreeNode {
+  let dataType: "queue" | "system" | "bot";
+  if (data.id.startsWith("queue:")) {
+    dataType = "queue";
+  } else if (data.id.startsWith("system:")) {
+    dataType = "system";
+  } else {
+    dataType = "bot";
+  }
+
+  const uniqueId = relationshipPath.length > 0 
+    ? `${data.id}-${relationshipPath.join('-')}-${depth}`
+    : data.id;
+
+  const node: TreeNode = {
+    id: uniqueId,
+    originalId: data.id,
+    name: data.name || data.id,
+    type: dataType,
+    paused: data.paused,
+    alarmed: data.alarmed,
+    rogue: data.rogue,
+    parent: parent,
+    depth: depth,
+    direction: direction,
+    children: [],
+    _children: [],
+  };
+
+  // Prevent infinite loops
+  if (relationshipPath.includes(data.id)) {
+    return node;
+  }
+
+  const newPath = [...relationshipPath, data.id];
+
+  // Get filter options for this node
+  const nodeFilterKey = `${data.id}-${direction === 'right' ? 'children' : 'parents'}`;
+  const nodeFilterOptions = filterOptions.get(nodeFilterKey) || DEFAULT_FILTER_OPTIONS;
+
+  // Determine expansion state
+  const isExplicitlyExpanded =
+    (direction === "right" && expandedNodes.has(`${data.id}-children`)) ||
+    (direction === "left" && expandedNodes.has(`${data.id}-parents`));
+
+  const isExplicitlyCollapsed =
+    (direction === "right" && expandedNodes.has(`${data.id}-children-collapsed`)) ||
+    (direction === "left" && expandedNodes.has(`${data.id}-parents-collapsed`));
+
+  // Process relationships with importance filtering
+  if (direction === "right" && data.children && data.children.length > 0) {
+    let childrenToShow = data.children;
+    
+    // Apply importance filtering if there are many children
+    if (data.children.length > 10) {
+      const filteredDirection = nodeFilterOptions.relationshipType === 'all' || 
+                               nodeFilterOptions.relationshipType === 'children' ? 'children' : 'children';
+      childrenToShow = filterRelationshipsByImportance(
+        data.children,
+        linkStats,
+        data.id,
+        'children',
+        nodeFilterOptions
+      );
+    }
+
+    const processedChildren = childrenToShow.map((child, index) =>
+      processTreeWithImportanceFiltering(
+        child,
+        "right",
+        expandedNodes,
+        linkStats,
+        filterOptions,
+        node,
+        depth + 1,
+        [...newPath, `child-${index}`]
+      )
+    );
+
+    const shouldShowChildren = isExplicitlyExpanded || 
+      (!isExplicitlyCollapsed && data.children.length <= 1);
+
+    if (shouldShowChildren) {
+      node.children = processedChildren;
+      node._children = [];
+    } else {
+      node.children = [];
+      node._children = processedChildren;
+    }
+  }
+
+  // Process parents for left tree
+  if (direction === "left" && data.parents && data.parents.length > 0) {
+    let parentsToShow = data.parents;
+    
+    // Apply importance filtering if there are many parents
+    if (data.parents.length > 10) {
+      const filteredDirection = nodeFilterOptions.relationshipType === 'all' || 
+                               nodeFilterOptions.relationshipType === 'parents' ? 'parents' : 'parents';
+      parentsToShow = filterRelationshipsByImportance(
+        data.parents,
+        linkStats,
+        data.id,
+        'parents',
+        nodeFilterOptions
+      );
+    }
+
+    const processedParents = parentsToShow.map((parent, index) =>
+      processTreeWithImportanceFiltering(
+        parent,
+        "left",
+        expandedNodes,
+        linkStats,
+        filterOptions,
+        node,
+        depth + 1,
+        [...newPath, `parent-${index}`]
+      )
+    );
+
+    const shouldShowParents = isExplicitlyExpanded || 
+      (!isExplicitlyCollapsed && data.parents.length <= 1);
+
+    if (shouldShowParents) {
+      node.children = processedParents;
+      node._children = [];
+    } else {
+      node.children = [];
+      node._children = processedParents;
+    }
+  }
+
+  return node;
+}
+
+/**
+ * Get summary of filtered vs total relationships
+ */
+export function getRelationshipSummary(
+  relationships: RelationshipTree[] | undefined,
+  linkStats: Map<string, LinkStats>,
+  parentId: string,
+  direction: 'children' | 'parents',
+  filterOptions: FilterOptions
+): { total: number; showing: number; filtered: number; hasMore: boolean } {
+  if (!relationships) return { total: 0, showing: 0, filtered: 0, hasMore: false };
+  
+  const total = relationships.length;
+  if (total <= 10) {
+    return { total, showing: total, filtered: 0, hasMore: false };
+  }
+  
+  const filtered = filterRelationshipsByImportance(
+    relationships,
+    linkStats,
+    parentId,
+    direction,
+    filterOptions
+  );
+  
+  const showing = Math.min(filtered.length, filterOptions.showCount);
+  const hasMore = total > showing;
+  
+  return { total, showing, filtered: filtered.length, hasMore };
 }
