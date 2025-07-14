@@ -46,16 +46,47 @@ export class SearchBarState {
 		return this.#showClearButton;
 	}
 
-	// set showClearButton(val: boolean) {
-	// 	this.#showClearButton = val;
-	// }
-
 	get searchResults() {
 		return this.#searchResults;
 	}
 
 	private set searchResults(val: SearchItem[]) {
 		this.#searchResults = val;
+	}
+
+	get selectedIndex() {
+		return this.#selectedIndex;
+	}
+
+	set selectedIndex(value: number) {
+		this.#selectedIndex = value;
+	}
+
+	get selectedItem(): SearchItem | null {
+		if (this.#selectedIndex >= 0 && this.#selectedIndex < this.#searchResults.length) {
+			return this.#searchResults[this.#selectedIndex];
+		}
+		return null;
+	}
+
+	navigateUp() {
+		if (this.#searchResults.length === 0) return;
+		
+		this.#selectedIndex = this.#selectedIndex <= 0 
+			? this.#searchResults.length - 1 
+			: this.#selectedIndex - 1;
+	}
+
+	navigateDown() {
+		if (this.#searchResults.length === 0) return;
+		
+		this.#selectedIndex = this.#selectedIndex >= this.#searchResults.length - 1 
+			? 0 
+			: this.#selectedIndex + 1;
+	}
+
+	resetSelection() {
+		this.#selectedIndex = -1;
 	}
 
 	private debouncedSearch() {
@@ -68,42 +99,32 @@ export class SearchBarState {
 		}, this.#debounceDelay);
 	}
 
-
     searchItems(): SearchItem[] {
-
-
 		if (!this.#searchQuery || this.#searchQuery.length < 1) {
 			return [];
 		}
 
 		return this.fuse.search(this.#searchQuery).map(result => result.item);
-
-		
 	}
 
     performSearch() {
-		// console.log('performing search');
         const results = this.searchItems();
-		// console.log('search results', results.length);
         this.#searchResults = results;
         this.#selectedIndex = -1;
-        // this.isOpen = results.length > 0;
     }
 
 	clearSearch = () => {
-
 		if (this.#debounceTimer) {
             clearTimeout(this.#debounceTimer);
             this.#debounceTimer = undefined;
         }
 
 		this.#searchQuery = '';
-		// this.isOpen = false;
 		this.#searchResults = [];
+		this.#selectedIndex = -1;
 	}
 
 	async getSearchResources() {
-		// console.log('fetching search resources');
 		const resources = await this.#fetch('/api/resources');
 		const data = (await resources.json()) as ResourcesApiResponse;
 		this.#items = data.items;
@@ -114,4 +135,3 @@ export class SearchBarState {
 		this.#debounceDelay = delay;
 	}
 }
-
