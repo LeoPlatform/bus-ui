@@ -89,8 +89,8 @@ export function initializeLinkStats(
   botStats: MergedStatsRecord[],
   linkStats: Map<string, LinkStats>
 ) {
-  // console.log("initializeLinkStats called, botStats length:", botStats.length);
-  // console.log("botStats:", botStats);
+  console.log("initializeLinkStats called, botStats length:", botStats.length);
+  console.log("botStats:", botStats);
   if (!botStats || botStats.length === 0) {
     // console.log("botStats is empty or undefined");
     return;
@@ -98,7 +98,7 @@ export function initializeLinkStats(
 
   // Convert the botStats proxy object into an array
   const statsArray = botStats;
-  // console.log("botStats to array:", statsArray);
+  console.log("botStats to array:", statsArray);
 
   if (statsArray.length === 0) {
     return;
@@ -110,7 +110,7 @@ export function initializeLinkStats(
     $state.snapshot(stat);
     let idKey = stat.id;
     if (stat.read) {
-      // console.log('found read stats');
+      console.log('found read stats');
       Object.entries(stat.read).forEach(([childId, readStat]) => {
         let key = `${idKey}-${childId}`;
         linkStats.set(key, {
@@ -397,11 +397,16 @@ export function calculateRelationshipImportance(
 ): RelationshipScore {
   const childId = relationship.id;
   const key = direction === 'children' ? `${parentId}-${childId}` : `${childId}-${parentId}`;
-  const stats = linkStats.get(key) || { eventCount: 0, lastWrite: Date.now(), linkType: 'read' };
+  const stats = linkStats.get(key) || { eventCount: 0, lastWrite: undefined, lastRead: undefined, linkType: direction === 'children' ? 'read' : 'write' };
+  // if(!stats) {
+  //   throw new Error(`no stats found for relationship: ${key} | ${direction}`);
+  // }
   
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
-  const timeSinceLastActivity = now - stats.lastWrite;
+  const timeSinceLastActivity = now - (stats.lastWrite! || stats.lastRead!);
+
+  // console.log('timeSinceLastActivity:', timeSinceLastActivity, 'stats.lastWrite:', stats.lastWrite, 'stats.lastRead:', stats.lastRead);
   
   // Base importance factors
   const eventWeight = Math.log(stats.eventCount + 1) * 10; // Logarithmic scaling for event count
@@ -418,13 +423,17 @@ export function calculateRelationshipImportance(
   if (relationship.rogue) bonusPoints += 30;
   if (relationship.paused) bonusPoints -= 20; // Paused items are less important
   if (isRecent) bonusPoints += 25;
+
+  // console.log('eventWeight:', eventWeight, 'recencyWeight:', recencyWeight, 'typeWeight:', typeWeight, 'bonusPoints:', bonusPoints);
   
   const totalScore = eventWeight + recencyWeight + typeWeight + bonusPoints;
+
+  // console.log('totalScore for ', relationship.id, totalScore);
   
   return {
     id: relationship.id,
     score: totalScore,
-    lastActivity: stats.lastWrite,
+    lastActivity: stats.lastWrite || stats.lastRead,
     eventCount: stats.eventCount,
     isRecent,
     isPriority
@@ -555,8 +564,6 @@ export function processTreeWithImportanceFiltering(
     
     // Apply importance filtering if there are many children
     if (data.children.length > 10) {
-      const filteredDirection = nodeFilterOptions.relationshipType === 'all' || 
-                               nodeFilterOptions.relationshipType === 'children' ? 'children' : 'children';
       childrenToShow = filterRelationshipsByImportance(
         data.children,
         linkStats,

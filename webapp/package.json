@@ -13,7 +13,15 @@
     "lint": "eslint .",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "create-env": "tsx scripts/create-env.ts --configLocation ./providers.config.json"
+    "create-env-test-cup": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env test --bus cup",
+    "create-env-staging-cup": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env staging --bus cup",
+    "create-env-prod-cup": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env prod --bus cup",
+    "create-env-test-chub": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env test --bus chub",
+    "create-env-staging-chub": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env staging --bus chub",
+    "create-env-prod-chub": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env prod --bus chub",
+    "create-env-test-stream": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env test --bus stream",
+    "create-env-staging-stream": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env staging --bus stream",
+    "create-env-prod-stream": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env prod --bus stream"
   },
   "devDependencies": {
     "@auth/sveltekit": "^1.9.1",

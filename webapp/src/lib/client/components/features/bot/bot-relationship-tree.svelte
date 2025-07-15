@@ -52,6 +52,8 @@
 
   let relationshipFilters = $state(new Map<string, FilterOptions>());
   let activeFilterControls = $state(new Set<string>());
+  let filterDrawerOpen = $state(false);
+  let currentFilterKey = $state<string | null>(null);
 
   let nodesNeedingFilters = $derived.by(() => {
     if (!relationShipTree) return new Set<string>();
@@ -136,6 +138,12 @@
     };
     
   })
+
+  $effect(() => {
+    if (!filterDrawerOpen) {
+      currentFilterKey = null;
+    }
+  });
 
 function updateContainerDimensions() {
   if (containerElement) {
@@ -309,15 +317,9 @@ function updateContainerDimensions() {
   function handleFilterChange(nodeId: string, direction: 'children' | 'parents', newOptions: FilterOptions) {
     const key = `${nodeId}-${direction}`;
     
-    // Only update if the options actually changed (prevent unnecessary re-renders)
-    const currentOptions = relationshipFilters.get(key);
-    if (currentOptions && JSON.stringify(currentOptions) === JSON.stringify(newOptions)) {
-      return; // No change, exit early
-    }
-    
     relationshipFilters.set(key, newOptions);
     relationshipFilters = new Map(relationshipFilters); // Trigger reactivity
-    
+
     // Use untrack to prevent this update from triggering reactive loops
     untrack(() => {
       renderVisualization();
@@ -328,19 +330,21 @@ function updateContainerDimensions() {
 function toggleFilterControls(nodeId: string, direction: 'children' | 'parents') {
   const key = `${nodeId}-${direction}`;
   
-  if (activeFilterControls.has(key)) {
-    activeFilterControls.delete(key);
-  } else {
+  // Always ensure the filter is active in our tracking
+  if (!activeFilterControls.has(key)) {
     activeFilterControls.add(key);
-    
-    // Initialize default filter options if they don't exist
-    if (!relationshipFilters.has(key)) {
-      relationshipFilters.set(key, { ...DEFAULT_FILTER_OPTIONS });
-      relationshipFilters = new Map(relationshipFilters);
-    }
+    activeFilterControls = new Set(activeFilterControls);
   }
   
-  activeFilterControls = new Set(activeFilterControls); // Trigger reactivity
+  // Initialize default filter options if they don't exist (only on first time)
+  if (!relationshipFilters.has(key)) {
+    relationshipFilters.set(key, { ...DEFAULT_FILTER_OPTIONS });
+    relationshipFilters = new Map(relationshipFilters);
+  }
+  
+  // Always open the drawer when button is clicked
+  currentFilterKey = key;
+  filterDrawerOpen = true;
 }
 
   function renderVisualization() {
@@ -638,7 +642,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           } else {
             linkTargetId = d.target.data.id;
           }
-          console.log(linkSourceId);
+          // console.log(linkSourceId);
         const stats = getLinkStats(linkSourceId, linkTargetId);
         return getLowerText(stats);
       }).each(function(d) {
@@ -993,7 +997,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           .on("mouseenter.rightButton", function () {
             // Determine button text based on current state
             const shouldPointLeft = childrenCurrentlyShowing;
-            console.log('shouldPointLeft:', shouldPointLeft);
+            // console.log('shouldPointLeft:', shouldPointLeft);
 
             if(rightChevronIcon) {
               rightChevronIcon.remove()
@@ -1252,26 +1256,25 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
 <div class="workflow-container">
   <div id="tree-container"></div>
   <div class="filter-controls-container">
-  {#each Array.from(activeFilterControls) as controlKey}
-    {@const [nodeId, direction] = controlKey.split('-') as [string, 'children' | 'parents']}
-    {@const originalData = findOriginalData(relationShipTree, nodeId)}
-    {@const relationships = direction === 'children' ? originalData?.children : originalData?.parents}
-    {@const filterOptions = relationshipFilters.get(controlKey) || DEFAULT_FILTER_OPTIONS}
-    {@const summary = getRelationshipSummary(relationships, linkStats, nodeId, direction, filterOptions)}
-    
-    <div class="filter-control-wrapper" style="position: absolute; z-index: 1000;">
-      <RelationshipFilterControls
-        {nodeId}
-        {direction}
-        {filterOptions}
-        {summary}
-        isVisible={true}
-        filterChange={(e) => handleFilterChange(nodeId, direction, e.detail)}
-        toggleVisibility={() => toggleFilterControls(nodeId, direction)}
-      />
+    {#if currentFilterKey}
+      {@const [nodeId, direction] = currentFilterKey.split('-') as [string, 'children' | 'parents']}
+      {@const originalData = findOriginalData(relationShipTree, nodeId)}
+      {@const relationships = direction === 'children' ? originalData?.children : originalData?.parents}
+      {@const filterOptions = relationshipFilters.get(currentFilterKey) || {...DEFAULT_FILTER_OPTIONS}}
+      {@const summary = getRelationshipSummary(relationships, linkStats, nodeId, direction, filterOptions)}
+      
+      <div class="filter-control-wrapper" style="position: absolute; z-index: 1000;">
+        <RelationshipFilterControls
+          {nodeId}
+          {direction}
+          {filterOptions}
+          {summary}
+          filterChange={(newOptions) => handleFilterChange(nodeId, direction, newOptions)}
+          bind:open={filterDrawerOpen}
+        />
     </div>
-  {/each}
-</div>
+    {/if}
+  </div>
 </div>
 
 <style>

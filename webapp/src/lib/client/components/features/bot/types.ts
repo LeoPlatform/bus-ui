@@ -2,7 +2,8 @@ import type { TreeNode } from "$lib/types";
 
 export interface LinkStats {
     eventCount: number,
-    lastWrite: number,
+    lastWrite?: number,
+    lastRead?: number,
     linkType: 'read' | 'write';
 }
 

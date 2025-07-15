@@ -2,11 +2,14 @@ import {fromIni} from "@aws-sdk/credential-provider-ini";
 import { execSync } from "child_process";
 import { writeFileSync, existsSync, readFileSync } from "fs";
 import yargs from "yargs"
+import { LeoConfig } from "./types";
 
 async function main(): Promise<void> {
 
     let argv = yargs(process.argv.slice(2)).options({
-        configLocation: {type: 'string', demandOption: true, describe: 'The location to the auth config file'}
+        configLocation: {type: 'string', demandOption: true, describe: 'The location to the auth config file'},
+        env: {type: 'string', demandOption: false, describe: 'The environment to create the env file for', choices: ['test', 'staging', 'prod'], default: 'test'},
+        bus: {type: 'string', demandOption: false, describe: 'The bus to create the env file for', choices: ['cup', 'chub', 'stream'], default: 'cup'},
     }).help().parseSync();
 
     
@@ -17,16 +20,23 @@ async function main(): Promise<void> {
         throw new Error("No path for a local config file provided in the args or existing env file");
     }
 
+    const leoConfigPath = './leo.config.json';
+    const leoConfig: LeoConfig = JSON.parse(readFileSync(leoConfigPath, {encoding: 'utf-8'}));
+
+    const configStr = getConfigString(argv.env, argv.bus);
+
+    const config = leoConfig[configStr];
+
     const env_props = {
         aws_access_key_id: "",
         aws_secret_access_key: "",
         aws_session_token: "",
         aws_region: "us-east-1",
-        environment: 'test',
-        leo_cron_table: 'TestBus-LeoCron-OJ8ZNCEBL8GM',
-        leo_stats_table: 'TestBotmon-LeoStats-1X4QJ2RV6XCYA',
-        leo_event_table: 'TestBus-LeoEvent-FNSO733D68CR',
-        leo_system_table: 'TestBus-LeoSystem-L9OY6AV8E954',
+        environment: argv.env,
+        leo_cron_table: config.leosdk.LeoCron,
+        leo_stats_table: config.Resources.LeoStats,
+        leo_event_table: config.leosdk.LeoEvent,
+        leo_system_table: config.leosdk.LeoSystem,
         local: true,
         auth_config_source: argv.configLocation ?? existingEnvFileData['AUTH_CONFIG_SOURCE'],
         auth_secret: existingEnvFileData['AUTH_SECRET'],
@@ -82,6 +92,14 @@ function readExistingEnvFile(path: string): Record<string, string> {
     }
 
     return map;
+}
+
+function getConfigString(env: string, bus: string): string {
+    const capitalize = (s: string) => {
+        return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    return `${capitalize(env)}${capitalize(bus)}`;
 }
 
 (async () => {
