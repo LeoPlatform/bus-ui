@@ -106,6 +106,7 @@ export class TimePickerState {
     }
 
     set range(val: StatsRange) {
+        if(val == this.selectedRange) return;
         let rangeData = ranges[val];
         console.log('Setting range:', val, 'rangeData:', rangeData);
         this.selectedRange = val;
@@ -232,7 +233,12 @@ export class TimePickerState {
      */
     private updateTimeRangeForSelectedRange() {
         // Align the current start time to the selected range
-        this.#startTime = this.alignTimeToRange(this.#startTime);
+        if(!this.#endTime) {
+            this.#startTime = this.alignTimeToRange(new Date().getTime());
+        } else {
+            this.#startTime = this.alignTimeToRange(this.#endTime);
+
+        }
         
         // Calculate the appropriate end time
         // this.calculateEndTimeForRange();
@@ -246,10 +252,10 @@ export class TimePickerState {
         const bucketUtil = bucketsData[this.#range];
         
         if (bucketUtil) {
-            if(!this.#endTime) {
-                return bucketUtil.value(new Date()).getTime();
+            // if(!this.#endTime) {
+            //     return bucketUtil.value(new Date()).getTime();
 
-            }
+            // }
             return bucketUtil.value(bucketUtil.prev(date, this.#count)).getTime();
         }
         
@@ -280,11 +286,11 @@ export class TimePickerState {
     nextDateRange() {
         const bucketUtil = bucketsData[this.#range];
         if (bucketUtil) {
-            this.#startTime = bucketUtil.next(new Date(this.#startTime), this.#count).getTime();
+            this.#startTime = bucketUtil.value(bucketUtil.next(new Date(this.#startTime), this.#count)).getTime();
             if (!this.#endTime) {
-                this.endTime = bucketUtil.next(new Date(this.#startTime), this.#count).getTime();
+                this.endTime = bucketUtil.value(bucketUtil.next(new Date(this.#startTime), this.#count)).getTime();
             } else {
-                this.endTime = bucketUtil.next(new Date(this.#endTime), this.#count).getTime();
+                this.endTime = bucketUtil.value(bucketUtil.next(new Date(this.#endTime), this.#count)).getTime();
             }
         }
         this.triggerTimeRangeChange()
@@ -293,11 +299,11 @@ export class TimePickerState {
     prevDateRange() {
         const bucketUtil = bucketsData[this.#range];
         if (bucketUtil) {
-            this.#startTime = bucketUtil.prev(new Date(this.#startTime), this.#count).getTime();
+            this.#startTime = bucketUtil.value(bucketUtil.prev(new Date(this.#startTime), this.#count)).getTime();
             if (!this.#endTime) {
-                this.endTime = bucketUtil.next(new Date(this.#startTime), this.#count).getTime();
+                this.endTime = bucketUtil.value(bucketUtil.next(new Date(this.#startTime), this.#count)).getTime();
             } else {
-                this.endTime = bucketUtil.prev(new Date(this.#endTime), this.#count).getTime();
+                this.endTime = bucketUtil.value(bucketUtil.prev(new Date(this.#endTime), this.#count)).getTime();
             }
         }
         this.triggerTimeRangeChange();
@@ -368,7 +374,7 @@ export class TimePickerState {
         
         if (bucketUtil) {
             this.endTime = undefined;
-            this.#startTime = this.alignTimeToRange(this.#startTime);
+            this.#startTime = this.alignTimeToRange(new Date().getTime());
         }
         this.triggerTimeRangeChange();
     }

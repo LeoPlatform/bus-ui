@@ -96,6 +96,7 @@
                 size="sm"
                 onclick={goToNext}
                 class="h-8 w-8 p-0 hover:bg-gray-700 text-white"
+                disabled={componentState.endTime === undefined || componentState.endTime >= new Date().getTime()}
             >
                 <RightChevron class="h-4 w-4" />
             </Button>
