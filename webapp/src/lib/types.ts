@@ -1,4 +1,5 @@
 import * as Icons from "$lib/client/components/icons";
+import type { BotStatus, BotAlarms, BotHealthConfig } from "$lib/client/components/features/bot/bot-status.constants";
 
 
 export interface AwsCreds {
@@ -31,6 +32,12 @@ export interface BotSettings {
   triggers?: string[];
   type?: string;
   health?: BotHealth;
+  // New status fields
+  status?: BotStatus;
+  isAlarmed?: boolean;
+  alarms?: BotAlarms;
+  rogue?: boolean;
+  alarmed?: boolean; // Keep for compatibility
 }
 
 export interface BotSettingsApiResponse {
@@ -64,6 +71,11 @@ export interface RelationshipTree {
   paused?: boolean;
   alarmed?: boolean;
   rogue?: boolean;
+  archived?: boolean;
+  // New status fields
+  status?: BotStatus;
+  isAlarmed?: boolean;
+  alarms?: BotAlarms;
   children: RelationshipTree[];
   parents: RelationshipTree[];
 }
@@ -76,6 +88,11 @@ export interface TreeNode {
   paused?: boolean;
   alarmed?: boolean;
   rogue?: boolean;
+  archived?: boolean;
+  // New status fields
+  status?: BotStatus;
+  isAlarmed?: boolean;
+  alarms?: BotAlarms;
   parent?: TreeNode;
   depth: number;
   direction: "left" | "right";
@@ -275,6 +292,7 @@ export interface ReadWriteStats {
   source_timestamp: number,
   timestamp: number,
   units: number,
+  errors?: number,
 }
 
 export interface StatsQueryResponse {

@@ -7,6 +7,7 @@ import {
   type StatsApiResponse,
 } from "$lib/types";
 import type { TimePickerState } from "../time-picker/time-picker.state.svelte";
+import { evaluateBotStatus } from "./bot-status.utils";
 
 type GlobalFetch = typeof globalThis.fetch;
 
@@ -133,6 +134,9 @@ export class BotState {
         this.#botSettings.push(bot);
       }
     }
+    
+    // Calculate bot statuses after merging settings
+    this.evaluateBotStatuses();
   }
 
   mergeStatsIntoState(stats: MergedStatsRecord[]) {
@@ -144,6 +148,9 @@ export class BotState {
           this.#stats.push(stat);
         }
     }
+    
+    // Calculate bot statuses after merging stats
+    this.evaluateBotStatuses();
   }
   
   buildRelationShipTree() {
@@ -154,6 +161,10 @@ export class BotState {
           paused?: boolean,
           rogue?: boolean,
           alarmed?: boolean,
+          status?: string,
+          isAlarmed?: boolean,
+          alarms?: any,
+          archived?: boolean,
           children: string[],
           parents: string[]
       }> = {};
@@ -165,7 +176,12 @@ export class BotState {
                   id: bot.id,
                   name: bot.name,
                   paused: bot.paused,
-                  rogue: bot.errorCount ? bot.errorCount > 10 : false,
+                  rogue: bot.rogue,
+                  alarmed: bot.alarmed,
+                  status: bot.status,
+                  isAlarmed: bot.isAlarmed,
+                  alarms: bot.alarms,
+                  archived: bot.archived,
                   children: [],
                   parents: []
               };
@@ -252,6 +268,10 @@ export class BotState {
               paused: node.paused,
               alarmed: node.alarmed,
               rogue: node.rogue,
+              archived: node.archived,
+              status: node.status,
+              isAlarmed: node.isAlarmed,
+              alarms: node.alarms,
               children: [],
               parents: []
           };
@@ -283,6 +303,26 @@ export class BotState {
 
   clearStatsCache() {
     this.#fetchedStats = new Map();
+  }
+
+  private evaluateBotStatuses() {
+    this.#botSettings.forEach(bot => {
+      // Find the stats for this bot
+      const botStats = this.#stats.find(s => s.id === bot.id);
+      
+      // Calculate the bot's status based on its stats
+      const statusEvaluation = evaluateBotStatus(bot, botStats, bot.health);
+      
+      // Update the bot object with calculated values
+      bot.status = statusEvaluation.status;
+      bot.isAlarmed = statusEvaluation.isAlarmed;
+      bot.alarms = statusEvaluation.alarms;
+      bot.rogue = statusEvaluation.rogue;
+      bot.alarmed = statusEvaluation.isAlarmed; // Keep for compatibility
+    });
+
+    // Trigger reactivity by reassigning the array
+    this.#botSettings = [...this.#botSettings];
   }
   
 }

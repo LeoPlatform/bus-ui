@@ -251,26 +251,27 @@ function updateContainerDimensions() {
   }
 
   function getLinkStats(parentId: string, childId: string): LinkStats {
-    // Extract original IDs if they exist
-    const originalParentId = parentId.includes('-') ? parentId.split('-')[0] : parentId;
-    const originalChildId = childId.includes('-') ? childId.split('-')[0] : childId;
 
-    // Remove bot: prefix for lookup
-    const tempParentId = originalParentId.replace('bot:', '');
-    const tempChildId = originalChildId.replace('bot:', '');
+    // console.log(linkStats);
+    // Simply remove all prefixes
+    const cleanParentId = parentId.replace(/^(bot:|queue:|system:)/, '');
+    const cleanChildId = childId.replace(/^(bot:|queue:|system:)/, '');
+    
+    const key = `${cleanParentId}-${cleanChildId}`;
 
-    const botData = appState.botState.botSettings.find(bot => bot.id === tempParentId || bot.id === tempChildId);
-    const type = botData?.id == tempParentId ? 'write' : 'read';
-    const endedTimestamp = botData?.checkpoints?.[type]?.[tempChildId]?.ended_timestamp;
-
-    if(!linkStats) {
-      return { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type }
-    }
-
-    const key = `${originalParentId}-${originalChildId}`;
+    // console.log('getLinkStats key: ', key);
     const linkStat = linkStats.get(key);
-
-    return linkStat || { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type };
+    
+    if (linkStat) {
+      return linkStat;
+    }
+    
+    // Fallback logic (existing code for when no stats found)
+    const botData = appState.botState.botSettings.find(bot => bot.id === cleanParentId || bot.id === cleanChildId);
+    const type = botData?.id == cleanParentId ? 'write' : 'read';
+    const endedTimestamp = botData?.checkpoints?.[type]?.[cleanChildId]?.ended_timestamp;
+    
+    return { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type };
   }
 
   function isNodeExpanded(nodeId: string): boolean {
@@ -287,9 +288,10 @@ function updateContainerDimensions() {
 
       // Only include nodes that are visible (opacity > 0)
       if (opacity > 0) {
-        let id = d.data.id;
+        let id = d.data.originalId || d.data.id;
+        // console.log('id: ', id);
         if (d.data.type == "bot") {
-          id = `bot:${d.data.id}`;
+          id = `bot:${d.data.originalId || d.data.id}`;
         }
         visibleNodes.add(id);
       }
@@ -582,15 +584,15 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           let linkTargetId;
 
           if (d.source.data.type == "bot") {
-            linkSourceId = `bot:${d.source.data.id}`;
+            linkSourceId = `bot:${d.source.data.originalId || d.source.data.id}`;
           } else {
-            linkSourceId = d.source.data.id;
+            linkSourceId = d.source.data.originalId || d.source.data.id;
           }
 
           if (d.target.data.type == "bot") {
-            linkTargetId = `bot:${d.target.data.id}`;
+            linkTargetId = `bot:${d.target.data.originalId || d.target.data.id}`;
           } else {
-            linkTargetId = d.target.data.id;
+            linkTargetId = d.target.data.originalId || d.target.data.id;
           }
         const stats = getLinkStats(linkSourceId, linkTargetId);
         return stats.eventCount.toLocaleString();
@@ -632,15 +634,15 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           let targetType = d.target.data.type;
 
           if (sourceType == "bot") {
-            linkSourceId = `bot:${d.source.data.id}`;
+            linkSourceId = `bot:${d.source.data.originalId || d.source.data.id}`;
           } else {
-            linkSourceId = d.source.data.id;
+            linkSourceId = d.source.data.originalId || d.source.data.id;
           }
 
           if (targetType == "bot") {
-            linkTargetId = `bot:${d.target.data.id}`;
+            linkTargetId = `bot:${d.target.data.originalId || d.target.data.id}`;
           } else {
-            linkTargetId = d.target.data.id;
+            linkTargetId = d.target.data.originalId || d.target.data.id;
           }
           // console.log(linkSourceId);
         const stats = getLinkStats(linkSourceId, linkTargetId);
@@ -709,12 +711,21 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .style("cursor", "pointer") // All nodes are clickable for info
       .on("click", (event, d) => {
         // Node click only shows information and highlights - no expand/collapse
+        const statusInfo = d.data.status ? `<p><strong>Status:</strong> ${d.data.status}</p>` : '';
+        const alarmInfo = d.data.isAlarmed ? `<p><strong>Alarmed:</strong> Yes</p>` : '';
+        const pausedInfo = d.data.paused ? `<p><strong>Paused:</strong> Yes</p>` : '';
+        const rogueInfo = d.data.rogue ? `<p><strong>Rogue:</strong> Yes</p>` : '';
+        
         d3.select("#node-info").html(`
-          <p><strong>ID:</strong> ${d.data.id}</p>
+          <p><strong>ID:</strong> ${d.data.originalId || d.data.id}</p>
           <p><strong>Name:</strong> ${d.data.name}</p>
           <p><strong>Type:</strong> ${d.data.type}</p>
           <p><strong>Generation:</strong> ${d.depth === 0 ? "Root" : d.depth === 1 ? "1st" : d.depth === 2 ? "2nd" : "3rd"}</p>
           <p><strong>Direction:</strong> ${d.data.direction}</p>
+          ${statusInfo}
+          ${alarmInfo}
+          ${pausedInfo}
+          ${rogueInfo}
         `);
 
         // Highlight connected nodes
@@ -769,10 +780,20 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       } else if (d.data.type === "bot") {
 
         let botImg;
+        const botStatus = d.data.status || 'running';
+        
         if (d.data.paused) {
-          botImg = "/bot-paused.png"
+          botImg = "/bot-paused.png";
+        } else if (botStatus === 'rogue') {
+          botImg = "/bot-rogue.png";
+        } else if (botStatus === 'danger') {
+          botImg = "/bot-danger.png";
+        } else if (botStatus === 'blocked') {
+          botImg = "/bot-blocked.png";
+        } else if (botStatus === 'archived') {
+          botImg = "/bot-archived.png";
         } else {
-          botImg = "/bot.png"
+          botImg = "/bot.png";
         }
 
         element

@@ -25,6 +25,10 @@ export function processTree(
     paused: data.paused,
     alarmed: data.alarmed,
     rogue: data.rogue,
+    archived: data.archived,
+    status: data.status,
+    isAlarmed: data.isAlarmed,
+    alarms: data.alarms,
     parent: parent,
     depth: depth,
     direction: direction,
@@ -108,11 +112,12 @@ export function initializeLinkStats(
 
   statsArray.forEach((stat: MergedStatsRecord) => {
     $state.snapshot(stat);
-    let idKey = stat.id;
+    let idKey = stat.id.replace(/^(bot:|queue:|system:)/, ''); // Remove prefixes
     if (stat.read) {
-      console.log('found read stats');
+      // console.log('found read stats');
       Object.entries(stat.read).forEach(([childId, readStat]) => {
-        let key = `${idKey}-${childId}`;
+        let cleanChildId = childId.replace(/^(bot:|queue:|system:)/, '');
+        let key = `${idKey}-${cleanChildId}`;
         linkStats.set(key, {
           eventCount: readStat.units,
           lastWrite: new Date(readStat.timestamp).getTime(),
@@ -123,7 +128,8 @@ export function initializeLinkStats(
     if (stat.write) {
       // console.log('found write stats');
       Object.entries(stat.write).forEach(([parentId, writeStat]) => {
-        let key = `${parentId}-${idKey}`;
+        let cleanParentId = parentId.replace(/^(bot:|queue:|system:)/, '');
+        let key = `${cleanParentId}-${idKey}`;
         linkStats.set(key, {
           eventCount: writeStat.units,
           lastWrite: new Date(writeStat.timestamp).getTime(),
@@ -238,6 +244,10 @@ export function processTreeSimple(
     paused: data.paused,
     alarmed: data.alarmed,
     rogue: data.rogue,
+    archived: data.archived,
+    status: data.status,
+    isAlarmed: data.isAlarmed,
+    alarms: data.alarms,
     parent: parent,
     depth: depth,
     direction: direction,
@@ -415,13 +425,17 @@ export function calculateRelationshipImportance(
   
   // Special conditions
   const isRecent = timeSinceLastActivity < (2 * dayMs); // Active in last 2 days
-  const isPriority = relationship.alarmed || relationship.rogue || stats.eventCount > 100;
+  const isPriority = relationship.alarmed || relationship.isAlarmed || relationship.rogue || stats.eventCount > 100;
   
-  // Bonus points
+  // Bonus points based on status
   let bonusPoints = 0;
-  if (relationship.alarmed) bonusPoints += 50;
+  if (relationship.status === 'danger') bonusPoints += 75;
+  if (relationship.status === 'rogue') bonusPoints += 50;
+  if (relationship.status === 'blocked') bonusPoints += 40;
+  if (relationship.alarmed || relationship.isAlarmed) bonusPoints += 50;
   if (relationship.rogue) bonusPoints += 30;
   if (relationship.paused) bonusPoints -= 20; // Paused items are less important
+  if (relationship.archived) bonusPoints -= 50; // Archived items are less important
   if (isRecent) bonusPoints += 25;
 
   // console.log('eventWeight:', eventWeight, 'recencyWeight:', recencyWeight, 'typeWeight:', typeWeight, 'bonusPoints:', bonusPoints);
@@ -531,6 +545,10 @@ export function processTreeWithImportanceFiltering(
     paused: data.paused,
     alarmed: data.alarmed,
     rogue: data.rogue,
+    archived: data.archived,
+    status: data.status,
+    isAlarmed: data.isAlarmed,
+    alarms: data.alarms,
     parent: parent,
     depth: depth,
     direction: direction,
