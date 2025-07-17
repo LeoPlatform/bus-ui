@@ -214,6 +214,67 @@ export function toggleNodeExpansion(
     return {expandedNodes: new Set(nodes), lastExpandedNode: nodeId};
 }
 
+export function processTreeVerySimple(
+  data: RelationshipTree,
+  direction: "left" | "right",
+  expandedNodes: Set<string>,
+  parent: TreeNode | undefined = undefined,
+  depth: number = 0
+): TreeNode {
+  let dataType: "bot" | "queue" | "system";
+  if (data.id.startsWith("bot:")) {
+    dataType = "bot";
+  } else if (data.id.startsWith("queue:")) {
+    dataType = "queue";
+  } else {
+    dataType = "system";
+  }
+
+  const node: TreeNode = {
+    id: data.id, // Use original ID - no path-based uniqueness
+    originalId: data.id,
+    name: data.name || data.id,
+    type: dataType,
+    paused: data.paused,
+    alarmed: data.alarmed,
+    rogue: data.rogue,
+    archived: data.archived,
+    status: data.status,
+    isAlarmed: data.isAlarmed,
+    alarms: data.alarms,
+    parent: parent,
+    depth: depth,
+    direction: direction,
+    children: [],
+    _children: [],
+  };
+
+  // Simple expansion logic - just show first level by default
+  if (direction === "right" && data.children && data.children.length > 0) {
+    const shouldExpand = expandedNodes.has(`${data.id}-children`) || 
+                        (data.children.length <= 1 && !expandedNodes.has(`${data.id}-children-collapsed`));
+    
+    if (shouldExpand) {
+      node.children = data.children.slice(0, 5).map(child => // Limit to 5 to avoid deep trees
+        processTreeVerySimple(child, direction, expandedNodes, node, depth + 1)
+      );
+    }
+  }
+
+  if (direction === "left" && data.parents && data.parents.length > 0) {
+    const shouldExpand = expandedNodes.has(`${data.id}-parents`) || 
+                        (data.parents.length <= 1 && !expandedNodes.has(`${data.id}-parents-collapsed`));
+    
+    if (shouldExpand) {
+      node.children = data.parents.slice(0, 5).map(parent => // Limit to 5 to avoid deep trees
+        processTreeVerySimple(parent, direction, expandedNodes, node, depth + 1)
+      );
+    }
+  }
+
+  return node;
+}
+
 export function processTreeSimple(
   data: RelationshipTree,
   direction: "left" | "right",
@@ -533,12 +594,9 @@ export function processTreeWithImportanceFiltering(
     dataType = "bot";
   }
 
-  const uniqueId = relationshipPath.length > 0 
-    ? `${data.id}-${relationshipPath.join('-')}-${depth}`
-    : data.id;
-
+  // Use original ID for positioning, but track cycles with relationshipPath
   const node: TreeNode = {
-    id: uniqueId,
+    id: data.id, // Use original ID for clean positioning
     originalId: data.id,
     name: data.name || data.id,
     type: dataType,

@@ -167,9 +167,14 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
   const levelCounts = countNodesPerLevel(root);
   const maxNodesAtAnyLevel = Math.max(...Object.values(levelCounts));
 
-  const verticalSpacing = nodeWidth + 50;
+  // Calculate dynamic spacing based on node density
+  const baseVerticalSpacing = nodeWidth + 20; // Minimum spacing
+  const baseHorizontalSpacing = nodeWidth + 80; // Minimum level spacing
   
-  const horizontalSpacing = nodeWidth + 150; // More space between levels
+  // Adjust spacing based on node density - more nodes = tighter spacing
+  const densityFactor = Math.min(1, 10 / maxNodesAtAnyLevel); // More dense = smaller factor
+  const verticalSpacing = baseVerticalSpacing + (30 * densityFactor); // 20-50px additional
+  const horizontalSpacing = baseHorizontalSpacing + (70 * densityFactor); // 80-150px additional
 
   const treeLayout = d3.tree().nodeSize([verticalSpacing, horizontalSpacing]);
   const rootNode = d3.hierarchy(root);
@@ -196,20 +201,21 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
 
   // Center the tree in the available space
   const centerY = dynamicHeight / 2;
-  const centerOffset = -(minY + maxY) / 2;
-
-  const topNode = treeData;
+  
+  // Calculate the actual center of the tree nodes
   const rootOriginalPos = rootNode.x;
+  const treeCenter = (minY + maxY) / 2;
 
   treeData.each((d) => {
-    // Swap x and y for horizontal layout and center
+    // Swap x and y for horizontal layout and center properly
     const tempX = d.x;
     d.x = d.y;
-    d.y = centerY + (tempX - rootOriginalPos);
+    d.y = centerY + (tempX - treeCenter);
   });
 
   return { treeData, dynamicHeight };
 }
+
 
 function minimizeCrossings(treeData: d3.HierarchyPointNode<TreeNode>) {
   // Group nodes by depth level
@@ -230,22 +236,50 @@ function minimizeCrossings(treeData: d3.HierarchyPointNode<TreeNode>) {
     
     if (currentLevelNodes.length <= 1) continue;
     
-    // Sort nodes to minimize crossings with their parents
+    // Enhanced sorting that considers both parent position and node relationships
     currentLevelNodes.sort((a, b) => {
       const aParentY = a.parent?.x || 0;
       const bParentY = b.parent?.x || 0;
-      return aParentY - bParentY;
+      
+      // Primary sort: by parent position
+      const parentDiff = aParentY - bParentY;
+      if (Math.abs(parentDiff) > 50) { // Only use parent position if significantly different
+        return parentDiff;
+      }
+      
+      // Secondary sort: group nodes with similar IDs together
+      const aId = (a.data as any).originalId || (a.data as any).id || '';
+      const bId = (b.data as any).originalId || (b.data as any).id || '';
+      
+      // Extract base name for grouping (remove prefixes and suffixes)
+      const getBaseName = (id: string) => {
+        return id.replace(/^(bot:|queue:|system:)/, '').split('-')[0];
+      };
+      
+      const aBase = getBaseName(aId);
+      const bBase = getBaseName(bId);
+      
+      if (aBase !== bBase) {
+        return aBase.localeCompare(bBase);
+      }
+      
+      // Tertiary sort: by full ID
+      return aId.localeCompare(bId);
     });
     
-    // Redistribute the sorted nodes evenly
-    const spacing = currentLevelNodes.length > 1 ? 
-      (Math.max(...currentLevelNodes.map(n => n.x)) - Math.min(...currentLevelNodes.map(n => n.x))) / (currentLevelNodes.length - 1) : 0;
+    // Redistribute the sorted nodes with better spacing
+    const originalPositions = currentLevelNodes.map(n => n.x);
+    const minPos = Math.min(...originalPositions);
+    const maxPos = Math.max(...originalPositions);
+    const totalSpread = maxPos - minPos;
     
-    const minPos = Math.min(...currentLevelNodes.map(n => n.x));
-    
-    currentLevelNodes.forEach((node, index) => {
-      node.x = minPos + (index * spacing);
-    });
+    // Use original spacing if it's reasonable, otherwise create even spacing
+    if (totalSpread > 0 && currentLevelNodes.length > 1) {
+      const spacing = totalSpread / (currentLevelNodes.length - 1);
+      currentLevelNodes.forEach((node, index) => {
+        node.x = minPos + (index * spacing);
+      });
+    }
   }
 }
 

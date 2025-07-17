@@ -6,8 +6,9 @@
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats } from "./types";
-  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, processTree, processTreeSimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
   import { createLucideIconComponent, createLucideIconFromComponent, createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
+  import { generateSmartCurve } from "./link-utils.svelte";
   import RelationshipFilterControls from "./relationship-filter-controls.svelte";
   import Filter from '@lucide/svelte/icons/filter';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
@@ -355,8 +356,6 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     const height = containerHeight - margin.top - margin.bottom;
 
     // Create separate trees for left and right directions
-    // const rightRoot = processTreeSimple(relationShipTree, "right", expandedNodes);
-    // const leftRoot = processTreeSimple(relationShipTree, "left", expandedNodes);
     const rightRoot = processTreeWithImportanceFiltering(
       relationShipTree, 
       "right", 
@@ -365,13 +364,13 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       relationshipFilters
     );
   
-  const leftRoot = processTreeWithImportanceFiltering(
-    relationShipTree, 
-    "left", 
-    expandedNodes,
-    linkStats,
-    relationshipFilters
-  );
+    const leftRoot = processTreeWithImportanceFiltering(
+      relationShipTree, 
+      "left", 
+      expandedNodes,
+      linkStats,
+      relationshipFilters
+    );
     
 
     const constrainedHeight = Math.min(height, containerHeight - margin.top - margin.bottom);
@@ -564,10 +563,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         const targetX = d.target.x;
         const targetY = d.target.y;
 
-        return `M${sourceX},${sourceY}
-                C${(sourceX + targetX) / 2},${sourceY}
-                 ${(sourceX + targetX) / 2},${targetY}
-                 ${targetX},${targetY}`;
+        return generateSmartCurve(sourceX, sourceY, targetX, targetY, nodeWidth!);
       });
 
    
@@ -1210,10 +1206,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         const targetX = d.target.x;
         const targetY = d.target.y;
 
-        return `M${sourceX},${sourceY}
-                C${(sourceX + targetX) / 2},${sourceY}
-                 ${(sourceX + targetX) / 2},${targetY}
-                 ${targetX},${targetY}`;
+        return generateSmartCurve(sourceX, sourceY, targetX, targetY, nodeWidth!);
       });
 
     // Fade in new and updated links
