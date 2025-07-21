@@ -256,6 +256,96 @@ export type MergedStatsRecord = Stats & {
   id: string,
 }
 
+export interface DashboardStatsRequest {
+  id: string,
+  range: StatsRange,
+  numberOfBuckets?: number,
+  timestamp: number,
+}
+
+export interface DashboardStatsValue {
+  value: number,
+  time: number,
+}
+
+export type DashboardStatsDurationValue = DashboardStatsValue & {
+  total: number,
+  min: number,
+  max: number,
+}
+
+export type DashboardStatsQueue =  {
+  [key in CheckpointType]?: Record<string, DashboardStatsQueueReadWrite>;
+  // read: Record<string, DashboardStatsQueueReadWrite>,
+  // write: Record<string, DashboardStatsQueueReadWrite>,
+}
+
+export interface DashboardStatsCompareValue {
+  prev: number,
+  current: number,
+  change: string, // percentage
+}
+
+export interface DashboardStatsQueueLagCompare {
+  prev: number,
+  current: number,
+  prevCount: number,
+  currentCount: number,
+  change: string, // percentage
+}
+
+export interface DashboardStatsQueueCompare {
+  reads?: DashboardStatsCompareValue,
+  writes?: DashboardStatsCompareValue,
+  read_lag?: DashboardStatsQueueLagCompare,
+  write_lag?: DashboardStatsQueueLagCompare,
+}
+
+export type DashboardStatsQueueReadWrite = {
+  type: 'read' | 'write',
+  id: string,
+  event: string,
+  label: string,
+  last_read?: number,
+  last_write?: number,
+  last_read_event_timestamp?: number,
+  last_write_event_timestamp?: number,
+  last_event_source_timestamp?: number,
+  last_event_source_timestamp_lag?: number,
+  last_read_lag?: number,
+  last_write_lag?: number,
+  values: DashboardStatsValue[],
+  lags: DashboardStatsValue[],
+  reads?: DashboardStatsValue[],
+  writes?: DashboardStatsValue[],
+  compare: DashboardStatsQueueCompare,
+  lagEvents: number,
+  checkpoint: string,
+  timestamp: number,
+}
+
+export interface DashboardStatsCompare {
+  executions: DashboardStatsCompareValue,
+  errors: DashboardStatsCompareValue,
+  duration: DashboardStatsCompareValue,
+}
+
+export interface DashboardStats {
+  executions: DashboardStatsValue[],
+  errors: DashboardStatsValue[],
+  duration: DashboardStatsDurationValue[],
+  queues: DashboardStatsQueue,
+  compare: DashboardStatsCompare,
+  kinesis_number: string,
+  start: number,
+  end: number,
+  buckets: number[]
+}
+
+export interface DashboardStatsApiResponse {
+  dashStats: DashboardStats
+}
+
 
 export interface StatsDynamoRecord {
   id: string,
@@ -266,12 +356,6 @@ export interface StatsDynamoRecord {
   start_eid?: string,
   time?: number
 }
-
-// export interface Stats {
-//   execution?: ExecutionStats,
-//   read?: Record<string, ReadWriteStats>,
-//   write?: Record<string, ReadWriteStats>,
-// }
 
 export type StatsRecord = Record<string, ReadWriteStats>;
 
