@@ -2,6 +2,41 @@ import type { MergedStatsRecord, RelationshipTree, TreeNode } from "$lib/types";
 import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats, type RelationshipScore } from "./types";
 import * as d3 from 'd3';
 
+// Add virtual separator nodes to prevent visual overlap when multiple nodes share the same parent
+function addVirtualSeparators(children: TreeNode[], parent: TreeNode, depth: number): TreeNode[] {
+  if (children.length <= 1) {
+    return children;
+  }
+
+  // Create virtual intermediate nodes for each child to separate their connections
+  return children.map((child, index) => {
+    const virtualNode: TreeNode = {
+      id: `${parent.id}-virtual-${index}`,
+      name: `virtual-${index}`,
+      type: "virtual",
+      paused: false,
+      alarmed: false,
+      rogue: false,
+      archived: false,
+      status: undefined,
+      isAlarmed: false,
+      alarms: undefined,
+      parent: parent,
+      depth: depth,
+      direction: parent.direction,
+      children: [child],
+      _children: [],
+      isVirtual: true
+    };
+
+    // Update the child's parent reference
+    child.parent = virtualNode;
+    child.depth = depth + 1;
+
+    return virtualNode;
+  });
+}
+
 export function processTree(
   data: RelationshipTree,
   direction: "left" | "right",
@@ -63,7 +98,7 @@ export function processTree(
     );
 
     if (shouldShowChildren) {
-      node.children = processedChildren;
+      node.children = addVirtualSeparators(processedChildren, node, depth + 1);
       node._children = [];
     } else {
       node.children = [];
@@ -78,7 +113,7 @@ export function processTree(
     );
 
     if (shouldShowChildren) {
-      node.children = processedParents;
+      node.children = addVirtualSeparators(processedParents, node, depth + 1);
       node._children = [];
     } else {
       node.children = [];
@@ -508,7 +543,7 @@ export function calculateRelationshipImportance(
   return {
     id: relationship.id,
     score: totalScore,
-    lastActivity: stats.lastWrite || stats.lastRead,
+    lastActivity: stats.lastWrite || stats.lastRead || 0,
     eventCount: stats.eventCount,
     isRecent,
     isPriority
@@ -680,8 +715,8 @@ export function processTreeWithImportanceFiltering(
     
     // Apply importance filtering if there are many parents
     if (data.parents.length > 10) {
-      const filteredDirection = nodeFilterOptions.relationshipType === 'all' || 
-                               nodeFilterOptions.relationshipType === 'parents' ? 'parents' : 'parents';
+      // const filteredDirection = nodeFilterOptions.relationshipType === 'all' || 
+                              //  nodeFilterOptions.relationshipType === 'parents' ? 'parents' : 'parents';
       parentsToShow = filterRelationshipsByImportance(
         data.parents,
         linkStats,

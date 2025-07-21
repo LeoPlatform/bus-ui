@@ -84,7 +84,7 @@ export interface TreeNode {
   id: string;
   originalId?: string;
   name?: string;
-  type: "bot" | "queue" | "system";
+  type: "bot" | "queue" | "system" | "virtual";
   paused?: boolean;
   alarmed?: boolean;
   rogue?: boolean;
@@ -98,6 +98,7 @@ export interface TreeNode {
   direction: "left" | "right";
   children: TreeNode[];
   _children: TreeNode[];
+  isVirtual?: boolean;
 }
 
 export interface StatsQueryParams {

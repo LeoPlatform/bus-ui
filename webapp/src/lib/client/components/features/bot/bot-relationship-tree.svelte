@@ -401,6 +401,43 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     const allNodes: d3.HierarchyPointNode<TreeNode>[] = [...rightTree.descendants(), ...leftTree.descendants()];
     // Combine links from both trees
     const allLinks = [...rightTree.links(), ...leftTree.links()];
+    
+    // Convert virtual links to direct links between actual nodes
+    const actualLinks = convertVirtualLinksToActual(allLinks);
+    // Filter out virtual nodes from rendering
+    const actualNodes = allNodes.filter(node => !node.data.isVirtual);
+    
+    // Helper function to convert virtual links to direct links between actual nodes
+    function convertVirtualLinksToActual(links: d3.HierarchyPointLink<TreeNode>[]): d3.HierarchyPointLink<TreeNode>[] {
+      const result: d3.HierarchyPointLink<TreeNode>[] = [];
+      
+      for (const link of links) {
+        const source = link.source;
+        const target = link.target;
+        
+        // If source is virtual, find its actual parent
+        let actualSource = source;
+        while (actualSource.data.isVirtual && actualSource.parent) {
+          actualSource = actualSource.parent;
+        }
+        
+        // If target is virtual, find its actual child
+        let actualTarget = target;
+        if (actualTarget.data.isVirtual && actualTarget.children && actualTarget.children.length > 0) {
+          actualTarget = actualTarget.children[0];
+        }
+        
+        // Only add link if both nodes are actual (not virtual)
+        if (!actualSource.data.isVirtual && !actualTarget.data.isVirtual) {
+          result.push({
+            source: actualSource,
+            target: actualTarget
+          });
+        }
+      }
+      
+      return result;
+    }
 
     // Helper function to create unique position key including direction
     function getPositionKey(
@@ -442,7 +479,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     }
 
     // Store positions for smooth transitions - only update positions for affected nodes
-    allNodes.forEach((d) => {
+    actualNodes.forEach((d) => {
       const nodeId = d.data.id;
       const direction = d.data.direction;
       const positionKey = getPositionKey(nodeId, direction, d.data.depth);
@@ -483,7 +520,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     const linkSelection = linkGroup
       .selectAll(".link-group")
       .data(
-        allLinks,
+        actualLinks,
         (d: any) =>
           `${d.source.data.id}-${d.source.data.direction}-${d.target.data.id}-${d.target.data.direction}`
       );
@@ -575,7 +612,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .duration(500)
       .attr("x", (d) => (d.source.x + d.target.x) / 2)
       .attr("y", (d) => (d.source.y + d.target.y) / 2 - 8)
-      .text((d) => {
+      .text((d: any) => {
          let linkSourceId;
           let linkTargetId;
 
@@ -592,7 +629,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           }
         const stats = getLinkStats(linkSourceId, linkTargetId);
         return stats.eventCount.toLocaleString();
-      }).each(function(d) {
+      }).each(function(d: any) {
     // After text is set, get its dimensions and update background
         try {
           const bbox = this.getBBox();
@@ -623,7 +660,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .duration(500)
       .attr("x", (d) => (d.source.x + d.target.x) / 2)
       .attr("y", (d) => (d.source.y + d.target.y) / 2 + 15)
-      .text((d) => {
+      .text((d: any) => {
          let linkSourceId;
           let linkTargetId;
           let sourceType = d.source.data.type;
@@ -643,7 +680,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           // console.log(linkSourceId);
         const stats = getLinkStats(linkSourceId, linkTargetId);
         return getLowerText(stats);
-      }).each(function(d) {
+      }).each(function(d: any) {
         // After text is set, get its dimensions and update background
         try {
           const bbox = this.getBBox();
@@ -673,7 +710,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     // UPDATE PATTERN FOR NODES - No more clearing!
     const nodeSelection = nodeGroup
       .selectAll(".node")
-      .data(allNodes, (d: any) => `${d.data.id}-${d.data.direction}-${d.data.depth}`); // Include direction in key
+      .data(actualNodes, (d: any) => `${d.data.id}-${d.data.direction}-${d.data.depth}`); // Include direction in key
 
     // Remove old nodes with transition
     nodeSelection
@@ -731,6 +768,11 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     // Add node shapes to new nodes
     nodeEnter.each(function (d) {
       const element = d3.select(this);
+
+      // Skip rendering for virtual nodes - they're invisible spacers
+      if (d.data.isVirtual) {
+        return;
+      }
 
       // Base circle for all nodes
       element

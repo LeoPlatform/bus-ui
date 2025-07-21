@@ -176,10 +176,13 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
   const verticalSpacing = baseVerticalSpacing + (30 * densityFactor); // 20-50px additional
   const horizontalSpacing = baseHorizontalSpacing + (70 * densityFactor); // 80-150px additional
 
-  const treeLayout = d3.tree().nodeSize([verticalSpacing, horizontalSpacing]);
+  const treeLayout = d3.tree<TreeNode>().nodeSize([verticalSpacing, horizontalSpacing]);
   const rootNode = d3.hierarchy(root);
   const treeData = treeLayout(rootNode);
   minimizeCrossings(treeData);
+  
+  // Align single children with their parents
+  alignSingleChildren(treeData);
 
   // Calculate dynamic height based on actual node spread
   const allNodes = treeData.descendants();
@@ -216,6 +219,17 @@ export function createTreeLayout(root: TreeNode, direction: "left" | "right", he
   return { treeData, dynamicHeight };
 }
 
+
+function alignSingleChildren(treeData: d3.HierarchyPointNode<TreeNode>) {
+  // Align single children with their parents to avoid visual misalignment
+  treeData.descendants().forEach(node => {
+    if (node.children && node.children.length === 1) {
+      const child = node.children[0];
+      // Align the single child's vertical position with its parent
+      child.x = node.x;
+    }
+  });
+}
 
 function minimizeCrossings(treeData: d3.HierarchyPointNode<TreeNode>) {
   // Group nodes by depth level
