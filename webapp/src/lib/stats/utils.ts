@@ -98,63 +98,6 @@ function mergeReadWriteStats(
 }
 
 
-export function generateQueueData(queueId: string, type: CheckpointType, link: ReadWriteStats, request_timestamp: number, buckets: number[]): DashboardStatsQueueReadWrite {
-  const checkpoint = link.checkpoint && link.checkpoint.split(/\//).pop()?.split(/\-/)[0];
-  
-  return {
-    type: type,
-    id: queueId,
-    event: queueId,
-    label: queueId,
-    [`last_${type}`]: link.timestamp,
-    [`last_${type}_event_timestamp`]: checkpoint ? parseInt(checkpoint) : 0,
-    last_event_source_timestamp: link.source_timestamp,
-    [`last_${type}_lag`]: request_timestamp - link.timestamp,
-    last_event_source_timestamp_lag: request_timestamp - link.source_timestamp,
-    values: buckets.map((time) => ({
-      value: 0,
-      time: time,
-    })),
-    lags: buckets.map((time) => ({
-      value: 0,
-      time: time,
-    })),
-    [`${type}s`]: type === 'read' && buckets.map((time) => ({
-      value: 0,
-      time: time,
-    })) || undefined,
-    compare: {
-      [`${type}s`]: {
-        prev: 0,
-        current: 0,
-        change: 0,
-      },
-      [`${type}_lag`]: {
-        prev: 0,
-        current: 0,
-        prevCount: 0,
-        currentCount: 0,
-      },
-    },
-    lagEvents: 0,
-    checkpoint: link.checkpoint,
-    timestamp: checkpoint ? parseInt(checkpoint) : 0,
-  }
-}
-
-export function calcChange(current: number, prev: number) {
-	if (current) {
-		if (prev) {
-			return Math.round(((current - prev) / prev) * 100) + '%';
-		} else {
-			return "100%";
-		}
-	} else if (prev) {
-		return "-100%";
-	} else {
-		return "0%";
-	}
-}
 // function max(a, b) {
 //   if (typeof a === "number") {
 //     return Math.max(a, b);

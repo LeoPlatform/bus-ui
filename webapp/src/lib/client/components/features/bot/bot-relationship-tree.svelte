@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { AppState } from "$lib/client/appstate.svelte";
-  import type { RelationshipTree, TreeNode } from "$lib/types";
+  import type { DashboardStats, RelationshipTree, TreeNode } from "$lib/types";
   import { humanize } from "$lib/utils";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
@@ -13,6 +13,7 @@
   import Filter from '@lucide/svelte/icons/filter';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import ChartDetailsPane from "../chart-details-pane/chart-details-pane.svelte";
 
   let appState = getContext<AppState>('appState');
     appState.botState.buildRelationShipTree();
@@ -55,6 +56,12 @@
   let activeFilterControls = $state(new Set<string>());
   let filterDrawerOpen = $state(false);
   let currentFilterKey = $state<string | null>(null);
+  
+  // Link selection and charts state
+  let selectedLink = $state<{ sourceId: string; targetId: string; direction: 'read' | 'write' } | null>(null);
+  let dashboardStats = $state<DashboardStats | null>(null);
+  let chartsVisible = $derived(dashboardStats !== null);
+  let chartsLoading = $state(false);
 
   let nodesNeedingFilters = $derived.by(() => {
     if (!relationShipTree) return new Set<string>();
@@ -180,6 +187,13 @@ function updateContainerDimensions() {
       untrack(async () => {
         try {
           // console.log(`${staleTime / 1000} seconds elapsed - refreshing stats data`);
+          if(selectedLink && chartsVisible) {
+            if(selectedLink.sourceId.startsWith('queue:') || selectedLink.sourceId.startsWith('system:')) {
+              dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.targetId);
+            } else {
+              dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.sourceId);
+            }
+          }
           await appState.botState.fetchBotStats();
 
           if(isActive) {
@@ -538,7 +552,19 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .enter()
       .append("g")
       .attr("class", "link-group")
-      .style("opacity", 0);
+      .style("opacity", 0)
+      .on("click", function(event, d: any) {
+        event.stopPropagation();
+        console.log(d);
+        const sourceId = d.source.data.originalId || d.source.data.id;
+        const targetId = d.target.data.originalId || d.target.data.id;
+        let direction: 'read' | 'write' = 'read'
+        if(sourceId.includes('bot:')){
+          direction = 'write';
+        }
+
+        handleLinkClick(sourceId, targetId, direction);
+      });
 
     // Add the actual link paths
     linkEnter
@@ -706,6 +732,15 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
 
     // Fade in new and updated links
     linkUpdate.transition().duration(300).style("opacity", 1);
+
+    // Update selected link styling
+    linkGroup.selectAll(".link-group").classed("selected", function(d: any) {
+      if (!selectedLink) return false;
+      const sourceId = d.source.data.originalId || d.source.data.id;
+      const targetId = d.target.data.originalId || d.target.data.id;
+      return (sourceId === selectedLink.sourceId && targetId === selectedLink.targetId) ||
+             (sourceId === selectedLink.targetId && targetId === selectedLink.sourceId);
+    });
 
     // UPDATE PATTERN FOR NODES - No more clearing!
     const nodeSelection = nodeGroup
@@ -1307,6 +1342,45 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
   function getVisibleNodeCount(): number {
     return appState.botState.visibleIds.length;
   }
+
+  // Handle link click to select a relationship
+  function handleLinkClick(sourceId: string, targetId: string, direction: 'read' | 'write') {
+    selectedLink = { sourceId, targetId, direction };
+    chartsVisible = false; // Reset charts visibility when new link is selected
+    dashboardStats = null; // Clear previous stats
+    
+    // Update link styling to show selection
+    renderVisualization();
+  }
+
+  // Handle "Show Charts" button click
+  async function handleShowCharts() {
+    if (!selectedLink) return;
+    
+    chartsLoading = true;
+    try {
+
+      if(selectedLink.sourceId.startsWith('queue:') || selectedLink.sourceId.startsWith('system:')) {
+        dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.targetId);
+      } else {
+        dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.sourceId);
+      }
+
+      // we always need to fetch the dashboard stats from the perspective of the bot
+      // dashboardStats = await appState.botState.fetchDashboardStats(selectedLink.sourceId.includes('bot:') ? selectedLink.sourceId : selectedLink.targetId);
+      chartsVisible = true;
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      chartsLoading = false;
+    }
+  }
+
+  // Close charts
+  function closeCharts() {
+    chartsVisible = false;
+    dashboardStats = null;
+  }
 </script>
 
 <div class="workflow-container">
@@ -1330,6 +1404,30 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         />
     </div>
     {/if}
+  </div>
+  <div class="charts-container">
+    <!-- Show Charts Button -->
+    {#if selectedLink}
+      <button 
+        class="show-charts-button"
+        onclick={handleShowCharts}
+        disabled={chartsLoading}
+      >
+        {#if chartsLoading}
+          Loading...
+        {:else}
+          Show Charts
+        {/if}
+      </button>
+    {/if}
+
+    <!-- Charts Details Pane Component -->
+    <ChartDetailsPane 
+      {dashboardStats}
+      {selectedLink}
+      visible={chartsVisible}
+      onClose={closeCharts}
+    />
   </div>
 </div>
 
@@ -1392,5 +1490,51 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     display: block;
     max-width: 100%;
     max-height: 100%;
+  }
+
+  /* Charts Container Styles */
+  .charts-container {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    z-index: 1000;
+  }
+
+  .show-charts-button {
+    background: #374151;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .show-charts-button:hover {
+    background: #4b5563;
+  }
+
+  .show-charts-button:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+  }
+
+
+
+  /* Link selection styles */
+  :global(.link-group.selected .link) {
+    stroke: #505ce5 !important;
+    stroke-width: 4px !important;
+  }
+
+  :global(.link-group:hover .link) {
+    stroke: #f59e0b !important;
+    stroke-width: 3px !important;
+    cursor: pointer;
   }
 </style>

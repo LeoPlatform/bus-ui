@@ -25,11 +25,12 @@ export interface BotSettings {
   description?: string;
   errorCount?: number;
   name?: string;
+  lambda?: BotLambda;
   lambdaName?: string;
   paused?: boolean;
   tags?: string;
   trigger?: number;
-  triggers?: string[];
+  triggers?: string[] | null;
   type?: string;
   health?: BotHealth;
   // New status fields
@@ -38,6 +39,29 @@ export interface BotSettings {
   alarms?: BotAlarms;
   rogue?: boolean;
   alarmed?: boolean; // Keep for compatibility
+  // Additional fields from DynamoDB
+  scheduledTrigger?: number;
+  instances?: Record<string, any>;
+  invocationType?: string;
+  invokeTime?: number;
+  message?: string | null;
+  progress?: Record<string, any>;
+  requested_kinesis?: Record<string, any>;
+  time?: string;
+  token?: number;
+  executionType?: string;
+  templateId?: string;
+}
+
+export interface BotLambda { 
+  settings: LambdaSettings[];
+}
+
+export interface LambdaSettings {
+  source?: string;
+  botNumber: number;
+  queue?: string;
+  prefix?: string;
 }
 
 export interface BotSettingsApiResponse {
@@ -59,7 +83,7 @@ export type Checkpoints = {
 }
 
 export interface CheckpointDetail {
-  checkpoint?: string | number;
+  checkpoint?: string;
   records?: number;
   ended_timestamp?: number;
   source_timestamp?: number;
@@ -266,6 +290,7 @@ export interface DashboardStatsRequest {
 export interface DashboardStatsValue {
   value: number,
   time: number,
+  marked?: boolean,
 }
 
 export type DashboardStatsDurationValue = DashboardStatsValue & {
@@ -308,6 +333,7 @@ export type DashboardStatsQueueReadWrite = {
   label: string,
   last_read?: number,
   last_write?: number,
+  latestWriteCheckpoint?: string,
   last_read_event_timestamp?: number,
   last_write_event_timestamp?: number,
   last_event_source_timestamp?: number,
@@ -315,13 +341,15 @@ export type DashboardStatsQueueReadWrite = {
   last_read_lag?: number,
   last_write_lag?: number,
   values: DashboardStatsValue[],
-  lags: DashboardStatsValue[],
+  source_lags: DashboardStatsValue[],
+  queue_lags: DashboardStatsValue[],
   reads?: DashboardStatsValue[],
   writes?: DashboardStatsValue[],
   compare: DashboardStatsQueueCompare,
   lagEvents: number,
   checkpoint: string,
   timestamp: number,
+  current_position?: number,
 }
 
 export interface DashboardStatsCompare {
@@ -336,7 +364,7 @@ export interface DashboardStats {
   duration: DashboardStatsDurationValue[],
   queues: DashboardStatsQueue,
   compare: DashboardStatsCompare,
-  kinesis_number: string,
+  kinesis_number?: string,
   start: number,
   end: number,
   buckets: number[]
@@ -374,8 +402,8 @@ export interface ExecutionStats {
 
 export interface ReadWriteStats {
   checkpoint: string,
-  source_timestamp: number,
-  timestamp: number,
+  source_timestamp: number, // source from where and when it hit the queue
+  timestamp: number, // when it happened
   units: number,
   errors?: number,
 }

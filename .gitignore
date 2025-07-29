@@ -28,3 +28,4 @@ node_modules
 *.config.json
 NOTES.md
 CLAUDE.md
+.cursor/

@@ -5,8 +5,12 @@ import {
   type BotSettingsApiResponse,
   type MergedStatsRecord,
   type StatsApiResponse,
+  type DashboardStats,
+  type DashboardStatsApiResponse,
+  type CheckpointType,
 } from "$lib/types";
 import type { TimePickerState } from "../time-picker/time-picker.state.svelte";
+import type { BotStatus } from "./bot-status.constants";
 import { evaluateBotStatus } from "./bot-status.utils";
 
 type GlobalFetch = typeof globalThis.fetch;
@@ -119,13 +123,57 @@ export class BotState {
     }
   }
 
+  async fetchDashboardStats(id: string): Promise<DashboardStats> {
+    const res = await this.#fetch("/api/dashboard/details", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id,
+        range: this.#timePickerState?.range || StatsRange.Minute15,
+        timestamp: Date.now(),
+        // sourceId: sourceId
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to fetch dashboard stats');
+    }
+
+    const data = (await res.json()) as DashboardStatsApiResponse;
+    return data.dashStats;
+  }
+
   async fetchBotSettings() {
-    const res = await this.#fetch("/api/workflow/relationships");
-    const data = (await res.json()) as BotSettingsApiResponse;
-    this.mergeBotSettingsIntoState(data.botData);
+    try {
+      const res = await this.#fetch("/api/workflow/relationships");
+      if (!res.ok) {
+        console.error('Failed to fetch bot settings:', res.status, res.statusText);
+        return;
+      }
+      
+      const data = (await res.json()) as BotSettingsApiResponse;
+      
+      // Safety check: ensure botData exists and is an array
+      if (!data || !data.botData || !Array.isArray(data.botData)) {
+        console.warn('Invalid bot settings response:', data);
+        return;
+      }
+      
+      this.mergeBotSettingsIntoState(data.botData);
+    } catch (error) {
+      console.error('Error fetching bot settings:', error);
+    }
   }
 
   mergeBotSettingsIntoState(botSettings: BotSettings[]) {
+    // Safety check: ensure botSettings is an array
+    if (!Array.isArray(botSettings)) {
+      console.warn('botSettings is not an array:', botSettings);
+      return;
+    }
+    
     for (const bot of botSettings) {
       const existingIdx = this.#botSettings.findIndex((b) => b.id === bot.id);
       if (existingIdx !== -1) {
@@ -189,10 +237,11 @@ export class BotState {
   
           if (bot.checkpoints) {
               ["read", "write"].forEach( type => {
-                  if (!bot.checkpoints[type as CheckpointType]) {
+                  const checkpointType = type as CheckpointType;
+                  if (!bot.checkpoints![checkpointType]) {
                       return
                   };
-                  Object.keys(bot.checkpoints[type as CheckpointType]).forEach((queueId) => {
+                  Object.keys(bot.checkpoints![checkpointType]).forEach((queueId) => {
                       if (!flatTree[queueId] && !(queueId.match(/\/_archive$/g) || queueId.match(/\/_snapshot$/g))) {
                       flatTree[queueId] = {
                               id: queueId,
@@ -269,7 +318,7 @@ export class BotState {
               alarmed: node.alarmed,
               rogue: node.rogue,
               archived: node.archived,
-              status: node.status,
+              status: node.status as BotStatus,
               isAlarmed: node.isAlarmed,
               alarms: node.alarms,
               children: [],

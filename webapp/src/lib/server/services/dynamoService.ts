@@ -1,15 +1,15 @@
-import { LEO_STATS_TABLE } from "$env/static/private";
+import { LEO_CRON_TABLE, LEO_STATS_TABLE } from "$env/static/private";
 import { createDynamoClient } from "$lib/server/aws_utils";
 import { getLeoCronTable } from "$lib/server/utils";
 import { botDetailLoading, botDetailError, botDetailStore } from "$lib/stores/botDetailStore";
 import { statsDetailLoading } from "$lib/stores/statsDetailStore";
 import type { AwsCreds, BotSettings, CheckpointType, DashboardStats, DashboardStatsRequest, MergedStatsRecord, StatsDynamoRecord, StatsQueryRequest, StatsRecord } from "$lib/types";
 import { DynamoDBClient, QueryCommand, ReturnConsumedCapacity, type QueryOutput } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, ScanCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { bucketsData, ranges } from "$lib/bucketUtils";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { calcChange, generateQueueData, mergeStatsResults } from "$lib/stats/utils";
-import { error } from "@sveltejs/kit";
+import {  mergeStatsResults } from "$lib/stats/utils";
+import { calculateReadQueueStats, generateQueueData, mergeDynamoRecordToDashboardStats } from "../dashboard/api-utils";
 
 
 
@@ -115,16 +115,17 @@ export async function getDashboardStats(creds: AwsCreds, params: DashboardStatsR
     const client = createDynamoClient(creds);
     //TODO: think through how we want to do this
     // const numberOfBuckets = params.numberOfBuckets ?? 1;
-    const bucketUtils = bucketsData[params.range];
     const range = ranges[params.range];
+    const bucketUtils = bucketsData[range.period];
 
     // current bucket of time inclusive (eg. 15minutes before ->  now)
     const currentBucketTimestamp = bucketUtils.prev(new Date(params.timestamp), 1 * range.count).valueOf();
     // previous bucket of time (eg. 30minutes before -> 15minutes before)
     const prevBucketTimestamp = bucketUtils.prev(new Date(params.timestamp), 2 * range.count).valueOf();
+    const startTimeStamp = bucketUtils.prev(new Date(params.timestamp), 3 * range.count);
 
 
-    const startTime = bucketUtils.prev(new Date(params.timestamp), range.count * 3);
+    const startTime = bucketUtils.value(startTimeStamp);
     const endTime = bucketUtils.value(new Date(params.timestamp));
 
     const formattedStartTime = bucketUtils.transform(startTime);
@@ -155,154 +156,79 @@ export async function getDashboardStats(creds: AwsCreds, params: DashboardStatsR
         ExpressionAttributeValues: marshall({ ":id": params.id, ":start": formattedStartTime, ":end": formattedEndTime })
     });
 
-    const response = await client.send(comand);
-    const items = response.Items?.map(item => unmarshall(item) as StatsDynamoRecord);
+    // const response = await client.send(comand);
+    // const items = response.Items?.map(item => unmarshall(item) as StatsDynamoRecord);
+
+    const [botState, stats] = await Promise.all([getBotState(creds, params.id), client.send(comand)]);
+
+    const items = stats.Items?.map(item => unmarshall(item) as StatsDynamoRecord);
 
     if (!items) {
-        throw error(400, "No stats found for the given id");
-    } else {
-        const botDashboardStats: DashboardStats = {
-            executions: buckets.map((time) => ({ value: 0, time })),
-            errors: buckets.map((time) => ({ value: 0, time })),
-            duration: buckets.map((time) => ({ value: 0, time, total: 0, min: 0, max: 0 })),
-            queues: { read: {}, write: {} },
-            compare: {
-                executions: { prev: 0, current: 0, change: "0%" },
-                errors: { prev: 0, current: 0, change: "0%" },
-                duration: { prev: 0, current: 0, change: "0%" },
-            },
-            kinesis_number: "",
-            start: startTime.valueOf(),
-            end: endTime.valueOf(),
-            buckets: buckets,
-        }
-        items.map(stat => {
-            let index = bucketArrayIndex[stat.time!];
-
-            if (stat.current?.execution) {
-                let exec = stat.current.execution;
-                botDashboardStats.executions[index].value = exec.units;
-                botDashboardStats.errors[index].value = exec.errors;
-                botDashboardStats.duration[index] = {
-                    value: exec.duration / exec.units,
-                    total: exec.duration,
-                    min: exec.min_duration,
-                    max: exec.max_duration,
-                    time: stat.time!,
-                };
-
-                //TODO: check on this logic. Old ui uses a range of different timestamps rather than just using the start and end time.
-                if (stat.time! >= prevBucketTimestamp && stat.time! < currentBucketTimestamp){
-                    botDashboardStats.compare.executions.prev += botDashboardStats.executions[index].value;
-                    botDashboardStats.compare.errors.prev += botDashboardStats.errors[index].value;
-                    botDashboardStats.compare.duration.prev += botDashboardStats.duration[index].total;
-                } else if (stat.time! >= currentBucketTimestamp){
-                    botDashboardStats.compare.executions.current += botDashboardStats.executions[index].value;
-                    botDashboardStats.compare.errors.current += botDashboardStats.errors[index].value;
-                    botDashboardStats.compare.duration.current += botDashboardStats.duration[index].total;
-                }
-            }
-
-            ["read", "write"].map(type => {
-                if (stat.current?.[type as CheckpointType]) {
-                    let statCurrent: StatsRecord = stat.current?.[type as CheckpointType]!;
-
-                    Object.keys(statCurrent).forEach((queueId) => {
-                        let link = statCurrent[queueId];
-                        const checkpoint = link.checkpoint && link.checkpoint.split(/\//).pop()?.split(/\-/)[0]!;
-
-                        if (!(queueId in botDashboardStats.queues[type as CheckpointType]!)) {
-                            botDashboardStats.queues[type as CheckpointType]![queueId] = generateQueueData(queueId, type as CheckpointType, link, params.timestamp, buckets);
-                        }
-
-                        const queue = botDashboardStats.queues[type as CheckpointType]![queueId];
-
-                        queue.lags[index].value += (link.timestamp - link.source_timestamp) || 0;
-                        if (type === "write") {
-                            queue.values[index].value += link.units;
-                        } else {
-                            queue.reads![index].value += link.units;
-                        }
-
-                        if(stat.time! >= prevBucketTimestamp && stat.time! < currentBucketTimestamp){
-                            if(type === "write"){
-                                queue.compare.writes!.prev += link.units
-                                queue.compare.write_lag!.prev += (link.timestamp - link.source_timestamp) || 0;
-                                queue.compare.write_lag!.prevCount++;
-                            } else {
-                                queue.compare.reads!.prev += link.units;
-                                queue.compare.read_lag!.prev += (link.timestamp - link.source_timestamp) || 0;
-                                queue.compare.read_lag!.prevCount++;
-                            }
-
-                        } else if(stat.time! >= currentBucketTimestamp){
-                            if(type === "write"){
-                                queue.compare.writes!.current += link.units;
-                                queue.compare.write_lag!.current += (link.timestamp - link.source_timestamp) || 0;
-                                queue.compare.write_lag!.currentCount++;
-                            } else {
-                                queue.compare.reads!.current += link.units;
-                                queue.compare.read_lag!.current += (link.timestamp - link.source_timestamp) || 0;
-                                queue.compare.read_lag!.currentCount++;
-                            }
-                        }
-
-                        if(type === "write"){
-                            queue.last_write = link.timestamp;
-                            queue.last_write_event_timestamp = parseInt(checkpoint);
-                            queue.last_write_lag = params.timestamp - link.timestamp;
-                        } else {
-                            queue.last_read = link.timestamp;
-                            queue.last_read_event_timestamp = parseInt(checkpoint);
-                            queue.last_read_lag = params.timestamp - link.timestamp;
-                        }
-
-                    })
-                }
-            });
-
-            if(botDashboardStats.compare.executions.current) {
-                botDashboardStats.compare.duration.current /= botDashboardStats.compare.executions.current;
-            }
-            if(botDashboardStats.compare.executions.prev) {
-                botDashboardStats.compare.duration.prev /= botDashboardStats.compare.executions.prev;
-            }
-            botDashboardStats.compare.executions.change = calcChange(botDashboardStats.compare.executions.current, botDashboardStats.compare.executions.prev);
-            botDashboardStats.compare.errors.change = calcChange(botDashboardStats.compare.errors.current, botDashboardStats.compare.errors.prev);
-            botDashboardStats.compare.duration.change = calcChange(botDashboardStats.compare.duration.current, botDashboardStats.compare.duration.prev);
-
-            ["read", "write"].map(type => {
-                Object.keys(botDashboardStats.queues[type as CheckpointType]!).map(key => {
-                    let link = botDashboardStats.queues[type as CheckpointType]![key];
-
-                    if (type === "write"){
-                        if(link.compare.write_lag!.currentCount) {
-                            link.compare.write_lag!.current /= link.compare.write_lag!.currentCount;
-                        }
-                        if(link.compare.write_lag!.prevCount) {
-                            link.compare.write_lag!.prev /= link.compare.write_lag!.prevCount;
-                        }
-                        link.compare.write_lag!.change = calcChange(link.compare.write_lag!.current, link.compare.write_lag!.prev);
-                        link.compare.writes!.change = calcChange(link.compare.writes!.current, link.compare.writes!.prev);
-                    } else {
-                        if(link.compare.read_lag!.currentCount) {
-                            link.compare.read_lag!.current /= link.compare.read_lag!.currentCount;
-                        }
-                        if(link.compare.read_lag!.prevCount) {
-                            link.compare.read_lag!.prev /= link.compare.read_lag!.prevCount;
-                        }
-                        link.compare.read_lag!.change = calcChange(link.compare.read_lag!.current, link.compare.read_lag!.prev);
-                        link.compare.reads!.change = calcChange(link.compare.reads!.current, link.compare.reads!.prev);
-                    }
-                })
-            })
-
-        });
-        
-        
-        return botDashboardStats;
+        throw new Error(`No stats found for bot ${params.id} in the time range ${formattedStartTime} to ${formattedEndTime}`);
     }
-    
+
+    const botDashboardStats = mergeDynamoRecordToDashboardStats(items, {
+        buckets,
+        startTime,
+        endTime,
+        currentBucketTimestamp,
+        prevBucketTimestamp,
+        bucketArrayIndex,
+        timestamp: params.timestamp,
+        botState,
+    });
+
+    const readQueueQueries = Object.keys(botDashboardStats.queues.read || {}).map(key => {
+        return new QueryCommand({
+            TableName: LEO_STATS_TABLE,
+            KeyConditionExpression: "#id = :id AND #bucket BETWEEN :start AND :end",
+            ExpressionAttributeNames: {
+                "#id": "id",
+                "#bucket": "bucket"
+            },
+            ExpressionAttributeValues: marshall({ ":id": key, ":start": formattedStartTime, ":end": formattedEndTime })
+        })
+    });
+    // Grab all the read queues in parallel
+    await parallelQuery(client, readQueueQueries, (res) => calculateReadQueueStats(res, botDashboardStats, {
+        buckets,
+        startTime,
+        endTime,
+        currentBucketTimestamp,
+        prevBucketTimestamp,
+        bucketArrayIndex,
+        timestamp: params.timestamp,
+        botState,
+    }));
+
+    let source = (botState.lambda && botState.lambda.settings && botState.lambda.settings[0] && botState.lambda.settings[0].source)!;
+    botDashboardStats.kinesis_number = botState.checkpoints && botState.checkpoints.read && botState.checkpoints.read[source] && botState.checkpoints.read[source].checkpoint;
+    if (!botDashboardStats.kinesis_number) {
+        botDashboardStats.kinesis_number = Object.keys(botState.checkpoints && botState.checkpoints.read || {}).map(b => botState.checkpoints?.read?.[b]?.checkpoint).filter(c => !!c).sort().pop() as string;
+    }
+
+    // Add other queues that the bot checkpointed against but hasn't had any stats for
+    const checkpoints = botState.checkpoints || {};
+
+    ["read", "write"].map(type => {
+        Object.keys(checkpoints[type as CheckpointType] || {}).map(key => {
+            let id = key.replace(/^[seb]_/, "");
+            let queue = botDashboardStats.queues[type as CheckpointType]?.[id];
+            if(!queue) {
+                let data = checkpoints[type as CheckpointType]?.[key];
+                if(data) {
+                    botDashboardStats.queues[type as CheckpointType]![id] = generateQueueData(id, type as CheckpointType, {
+                        timestamp: data.ended_timestamp!,
+                        checkpoint: data.checkpoint!,
+                        source_timestamp: data.source_timestamp!,
+                        units: 0,
+                    }, params.timestamp, buckets);
+                }
+            }
+        })
+    })
+
+    return botDashboardStats;
 }
 
 
@@ -360,6 +286,22 @@ export async function parallelScan<T>(client: DynamoDBClient, opts: ScanOpts, se
 
 
     
+}
+
+async function getBotState(creds: AwsCreds, id: string): Promise<BotSettings> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const command = new GetCommand({
+        TableName: LEO_CRON_TABLE,
+        Key: { id: id.replace(/^bot:/, "") }
+    });
+    const response = await docClient.send(command);
+
+    if(!response.Item) {
+        throw new Error(`Bot ${id} not found in the cron table`);
+    }
+
+    return response.Item as BotSettings;
 }
 
 async function scan(client: DynamoDBDocumentClient, input: ScanCommandInput): Promise<ScanCommandOutput> {
