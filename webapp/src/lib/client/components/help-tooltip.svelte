@@ -15,7 +15,7 @@
 
 <div class="relative">
     <Tooltip.Provider>
-        <Tooltip.Root>
+        <Tooltip.Root delayDuration={100}>
             <Tooltip.Trigger>
                 {#if help}
                     <HelpCircle class="w-4 h-4"/>
