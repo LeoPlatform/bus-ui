@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DashboardStats, DashboardStatsValue } from "$lib/types";
+  import type { DashboardStats, DashboardStatsValue, StatsRange } from "$lib/types";
   import { humanize } from "$lib/utils";
   import type { ChartConfiguration } from "chart.js/auto";
   import Chart from "chart.js/auto";
@@ -33,9 +33,7 @@
                         borderColor: '#3b82f6',
                         borderWidth: 1,
                         tension: 0.1,
-                        pointRadius: 0,
-                        pointHoverRadius: 4,
-                        pointHoverBackgroundColor: '#3b82f6'
+                        pointStyle: false,
                     },
                     {
                         label: 'Queue Lag',
@@ -44,9 +42,7 @@
                         borderColor: '#ef4444',
                         borderWidth: 1,
                         tension: 0.1,
-                        pointRadius: 0,
-                        pointHoverRadius: 4,
-                        pointHoverBackgroundColor: '#ef4444'
+                        pointStyle: false,
                     }
                 ]
             },

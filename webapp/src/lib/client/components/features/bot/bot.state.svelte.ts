@@ -90,6 +90,12 @@ export class BotState {
     this.#relationShipTree = tree;
   }
 
+  getCurrentRange() {
+    // if(this.#timePickerState?.range) {
+      return this.#timePickerState?.range;
+    // }
+  }
+
 
   async fetchBotStats() {
 

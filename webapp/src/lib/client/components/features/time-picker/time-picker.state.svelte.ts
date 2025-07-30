@@ -377,5 +377,5 @@ export class TimePickerState {
             this.#startTime = this.alignTimeToRange(new Date().getTime());
         }
         this.triggerTimeRangeChange();
-    }
+    }   
 }

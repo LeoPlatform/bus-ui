@@ -1,29 +1,32 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import type { Chart, ChartConfiguration } from 'chart.js/auto';
-  import type { DashboardStats, DashboardStatsValue } from '$lib/types';
+  import type { DashboardStats, DashboardStatsValue, StatsRange } from '$lib/types';
   import  annotationPlugin  from 'chartjs-plugin-annotation';
   import HelpTooltip from '../../help-tooltip.svelte';
+  import { bucketsData, getStartAndEndOfBucket } from '$lib/bucketUtils';
+  import { Separator } from '../../ui/separator';
 
   interface Props {
     data: DashboardStats | null;
     queueId: string;
-    lastReadTimestamp?: number;
-    width?: number;
-    height?: number;
+    range: StatsRange;
   }
 
-  let { data, queueId, lastReadTimestamp, width = 400, height = 200 }: Props = $props();
-
-  console.log('EventsInQueueChart - Component initialized');
-  console.log('EventsInQueueChart - data prop:', data);
-  console.log('EventsInQueueChart - data type:', typeof data);
-  console.log('EventsInQueueChart - data keys:', data ? Object.keys(data) : 'null');
+  let { data, queueId, range }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let chart = $state<Chart | null>(null);
   let lastRead = $derived(data?.queues?.read?.[queueId]?.last_read_event_timestamp || 0);
   let totalEvents = $state<number>(0);
+  let eventsInBucket = $state<number>(0);
+  let eventsLastBucket = $state<number>(0);
+  let bucket = $derived(bucketsData[range]);
+  let {start, end} = $derived.by(() => {
+    const _ = data;
+    return getStartAndEndOfBucket(bucket);
+  });
+  let lastBucket = $derived(bucket.prev(new Date(start)).valueOf());
 
   // Chart configuration
   function createChartConfig(): ChartConfiguration<'line'> {
@@ -35,14 +38,33 @@
           label: 'Events In Queue',
           data: [],
           borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          backgroundColor: 'rgba(163, 165, 153, 0.4)',
           borderWidth: 2,
           fill: true,
           tension: 0.1,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          pointHoverBackgroundColor: '#3b82f6'
-        }]
+          pointStyle: false,
+        },
+        {
+          label: 'Current Bucket',
+          data: [],
+          borderColor: '#88a550',
+          backgroundColor: 'rgba(137, 165, 80, 0.6)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.1,
+          pointStyle: false,
+        },
+        {
+          label: 'Previous Bucket',
+          data: [],
+          borderColor: '#F47D4A',
+          backgroundColor: 'rgba(244, 125, 74, .6)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.1,
+          pointStyle: false,
+        }
+      ]
       },
       options: {
         responsive: true,
@@ -67,7 +89,9 @@
                 return new Date(timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
               },
               label: function(context) {
-                return `Events: ${context.parsed.y.toLocaleString()}`;
+                if(context.datasetIndex === 0) {
+                  return `Events: ${context.parsed.y.toLocaleString()}`;
+                }
               }
             }
           },
@@ -122,10 +146,7 @@
 
   // Process data for chart - extract read data from queues
   function processChartData(dashboardStats: DashboardStats | null): DashboardStatsValue[] {
-    console.log('EventsInQueueChart - processChartData called');
-    console.log('EventsInQueueChart - processing chart data', dashboardStats);
     if (!dashboardStats || !dashboardStats.queues) {
-        console.log('EventsInQueueChart - no dashboard stats or queues bailing');
       return [];
     }
 
@@ -160,17 +181,12 @@
     }
 
     try {
-      console.log('EventsInQueueChart - importing Chart.js');
       // Import Chart.js dynamically to avoid SSR issues
       const { Chart } = await import('chart.js/auto');
       Chart.register(annotationPlugin);
       
-      console.log('EventsInQueueChart - creating chart config');
       const config = createChartConfig();
-      console.log('EventsInQueueChart - creating chart instance');
       chart = new Chart(canvas, config);
-      console.log('EventsInQueueChart - chart created successfully');
-      console.log('EventsInQueueChart - chart variable after assignment:', !!chart);
     } catch (error) {
       console.error('EventsInQueueChart - Failed to initialize chart:', error);
     }
@@ -178,16 +194,20 @@
 
   // Update chart data
   function updateChart() {
-    console.log('EventsInQueueChart - updateChart called');
     if (!chart) {
-      console.log('EventsInQueueChart - no chart instance, returning');
       return;
     }
 
-    console.log('EventsInQueueChart - calling processChartData');
     const chartData = processChartData(data);
-    totalEvents = chartData.reduce((acc, point) => {
-      if(point.time >= lastRead) {
+    eventsInBucket = chartData.reduce((acc, point) => {
+      if(point.time >= start) {
+        acc += (point.value || 0);
+      }
+      return acc;
+    }, 0);
+    totalEvents = chartData.reduce((acc, point) => acc + point.value, 0);
+    eventsLastBucket = chartData.reduce((acc, point) => {
+      if(point.time >= lastBucket && point.time < start) {
         acc += (point.value || 0);
       }
       return acc;
@@ -200,6 +220,8 @@
 
     chart.data.labels = chartData.map((d: DashboardStatsValue) => d.time);
     chart.data.datasets[0].data = chartJsData;
+    chart.data.datasets[1].data = chartJsData.filter((p) => p.x >= start && p.x <= end);
+    chart.data.datasets[2].data = chartJsData.filter((p) => p.x >= lastBucket && p.x <= start);
     
     // Update the annotation with the new lastRead value
     const annotations = chart.options.plugins?.annotation?.annotations as any;
@@ -247,10 +269,27 @@
  <div class="flex flex-col h-full">
      <h2 class="text-xl font-semibold text-gray-700 mb-2">Events in Queue</h2>
      <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
-         <div class="text-lg text-black mt-2 font-bold w-1/4 flex items-center justify-center gap-2">
-           <div>{totalEvents.toLocaleString()}</div>
-           <HelpTooltip helpText="The approximate total number of events in the queue remaining to be processed." info={true} side="bottom"/>
-         </div>
+      <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
+        <div class="flex flex-col gap-2 justify-between h-full">
+            <div class="flex items-center justify-center gap-2 h-full">
+                <!-- <div class="text-lg font-bold">Total Events</div> -->
+                <div class="text-lg text-blue-500 font-bold">{totalEvents.toLocaleString()}</div>
+                <HelpTooltip helpText="The total number of events in the queue for the time range displayed." help={true}/>
+            </div>
+            <Separator/>
+            <div class="flex items-center justify-center gap-2 h-full">
+              <div class="text-lg text-[#F47D4A] font-bold">{eventsLastBucket.toLocaleString()}</div>
+              <HelpTooltip helpText="The number of events in the last bucket." help={true}/>
+            </div>
+            <Separator/>
+            <div class="flex items-center justify-center gap-2 h-full">
+                <!-- <div class="text-lg font-bold">Events In Last Bucket</div> -->
+                <div class="text-lg text-[#88a550] font-bold">{eventsInBucket.toLocaleString()}</div>
+                <HelpTooltip helpText="The number of events in the current bucket." help={true}/>
+            </div>
+        </div>
+    </div>
+    <Separator orientation="vertical" class="h-full"/>
          <div class="p-2 shadow-sm w-3/4 h-full overflow-hidden">
            <canvas bind:this={canvas} class="w-full h-full max-w-full max-h-full"></canvas>
          </div>

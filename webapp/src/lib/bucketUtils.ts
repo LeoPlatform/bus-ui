@@ -274,6 +274,12 @@ export const bucketsData: BucketsData = {
   }
 };
 
+export function getStartAndEndOfBucket(bucket: BucketData, time?: number) {
+  const start = bucket.value(time ? new Date(time) : new Date());
+  const end = bucket.value(bucket.next(start));
+  return { start: start.valueOf(), end: end.valueOf() };
+}
+
 // Ranges configuration
 export const ranges: RangesData = {
   minute: {

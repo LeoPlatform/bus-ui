@@ -62,6 +62,9 @@
   let dashboardStats = $state<DashboardStats | null>(null);
   let chartsVisible = $derived(dashboardStats !== null);
   let chartsLoading = $state(false);
+  
+  // Make range reactive to time picker state changes
+  let currentRange = $derived(appState.timePickerState?.selectedRange || 'minute15');
 
   let nodesNeedingFilters = $derived.by(() => {
     if (!relationShipTree) return new Set<string>();
@@ -96,6 +99,15 @@
       // Fetch new stats with current visible nodes
       if (appState.botState.visibleIds.length > 0) {
         await appState.botState.fetchBotStats();
+        if(selectedLink && chartsVisible) {
+          // Ensure we wait for the time picker state to be updated
+          await new Promise(resolve => setTimeout(resolve, 0));
+          if(selectedLink.sourceId.startsWith('queue:') || selectedLink.sourceId.startsWith('system:')) {
+            dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.targetId);
+          } else if(selectedLink.targetId.startsWith('queue:') || selectedLink.targetId.startsWith('system:')) {
+            dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.sourceId);
+          }
+        }
         initializeLinkStats(botStats, linkStats);
         renderVisualization();
       }
@@ -188,10 +200,14 @@ function updateContainerDimensions() {
         try {
           // console.log(`${staleTime / 1000} seconds elapsed - refreshing stats data`);
           if(selectedLink && chartsVisible) {
-            if(selectedLink.sourceId.startsWith('queue:') || selectedLink.sourceId.startsWith('system:')) {
-              dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.targetId);
-            } else {
-              dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.sourceId);
+            // Only update dashboard stats if we have a valid selection and charts are visible
+            const newDashboardStats = selectedLink.sourceId.startsWith('queue:') || selectedLink.sourceId.startsWith('system:') 
+              ? await appState.botState.fetchDashboardStats('bot:' + selectedLink.targetId)
+              : await appState.botState.fetchDashboardStats('bot:' + selectedLink.sourceId);
+            
+            // Only update if the stats actually changed
+            if (JSON.stringify(newDashboardStats) !== JSON.stringify(dashboardStats)) {
+              dashboardStats = newDashboardStats;
             }
           }
           await appState.botState.fetchBotStats();
@@ -506,7 +522,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         const stored = nodePositions.get(positionKey)!;
 
         // Simple rule: only allow position changes for nodes that are:
-        // 1. The root node (always stable, but still direction-specific)
+        // 1. The root node (always stable, but still direction matters for left vs right)
         // 2. Direct children/parents of the toggled node
         // 3. New nodes being added
 
@@ -1405,11 +1421,11 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     </div>
     {/if}
   </div>
-  <div class="charts-container">
+  <div class="absolute bottom-4 right-4 z-50 max-w-[calc(100%-2rem)] max-h-[calc(100%-2rem)]">
     <!-- Show Charts Button -->
     {#if selectedLink}
       <button 
-        class="show-charts-button"
+        class="bg-gray-700 text-white border-none px-4 py-2 rounded cursor-pointer text-sm mb-4 flex items-center gap-2 shadow-lg hover:bg-gray-600 disabled:bg-gray-500 disabled:cursor-not-allowed"
         onclick={handleShowCharts}
         disabled={chartsLoading}
       >
@@ -1427,6 +1443,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       {selectedLink}
       visible={chartsVisible}
       onClose={closeCharts}
+      range={currentRange}
     />
   </div>
 </div>
@@ -1491,40 +1508,6 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     max-width: 100%;
     max-height: 100%;
   }
-
-  /* Charts Container Styles */
-  .charts-container {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    z-index: 1000;
-  }
-
-  .show-charts-button {
-    background: #374151;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    margin: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .show-charts-button:hover {
-    background: #4b5563;
-  }
-
-  .show-charts-button:disabled {
-    background: #6b7280;
-    cursor: not-allowed;
-  }
-
-
 
   /* Link selection styles */
   :global(.link-group.selected .link) {
