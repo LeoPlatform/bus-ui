@@ -41,7 +41,7 @@
           backgroundColor: 'rgba(163, 165, 153, 0.4)',
           borderWidth: 2,
           fill: true,
-          tension: 0.1,
+          tension: 0.3,
           pointStyle: false,
         },
         {
@@ -51,7 +51,7 @@
           backgroundColor: 'rgba(137, 165, 80, 0.6)',
           borderWidth: 2,
           fill: true,
-          tension: 0.1,
+          tension: 0.3,
           pointStyle: false,
         },
         {
@@ -61,7 +61,7 @@
           backgroundColor: 'rgba(244, 125, 74, .6)',
           borderWidth: 2,
           fill: true,
-          tension: 0.1,
+          tension: 0.3,
           pointStyle: false,
         }
       ]
@@ -71,7 +71,7 @@
         maintainAspectRatio: false,
         interaction: {
           intersect: false,
-          mode: 'index'
+          mode: 'nearest'
         },
         plugins: {
           legend: {
@@ -83,6 +83,7 @@
             bodyColor: 'white',
             borderColor: '#3b82f6',
             borderWidth: 1,
+            position: 'nearest',
             callbacks: {
               title: function(context) {
                 const timestamp = context[0].parsed.x;
@@ -92,6 +93,8 @@
                 if(context.datasetIndex === 0) {
                   return `Events: ${context.parsed.y.toLocaleString()}`;
                 }
+                // We have to return an empty string here to avoid the tooltip from showing the default label for the other datasets
+                return '';
               }
             }
           },

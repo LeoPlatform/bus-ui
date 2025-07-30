@@ -31,8 +31,8 @@
                         data: [],
                         fill: false,
                         borderColor: '#3b82f6',
-                        borderWidth: 1,
-                        tension: 0.1,
+                        borderWidth: 2,
+                        tension: 0.3,
                         pointStyle: false,
                     },
                     {
@@ -40,8 +40,8 @@
                         data: [],
                         fill: false,
                         borderColor: '#ef4444',
-                        borderWidth: 1,
-                        tension: 0.1,
+                        borderWidth: 2,
+                        tension: 0.2,
                         pointStyle: false,
                     }
                 ]
