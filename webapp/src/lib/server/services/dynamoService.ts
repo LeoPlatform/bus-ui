@@ -9,7 +9,7 @@ import { DynamoDBDocumentClient, GetCommand, ScanCommand, type NativeAttributeVa
 import { bucketsData, ranges } from "$lib/bucketUtils";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {  mergeStatsResults } from "$lib/stats/utils";
-import { calculateReadQueueStats, generateQueueData, mergeDynamoRecordToDashboardStats } from "../dashboard/api-utils";
+import { approximateMissingLagValues, calculateReadQueueStats, generateQueueData, mergeDynamoRecordToDashboardStats } from "../dashboard/api-utils";
 
 
 
@@ -226,6 +226,13 @@ export async function getDashboardStats(creds: AwsCreds, params: DashboardStatsR
                 }
             }
         })
+    })
+
+    //Insert averages to missing values in the queue_lag and source_lag
+    // And if the first/last entries are missing we should do a linear regresssion to approximate the values
+    Object.keys(botDashboardStats.queues.read!).map(key => {
+        approximateMissingLagValues(botDashboardStats.queues.read![key].source_lags);
+        approximateMissingLagValues(botDashboardStats.queues.read![key].queue_lags);
     })
 
     return botDashboardStats;

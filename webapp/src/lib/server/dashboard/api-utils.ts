@@ -1,6 +1,8 @@
-import type { BotSettings, CheckpointDetail, CheckpointType, DashboardStats, DashboardStatsQueueReadWrite, ReadWriteStats, StatsDynamoRecord } from "$lib/types";
+import type { BotSettings, CheckpointDetail, CheckpointType, DashboardStats, DashboardStatsQueueReadWrite, DashboardStatsValue, ReadWriteStats, StatsDynamoRecord } from "$lib/types";
 import type { QueryOutput } from "@aws-sdk/client-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
+import pkg from 'leo-sdk/lib/streams';
+let {eventIdToTimestamp} = pkg;
 
 export interface MergeDynamoRecordToDashboardStatsParams {
     buckets: number[];
@@ -36,6 +38,9 @@ export function mergeDynamoRecordToDashboardStats(items: StatsDynamoRecord[], pa
         end: endTime.valueOf(),
         buckets: buckets,
     }
+
+    const currentPositions = params.botState.checkpoints?.read || {};
+    const requestedPositions = params.botState.requested_kinesis || {};
 
 
     items.map(stat => {
@@ -74,10 +79,13 @@ export function mergeDynamoRecordToDashboardStats(items: StatsDynamoRecord[], pa
                         botDashboardStats.queues[type as CheckpointType]![key] = generateQueueData(key, type as CheckpointType, link, params.timestamp, buckets);
                     }
                     const queue = botDashboardStats.queues[type as CheckpointType]![key];
-                    let botCurrentCheckpoint = params.botState.checkpoints?.read?.[key] || {};
+                    let botCurrentCheckpoint = currentPositions[key];
+                    let queueMaxEid = requestedPositions[key];
 
                     queue.source_lags[index].value += (link.timestamp - link.source_timestamp) || 0; // source lag
-                    queue.queue_lags[index].value += (getTimestampFromCheckpoint(link.checkpoint, botCurrentCheckpoint) - link.timestamp) || 0;
+
+                    // Make sure that the bot's current checkpoint is less than the requested checkpoint. If it isn't then we aren't lagged
+                    queue.queue_lags[index].value += (link.timestamp - getTimestampFromCheckpoint(link.checkpoint, botCurrentCheckpoint) ) || 0;
 
                     if (type === "write") {
                         queue.values[index].value += link.units;
@@ -296,6 +304,18 @@ function maxString(...args: string[]) {
 }
 
 function getTimestampFromCheckpoint(checkpoint: string, botCheckpoint: CheckpointDetail): number {
+
+    //use sdk to pull the timestamp from the z checkpoint
+
+    try {
+       return eventIdToTimestamp(checkpoint);
+        // let [z, year, month, date, hour, minute, timestamp] = checkpoint.split(/[/-]/);
+        
+        // return parseInt(timestamp, 10);
+    } catch(e) {
+        console.error(e);
+    }
+
     let now = new Date().valueOf();
     if (checkpoint.match(/^(?:[0-9]+[a-z]|[a-z]+[0-9])[a-z0-9-]*$/)) {
         // Not a time-based checkpoint
@@ -308,6 +328,55 @@ function getTimestampFromCheckpoint(checkpoint: string, botCheckpoint: Checkpoin
     } else {
         return 0;
     }
+}
+
+export function approximateMissingLagValues(lagValues: DashboardStatsValue[]) {
+
+    let leftBound = null;
+
+    let rightBound = null;
+
+    for(let i = 0; i < lagValues.length; i++) {
+
+        let currentValue = lagValues[i];
+
+        if(i == 0 && !currentValue.value) {
+            // Generate linear regression for the first missing value
+            continue;
+        }
+
+        if(i == lagValues.length - 1 && !currentValue.value) {
+            // Generate linear regression for the last missing value
+            continue;
+        }
+
+        if(!currentValue.value && !leftBound) {
+            leftBound = i == 0 ? 0 : i - 1;
+        }
+
+        if(currentValue.value && leftBound) {
+            rightBound = i;
+        }
+        // if (currentValue.value && !leftBound) {
+        //     leftBound = i;
+        // } else if (currentValue.value && !rightBound) {
+        //     rightBound = i;
+        // }
+
+        if(leftBound && rightBound) {
+            let slope = (lagValues[rightBound].value - lagValues[leftBound].value) / (rightBound - leftBound);
+            let intercept = lagValues[leftBound].value - slope * leftBound;
+            for(let j = leftBound + 1; j < rightBound; j++) {
+                lagValues[j].value = slope * j + intercept;
+                lagValues[j].approximated = true;
+            }
+            rightBound = null;
+            leftBound = null;
+        }
+
+    }
+    
+    
 }
 
 

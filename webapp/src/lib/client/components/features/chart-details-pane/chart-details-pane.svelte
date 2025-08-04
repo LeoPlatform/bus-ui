@@ -201,44 +201,51 @@
 {/snippet}
 
 
-{#if visible && dashboardStats}
+{#if visible}
   <div class="fixed bottom-0 left-16 right-0 h-80 bg-gray-50 border-t border-gray-200 shadow-lg z-50">
     <div class="flex justify-between items-center px-2 border-b border-gray-200 bg-gray-100">
       <!-- Add a section for the tabs -->
       <!-- <h3 class="text-lg font-semibold text-gray-900 m-0">Relationship Details</h3> -->
       <div class="flex pl-2 gap-2 overflow-y-hidden w-full">
-        {#each tabs as tab}
-          {@const isActive = tab === selectedTab}
-          <div class="relative">
-            <button 
-              onclick={() => handleTabClick(tab)}
-              disabled={isActive}
-              class={`
-                flex items-center gap-2 px-3 py-1.5 rounded-lg
-                transition-all duration-200 ease-in-out
-                ${isActive 
-                  ? 'bg-gray-50/20 shadow-lg transform scale-105' 
-                  : 'bg-gray-100 hover:bg-gray-300'
-                }
-                hover:transform hover:scale-105 hover:shadow-lg
-                group relative
-                disabled:opacity-50 disabled:cursor-not-allowed
-              `}
-            >
-              <img src={`/${tab.type == 'bot-details' ? 'bot' : tab.type}.png`} alt={tab.label} class="w-10 h-10" />
-              <span class={`
-                transition-colors ${isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'}
-              `}>
-                {tab.label}
-              </span>
-              
-              <!-- Active indicator bar -->
-              {#if isActive}
-                <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-lime-600 rounded-b-lg"></div>
-              {/if}
-            </button>
+        {#if dashboardStats}
+          {#each tabs as tab}
+            {@const isActive = tab === selectedTab}
+            <div class="relative">
+              <button 
+                onclick={() => handleTabClick(tab)}
+                disabled={isActive}
+                class={`
+                  flex items-center gap-2 px-3 py-1.5 rounded-lg
+                  transition-all duration-200 ease-in-out
+                  ${isActive 
+                    ? 'bg-gray-50/20 shadow-lg transform scale-105' 
+                    : 'bg-gray-100 hover:bg-gray-300'
+                  }
+                  hover:transform hover:scale-105 hover:shadow-lg
+                  group relative
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+              >
+                <img src={`/${tab.type == 'bot-details' ? 'bot' : tab.type}.png`} alt={tab.label} class="w-10 h-10" />
+                <span class={`
+                  transition-colors ${isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'}
+                `}>
+                  {tab.label}
+                </span>
+                
+                <!-- Active indicator bar -->
+                {#if isActive}
+                  <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-lime-600 rounded-b-lg"></div>
+                {/if}
+              </button>
+            </div>
+          {/each}
+        {:else}
+          <div class="flex items-center gap-2 px-3 py-1.5">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+            <span class="text-gray-600 text-sm">Loading...</span>
           </div>
-        {/each}
+        {/if}
       </div>
       <Button 
       variant="ghost"
@@ -249,7 +256,7 @@
     </Button>
     </div>
       <div class="flex h-68 p-4 gap-4 overflow-hidden">
-        {#if selectedTab}
+        {#if dashboardStats && selectedTab}
           {#each selectedTab.charts as chart}
             {@render ChartContainer(chart)}
           {/each}

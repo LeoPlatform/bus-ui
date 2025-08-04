@@ -1,6 +1,6 @@
 # Introduction
 
-This is a web application built using Typescript, Svelte 5, SvelteKit, shadcn-svelte, and Tailwindcss. That helps users visualize data flows and event searching for configured LEO buses. 
+This is a web application built using Typescript, Svelte 5, SvelteKit, shadcn-svelte, and Tailwindcss. It helps users visualize data flows and event searching for configured LEO buses. 
 
 # Getting Started
 
@@ -9,7 +9,7 @@ The modern re-work of the project is located within the `webapp/` directory of t
 > [!IMPORTANT]
 > This project requires a version of NodeJs >= 20.11.0
 
-#Project Setup
+# Project Setup
 
 Before the project can be run there are few configs that are needed in order for the application to run as expected.
 

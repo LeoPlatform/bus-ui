@@ -60,7 +60,7 @@
   // Link selection and charts state
   let selectedLink = $state<{ sourceId: string; targetId: string; direction: 'read' | 'write' } | null>(null);
   let dashboardStats = $state<DashboardStats | null>(null);
-  let chartsVisible = $derived(dashboardStats !== null);
+  let chartsVisible = $state(false);
   let chartsLoading = $state(false);
   
   // Make range reactive to time picker state changes
@@ -571,7 +571,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .style("opacity", 0)
       .on("click", function(event, d: any) {
         event.stopPropagation();
-        console.log(d);
+        // console.log(d);
         const sourceId = d.source.data.originalId || d.source.data.id;
         const targetId = d.target.data.originalId || d.target.data.id;
         let direction: 'read' | 'write' = 'read'
@@ -1362,8 +1362,11 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
   // Handle link click to select a relationship
   function handleLinkClick(sourceId: string, targetId: string, direction: 'read' | 'write') {
     selectedLink = { sourceId, targetId, direction };
-    chartsVisible = false; // Reset charts visibility when new link is selected
-    dashboardStats = null; // Clear previous stats
+    
+    // Keep charts visible if they were already open, but clear stats to trigger refresh
+    if (chartsVisible) {
+      dashboardStats = null; // Clear previous stats to trigger refresh
+    }
     
     // Update link styling to show selection
     renderVisualization();
@@ -1397,6 +1400,14 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     chartsVisible = false;
     dashboardStats = null;
   }
+
+  // Effect to automatically fetch new dashboard stats when link changes and charts are visible
+  $effect(() => {
+    if (selectedLink && chartsVisible && !dashboardStats) {
+      // Automatically fetch new stats when a new link is selected and charts are visible
+      handleShowCharts();
+    }
+  });
 </script>
 
 <div class="workflow-container">

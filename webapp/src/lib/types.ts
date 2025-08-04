@@ -46,7 +46,7 @@ export interface BotSettings {
   invokeTime?: number;
   message?: string | null;
   progress?: Record<string, any>;
-  requested_kinesis?: Record<string, any>;
+  requested_kinesis?: Record<string, string>;
   time?: string;
   token?: number;
   executionType?: string;
@@ -291,6 +291,10 @@ export interface DashboardStatsValue {
   value: number,
   time: number,
   marked?: boolean,
+  /**
+   * Indicates whether the value is approximated. This is used visually so we can trigger different effects based on that value.
+   */
+  approximated?: boolean,
 }
 
 export type DashboardStatsDurationValue = DashboardStatsValue & {
