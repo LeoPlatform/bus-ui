@@ -1,6 +1,6 @@
 import { StatsRange, type StatsQueryRequest } from "$lib/types";
 import type { PickerDate } from "./types";
-import { bucketsData, ranges } from "$lib/bucketUtils";
+import { bucketsData, getStartAndEndOfBucket, ranges } from "$lib/bucketUtils";
 import { CalendarDateTime, getLocalTimeZone, now, toCalendarDateTime, toLocalTimeZone, type AnyTime } from "@internationalized/date";
 
 type GlobalFetch = typeof globalThis.fetch;
@@ -8,24 +8,28 @@ type GlobalFetch = typeof globalThis.fetch;
 export class TimePickerState {
     #fetch: GlobalFetch;
     #range: StatsRange = $state<StatsRange>(StatsRange.Minute15);
+    rangeData = $derived(ranges[this.#range].rolling ? ranges[this.#range].rolling! : ranges[this.#range]);
+    get bucketUtils() {
+        if (this.#range === StatsRange.Hour6) {
+            return bucketsData['hour'];
+        }
+        return bucketsData[this.#range] || bucketsData[this.rangeData.period];
+    }
     #count: number = $state<number>(1);
     #startTime: number = $state<number>(Date.now());
     #endTime: number | undefined = $state<number | undefined>();
     #selectedDate: CalendarDateTime | undefined = $state<CalendarDateTime>();
     #customTime: string = $state(new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
-    #selectedRange: StatsRange = $state<StatsRange>(StatsRange.Minute15);
     #dateSelectorExpanded: boolean = $state<boolean>(false);
     #isExpanded: boolean = $state<boolean>(false);
     #onTimeRangeChange: ((state: TimePickerState) => void) | undefined = undefined;
     
-    bucketUtils = $derived(bucketsData[this.#range]);
     
     #timeRangeString = $derived.by(() => {
         const range = this.#range;
         const startTime = this.#startTime;
         const endTime = this.#endTime;
 
-        // console.log('hit time range string derive');
         return this.formatTimeRange();
     });
 
@@ -33,7 +37,9 @@ export class TimePickerState {
         this.#fetch = fetch;
         this.#range = StatsRange.Minute15;
         this.#count = 1;
-        this.updateTimeRangeForSelectedRange();
+        let {start, end} = getStartAndEndOfBucket(this.bucketUtils, this.#startTime);
+        this.#startTime = start;
+        this.endTime = end;
     }
     
     get count() {
@@ -52,10 +58,6 @@ export class TimePickerState {
         return this.#range;
     }
 
-    get simplified() {
-        return this.#isExpanded;
-    }
-
     get isExpanded() {
         return this.#isExpanded;
     }
@@ -68,9 +70,6 @@ export class TimePickerState {
         return this.#selectedDate ?? toCalendarDateTime(now(getLocalTimeZone()));
     }
     
-    get selectedRange() {
-        return this.#selectedRange;
-    }
 
     get timeRangeString() {
         return this.#timeRangeString;
@@ -80,9 +79,6 @@ export class TimePickerState {
         return this.#customTime;
     }
 
-    set selectedRange(val: StatsRange) {
-        this.#selectedRange = val;
-    }
 
     set isExpanded(val: boolean) {
         this.#isExpanded = val;
@@ -94,6 +90,7 @@ export class TimePickerState {
 
     set startTime(val: number) {
         this.#startTime = val;
+        this.updateTimeRangeForSelectedRange();
     }
 
     set endTime(val: number | undefined) {
@@ -106,33 +103,16 @@ export class TimePickerState {
     }
 
     set range(val: StatsRange) {
-        if(val == this.selectedRange) return;
-        let rangeData = ranges[val];
-        console.log('Setting range:', val, 'rangeData:', rangeData);
-        this.selectedRange = val;
-        this.#range = rangeData.period as StatsRange;
-        this.#count = rangeData.count;
-
-        console.log('New range:', this.#range, 'count:', this.#count);
-        
+        this.#range = val;
         // Update the time range when the range changes
         this.updateTimeRangeForSelectedRange();
-
-        console.log('After update - startTime:', this.#startTime, 'endTime:', this.#endTime);
 
         this.triggerTimeRangeChange();
     }
 
-    set simplified(val: boolean) {
-        this.#isExpanded = val;
-    }
-
     set selectedDate(val: CalendarDateTime) {
-        console.log('selected date set', val);
         this.#selectedDate = val;
-        
-        // Update the start time when a date is selected
-        // this.updateTimeForSelectedDate(val);
+
     }
 
     set customTime(val: string) {
@@ -176,7 +156,6 @@ export class TimePickerState {
 
                 this.updateTimeForSelectedDate(this.selectedDate);
                 
-                // console.log('Updated selectedDate with time:', updatedDate);
             } catch (error) {
                 console.error('Error parsing time:', error);
             }
@@ -220,9 +199,9 @@ export class TimePickerState {
         );
 
         // Set the start time to the selected date and time
-        this.#startTime = jsDate.getTime();
+        this.startTime = jsDate.getTime();
 
-        this.calculateEndTimeForRange()
+        // this.calculateEndTimeForRange()
         
         // Keep the end time unchanged - don't recalculate it
         // This preserves "Now" or whatever end time was previously set
@@ -232,87 +211,32 @@ export class TimePickerState {
      * Update the time range to reflect the currently selected range duration
      */
     private updateTimeRangeForSelectedRange() {
-        // Align the current start time to the selected range
-        if(!this.#endTime) {
-            this.#startTime = this.alignTimeToRange(new Date().getTime());
-        } else {
-            this.#startTime = this.alignTimeToRange(this.#endTime);
+        // Special handling for hour_6 since it doesn't have its own bucket entry
+        const count = this.#range === StatsRange.Hour6 ? 6 : undefined;
+        let {start, end} = getStartAndEndOfBucket(this.bucketUtils, this.#startTime, count);
+        this.#startTime = start;
+        this.endTime = end;
 
-        }
-        
-        // Calculate the appropriate end time
-        // this.calculateEndTimeForRange();
-    }
-
-    /**
-     * Align a timestamp to the appropriate boundary for the current range
-     */
-    private alignTimeToRange(timestamp: number): number {
-        const date = new Date(timestamp);
-        const bucketUtil = bucketsData[this.#range];
-        
-        if (bucketUtil) {
-            // if(!this.#endTime) {
-            //     return bucketUtil.value(new Date()).getTime();
-
-            // }
-            return bucketUtil.value(bucketUtil.prev(date, this.#count)).getTime();
-        }
-        
-        return timestamp;
-    }
-
-    /**
-     * Calculate the end time based on the current range and count
-     */
-    private calculateEndTimeForRange() {
-
-        const bucketUtil = bucketsData[this.#range];
-            // console.log('calculateEndTimeForRange - range:', this.#range, 'bucketUtil:', bucketUtil);
-
-        if (!bucketUtil) {
-            // console.log('No bucketUtil found for range:', this.#range);
-            this.#endTime = undefined;
-            return;
-        }
-
-        const startDate = new Date(this.#startTime);
-        let potentialEndDate = bucketUtil.next(startDate, this.#count).getTime();
-        // console.log('Calculated endTime:', potentialEndDate, 'from startDate:', startDate, 'count:', this.#count);
-
-        this.endTime = potentialEndDate;
     }
 
     nextDateRange() {
-        const bucketUtil = bucketsData[this.#range];
-        if (bucketUtil) {
-            this.#startTime = bucketUtil.value(bucketUtil.next(new Date(this.#startTime), this.#count)).getTime();
-            if (!this.#endTime) {
-                this.endTime = bucketUtil.value(bucketUtil.next(new Date(this.#startTime), this.#count)).getTime();
-            } else {
-                this.endTime = bucketUtil.value(bucketUtil.next(new Date(this.#endTime), this.#count)).getTime();
-            }
-        }
+        // Special handling for hour_6 since it doesn't have its own bucket entry
+        const count = this.#range === StatsRange.Hour6 ? 6 : this.#count;
+        this.startTime = this.bucketUtils.value(this.bucketUtils.next(new Date(this.#startTime), count)).getTime();
         this.triggerTimeRangeChange()
     }
 
     prevDateRange() {
-        const bucketUtil = bucketsData[this.#range];
-        if (bucketUtil) {
-            this.#startTime = bucketUtil.value(bucketUtil.prev(new Date(this.#startTime), this.#count)).getTime();
-            if (!this.#endTime) {
-                this.endTime = bucketUtil.value(bucketUtil.next(new Date(this.#startTime), this.#count)).getTime();
-            } else {
-                this.endTime = bucketUtil.value(bucketUtil.prev(new Date(this.#endTime), this.#count)).getTime();
-            }
-        }
+        // Special handling for hour_6 since it doesn't have its own bucket entry
+        const count = this.#range === StatsRange.Hour6 ? 6 : this.#count;
+        this.startTime = this.bucketUtils.value(this.bucketUtils.prev(new Date(this.#startTime), count)).getTime();
         this.triggerTimeRangeChange();
     }
 
     createStatsQueryRequest(ids: string[]): StatsQueryRequest {
         return {
-            range: this.range,
-            count: this.count,
+            range: this.rangeData.period as StatsRange,
+            count: this.rangeData.count,
             startTime: this.startTime,
             endTime: this.endTime,
             nodeIds: ids
@@ -370,12 +294,9 @@ export class TimePickerState {
     }
 
     bucketToNow() {
-        const bucketUtil = bucketsData[this.#range];
         
-        if (bucketUtil) {
-            this.endTime = undefined;
-            this.#startTime = this.alignTimeToRange(new Date().getTime());
-        }
+        this.#startTime = Date.now();
+        this.updateTimeRangeForSelectedRange();
         this.triggerTimeRangeChange();
     }   
 }

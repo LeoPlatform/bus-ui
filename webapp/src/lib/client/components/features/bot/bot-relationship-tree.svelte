@@ -64,7 +64,7 @@
   let chartsLoading = $state(false);
   
   // Make range reactive to time picker state changes
-  let currentRange = $derived(appState.timePickerState?.selectedRange || 'minute15');
+  let currentRange = $derived(appState.timePickerState?.range || 'minute15');
 
   let nodesNeedingFilters = $derived.by(() => {
     if (!relationShipTree) return new Set<string>();

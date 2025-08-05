@@ -73,10 +73,6 @@ export async function getStats(creds: AwsCreds, params: StatsQueryRequest): Prom
 
     const endTime = params.endTime ? bucketUtils.value(new Date(params.endTime)) : bucketUtils.next(new Date(params.startTime), params.count);
     const startTime = bucketUtils.value(new Date(params.startTime));
-    // const endTime = params.endTime ? bucketUtils.value(new Date(params.endTime)) : bucketUtils.next(new Date(params.startTime), params.count);
-    // const startTime = params.endTime ? bucketUtils.value(new Date(params.startTime)) : bucketUtils.prev(endTime, params.count);
-
-    // console.log("startTime", startTime, "endTime", endTime);
 
     const expressionAttributeValues: Record<string, string> = {
         ":start": bucketUtils.transform(startTime),
@@ -115,7 +111,7 @@ export async function getDashboardStats(creds: AwsCreds, params: DashboardStatsR
     const client = createDynamoClient(creds);
     //TODO: think through how we want to do this
     // const numberOfBuckets = params.numberOfBuckets ?? 1;
-    const range = ranges[params.range];
+    const range = ranges[params.range].rolling ? ranges[params.range].rolling! : ranges[params.range];
     const bucketUtils = bucketsData[range.period];
 
     // current bucket of time inclusive (eg. 15minutes before ->  now)
@@ -131,8 +127,8 @@ export async function getDashboardStats(creds: AwsCreds, params: DashboardStatsR
     const formattedStartTime = bucketUtils.transform(startTime);
     const formattedEndTime = bucketUtils.transform(endTime);
 
-    console.log(`RAW: ${startTime} | ${endTime} | ${params.timestamp}`);
-    console.log(`NEW: ${formattedStartTime} | ${formattedEndTime}`);
+    console.log(`DASHBOARD | RAW: ${startTime} | ${endTime} | ${params.timestamp}`);
+    console.log(`DASHBOARD | NEW: ${formattedStartTime} | ${formattedEndTime}`);
 
     const buckets: number[] = [];
     let c = startTime;

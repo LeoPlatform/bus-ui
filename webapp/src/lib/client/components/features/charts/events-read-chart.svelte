@@ -3,27 +3,28 @@
   import type { ChartConfiguration, Chart } from "chart.js/auto";
   import { onDestroy, onMount } from "svelte";
   import { Separator } from "../../ui/separator";
-  import { bucketsData, getStartAndEndOfBucket } from "$lib/bucketUtils";
+  import { bucketsData, getStartAndEndOfBucket, ranges } from "$lib/bucketUtils";
   import HelpTooltip from "../../help-tooltip.svelte";
 
   interface Props {
     data: DashboardStats | null;
     queueId: string;
     range: StatsRange;
+    start: number;
+    end: number;
   }
 
-  let { data, queueId, range }: Props = $props();
+  let { data, queueId, range, start, end }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let chart = $state<Chart | null>(null);
   let eventsReadInBucket = $state<number>(0);
   let lastDataHash = $state<string>('');
 
-  let bucket = $derived(bucketsData[range]);
-  let {start, end} = $derived.by(() => {
-    const _ = data;
-    return getStartAndEndOfBucket(bucket)
-});
+  let rangeData = $derived(ranges[range].rolling ? ranges[range].rolling! : ranges[range]);
+  let bucket = $derived(bucketsData[rangeData.period]);
+
+  let lastBucket = $derived(bucket.prev(new Date(start), rangeData.count).valueOf());
 
   function createChartConfig(): ChartConfiguration<"line"> {
     return {
@@ -83,7 +84,8 @@
               callback: function(value) {
                 return new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
               }
-            }
+            },
+            offset: false,
           },
           y: {
             type: 'linear',

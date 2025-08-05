@@ -13,6 +13,8 @@ export interface Chart {
     queueId?: string;
     botId?: string;
     range?: StatsRange;
+    start?: number;
+    end?: number;
 }
 
 // Different type of tabs

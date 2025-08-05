@@ -4,29 +4,29 @@
   import type { DashboardStats, DashboardStatsValue, StatsRange } from '$lib/types';
   import  annotationPlugin  from 'chartjs-plugin-annotation';
   import HelpTooltip from '../../help-tooltip.svelte';
-  import { bucketsData, getStartAndEndOfBucket } from '$lib/bucketUtils';
+  import { bucketsData, getStartAndEndOfBucket, ranges } from '$lib/bucketUtils';
   import { Separator } from '../../ui/separator';
 
   interface Props {
     data: DashboardStats | null;
     queueId: string;
     range: StatsRange;
+    start: number;
+    end: number;
   }
 
-  let { data, queueId, range }: Props = $props();
-
+  let { data, queueId, range, start, end }: Props = $props();
+  console.log('RANGE', range);
   let canvas: HTMLCanvasElement;
   let chart = $state<Chart | null>(null);
   let lastRead = $derived(data?.queues?.read?.[queueId]?.last_read_event_timestamp || 0);
   let totalEvents = $state<number>(0);
   let eventsInBucket = $state<number>(0);
   let eventsLastBucket = $state<number>(0);
-  let bucket = $derived(bucketsData[range]);
-  let {start, end} = $derived.by(() => {
-    const _ = data;
-    return getStartAndEndOfBucket(bucket);
-  });
-  let lastBucket = $derived(bucket.prev(new Date(start)).valueOf());
+  let rangeData = $derived(ranges[range].rolling ? ranges[range].rolling! : ranges[range]);
+  let bucket = $derived(bucketsData[rangeData.period]);
+
+  let lastBucket = $derived(bucket.prev(new Date(start), rangeData.count).valueOf());
 
   // Chart configuration
   function createChartConfig(): ChartConfiguration<'line'> {

@@ -110,7 +110,7 @@
                     onclick={() => selectRange(range.value)}
                     class={cn(
                     "h-8 px-3 text-xs font-medium hover:bg-gray-700 hover:text-white",
-                    componentState.selectedRange === range.value 
+                    componentState.range === range.value 
                         ? "bg-gray-600 text-white" 
                         : "text-gray-300"
                     )}

@@ -8,25 +8,37 @@
   import GenericLineChart from "../charts/generic-line-chart.svelte";
   import type { Chart, ChartTab } from "./types";
   import { Skeleton } from "../../ui/skeleton";
-
+  import type { AppState } from "$lib/client/appstate.svelte";
+  import { getContext } from "svelte";
+  import { bucketsData, ranges } from "$lib/bucketUtils";
   const labelReplaceRegex = /queue:|system:/g;
+
+  let compState = getContext<AppState>('appState').timePickerState;
 
   interface Props {
     dashboardStats: DashboardStats | null;
     selectedLink: { sourceId: string; targetId: string } | null;
     visible: boolean;
-    range: StatsRange;
+
     onClose: () => void;
   }
 
-  let { dashboardStats, selectedLink, visible, range, onClose }: Props = $props();
+  let { dashboardStats, selectedLink, visible, onClose }: Props = $props();
 
 
   let tabs: ChartTab[] = $state([]);
   let selectedTab: ChartTab | null = $state(null);
 
+  let range = $derived(compState?.range);
   let lastSelectedLinkId = $state<string>('');
   let lastDashboardStatsId = $state<string>('');
+  let start = $derived(compState?.startTime);
+  let end = $derived.by(() => {
+    const _ = compState;
+    let rangeData = ranges[range].rolling ? ranges[range].rolling! : ranges[range];
+    let bucket = bucketsData[rangeData.period];
+    return bucket.next(new Date(start), rangeData.count).valueOf();
+  });
 
   // Need the following charts
   // 1. Events in Queue -> source is queue, target is bot
@@ -95,6 +107,8 @@
                 data: dashboardStats,
                 queueId,
                 range,
+                start,
+                end,
               },
               {
                 type: 'events-read',
@@ -188,11 +202,11 @@
   <div class="flex-1 bg-white rounded-lg p-4 shadow-sm border border-gray-200 overflow-hidden">
     <div class="h-full overflow-hidden">
       {#if chart.type === 'events-in-queue'}
-        <EventsInQueueChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} />
+        <EventsInQueueChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} start={start} end={end} />
       {:else if chart.type === 'queue-lag'}
         <QueueLagChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} />
       {:else if chart.type === 'events-read'}
-        <EventsReadChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} />
+        <EventsReadChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} start={start} end={end} />
       {:else if chart.type === 'execution-count' || chart.type === 'error-count' || chart.type === 'execution-time' || chart.type === 'events-written' || chart.type === 'write-lag'}
         <GenericLineChart data={chart.data as DashboardStatsValue[]} dataSetLabel={chart.dataSetLabel!} tooltipLabel={chart.tooltipLabel!} helpText={chart.helpText!} includeFullCount={chart.includeFullCount} includeCurrentValue={chart.includeCurrentValue} dataIsTimeBased={chart.dataIsTimeBased} />
       {/if}
