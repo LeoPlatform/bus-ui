@@ -11,6 +11,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "create-env-test-cup": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env test --bus cup",
@@ -24,7 +26,7 @@
     "create-env-prod-stream": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env prod --bus stream"
   },
   "devDependencies": {
-    "@auth/sveltekit": "^1.9.1",
+    "@auth/sveltekit": "^1.10.0",
     "@aws-sdk/credential-providers": "^3.787.0",
     "@aws-sdk/util-dynamodb": "^3.817.0",
     "@chromatic-com/storybook": "^3",

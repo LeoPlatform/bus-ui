@@ -274,9 +274,26 @@ export const bucketsData: BucketsData = {
   }
 };
 
-export function getStartAndEndOfBucket(bucket: BucketData, time?: number) {
-  const start = bucket.value(time ? new Date(time) : new Date());
-  const end = bucket.value(bucket.next(start));
+export function getStartAndEndOfBucket(bucket: BucketData, time?: number, count?:number) {
+  // If count is provided and greater than 1, we need to align to the appropriate boundaries
+  let start: Date;
+  if (count && count > 1) {
+    const inputTime = time !== undefined ? new Date(time) : new Date();
+    
+    // For hour bucket with count > 1, align to count-hour boundaries
+    if (bucket.period === 'hour' && count > 1) {
+      const utcDate = DateUtils.toUTC(inputTime);
+      const offset = (utcDate.getUTCHours() + count) % count;
+      const aligned = DateUtils.subtractHours(utcDate, offset);
+      start = DateUtils.startOfHour(aligned);
+    } else {
+      start = bucket.value(inputTime);
+    }
+  } else {
+    start = bucket.value(time !== undefined ? new Date(time) : new Date());
+  }
+  
+  const end = bucket.value(bucket.next(start, count || 1));
   return { start: start.valueOf(), end: end.valueOf() };
 }
 
