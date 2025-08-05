@@ -4,7 +4,7 @@
   import type { DashboardStats, DashboardStatsValue, StatsRange } from '$lib/types';
   import  annotationPlugin  from 'chartjs-plugin-annotation';
   import HelpTooltip from '../../help-tooltip.svelte';
-  import { bucketsData, getStartAndEndOfBucket, ranges } from '$lib/bucketUtils';
+  import { bucketsData, ranges } from '$lib/bucketUtils';
   import { Separator } from '../../ui/separator';
 
   interface Props {
@@ -16,7 +16,6 @@
   }
 
   let { data, queueId, range, start, end }: Props = $props();
-  console.log('RANGE', range);
   let canvas: HTMLCanvasElement;
   let chart = $state<Chart | null>(null);
   let lastRead = $derived(data?.queues?.read?.[queueId]?.last_read_event_timestamp || 0);

@@ -15,6 +15,7 @@ export interface Chart {
     range?: StatsRange;
     start?: number;
     end?: number;
+    checkPointValue?: number;
 }
 
 // Different type of tabs
