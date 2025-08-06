@@ -138,7 +138,7 @@ export class BotState {
       body: JSON.stringify({
         id,
         range: this.#timePickerState?.range || StatsRange.Minute15,
-        timestamp: Date.now(),
+        timestamp: this.#timePickerState?.endTime || Date.now(),
         // sourceId: sourceId
       })
     });

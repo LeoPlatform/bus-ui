@@ -207,12 +207,12 @@
   <div class="flex-1 bg-white rounded-lg p-4 shadow-sm border border-gray-200 overflow-hidden">
     <div class="h-full overflow-hidden">
       {#if chart.type === 'events-in-queue'}
-      <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} checkPointValue={chart.checkPointValue} range={range} start={start} end={end}/>
+      <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} checkPointValue={chart.checkPointValue} range={range} start={chart.start || end} end={chart.end || end}/>
         <!-- <EventsInQueueChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} start={start} end={end} /> -->
       {:else if chart.type === 'queue-lag'}
         <QueueLagChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} />
       {:else if chart.type === 'events-read'}
-        <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} range={chart.range!} start={start} end={end}/>
+        <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} range={chart.range || range} start={chart.start || start} end={chart.end || end}/>
         <!-- <EventsReadChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} start={start} end={end} /> -->
       {:else if chart.type === 'execution-count' || chart.type === 'error-count' || chart.type === 'execution-time' || chart.type === 'events-written' || chart.type === 'write-lag'}
         <GenericLineChart data={chart.data as DashboardStatsValue[]} dataSetLabel={chart.dataSetLabel!} tooltipLabel={chart.tooltipLabel!} helpText={chart.helpText!} includeFullCount={chart.includeFullCount} includeCurrentValue={chart.includeCurrentValue} dataIsTimeBased={chart.dataIsTimeBased} />

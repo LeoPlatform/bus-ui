@@ -191,19 +191,19 @@
   }
 
   function updateChart() {
-    if (!chart && !data) {
+    if (!chart || !data) {
       return;
     }
 
     
-    countInBucket = data!.reduce((acc, point) => {
+    countInBucket = data.reduce((acc, point) => {
       if(point.time >= start) {
         acc += (point.value || 0);
       }
       return acc;
     }, 0);
-    totalCount = data!.reduce((acc, point) => acc + point.value, 0);
-    countInLastBucket = data!.reduce((acc, point) => {
+    totalCount = data.reduce((acc, point) => acc + point.value, 0);
+    countInLastBucket = data.reduce((acc, point) => {
       if(point.time >= lastBucket && point.time < start) {
         acc += (point.value || 0);
       }
@@ -254,7 +254,10 @@
   // Watch for chart and data changes
   $effect(() => {
     if (chart && data) {
-      updateChart();
+      // Add a small delay to ensure the chart updates properly
+      setTimeout(() => {
+        updateChart();
+      }, 0);
     }
   });
 
