@@ -6,19 +6,26 @@
   import { onDestroy, onMount } from "svelte";
   import { Separator } from "../../ui/separator";
   import HelpTooltip from "../../help-tooltip.svelte";
+  import type { ChartOptions } from "../chart-details-pane/types";
+  import ChartOptionsMenu from "./chart-options.svelte";
+  import { createDataSet, type RegressionType } from "./regression";
 
 
     interface Props {
         data: DashboardStats | null;
         queueId: string;
+        chartOptions?: ChartOptions;
     }
 
-    let { data, queueId }: Props = $props();
+    let { data, queueId, chartOptions }: Props = $props();
 
     let canvas: HTMLCanvasElement;
     let chart = $state<Chart | null>(null);
     let currentSourceLag = $state<number>(0);
-    let currentQueueLag = $state<number>(0);
+    let currentQueueLag = $state<number>(0);    
+    let showLogarithmic = $state<boolean>(false);
+    let trendLineType = $state<RegressionType | undefined>('linear');
+    let bestFit = $state<boolean | undefined>(false);
 
     function createChartConfig(): ChartConfiguration<'line'> {
         return {
@@ -34,6 +41,7 @@
                         borderWidth: 2,
                         tension: 0.3,
                         pointStyle: false,
+                        xAxisID: 'x',
                     },
                     {
                         label: 'Queue Lag',
@@ -41,8 +49,9 @@
                         fill: false,
                         borderColor: '#ef4444',
                         borderWidth: 2,
-                        tension: 0.2,
+                        tension: 0.3,
                         pointStyle: false,
+                        xAxisID: 'x',
                     }
                 ]
             },
@@ -51,7 +60,7 @@
                 maintainAspectRatio: false,
                 interaction: {
                     intersect: false,
-                    mode: 'index'
+                    mode: 'nearest'
                 },
                 plugins: {
                     legend: {
@@ -76,6 +85,7 @@
                 },
                 scales: {
                     x: {
+                        bounds: 'data',
                         type: 'linear',
                         grid: {
                             color: 'rgba(0, 0, 0, 0.1)'
@@ -84,8 +94,10 @@
                             color: '#6b7280',
                             maxTicksLimit: 10,
                             callback: function(value) {
-                                return new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-                            }
+                                return new Date(value).toLocaleTimeString(undefined, { hourCycle: 'h23', hour: '2-digit', minute: '2-digit' });
+                            },
+                            minRotation: 50,
+                            maxRotation: 60,
                         }
                     },
                     y: {
@@ -143,6 +155,14 @@
         chart.data.labels = chartData.sourceLagData.map((d: DashboardStatsValue) => d.time);
         chart.data.datasets[0].data = chartData.sourceLagData.map((d: DashboardStatsValue) => d.value || 0);
         chart.data.datasets[1].data = chartData.queueLagData.map((d: DashboardStatsValue) => d.value || 0);
+        chart.options!.scales!.y!.type = showLogarithmic ? 'logarithmic' : 'linear';
+        chart.data.datasets[2] = createDataSet({
+            type: trendLineType,
+            data: chartData.sourceLagData,
+            bestFit: bestFit,
+            offset: -10,
+            label: chartOptions?.trendLineLabel,
+        })
         chart.update('active');
     }
 
@@ -165,7 +185,16 @@
 </script>
 
 <div class="flex flex-col h-full">
-    <h2 class="text-xl font-semibold text-gray-700 mb-2">Queue and Source Lag</h2>
+    <div class="flex flex-row justify-between">
+        <h2 class="text-xl font-semibold text-gray-700 mb-2">Queue and Source Lag</h2>
+        <!-- <div class="flex flex-row items-center gap-2">
+            <Label for="logarithmic-switch">Log Scaling</Label>
+            <Switch id="logarithmic-switch" bind:checked={showLogarithmic} on:change={updateChart} />
+        </div> -->
+        {#if chartOptions}
+            <ChartOptionsMenu chartOptions={chartOptions} bind:logSwitch={showLogarithmic} bind:regressionType={trendLineType} bind:bestFit={bestFit}/>
+        {/if}
+    </div>
     <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
         <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
             <div class="flex flex-col gap-2 justify-between h-full">

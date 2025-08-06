@@ -7,7 +7,10 @@
   import { onDestroy, onMount } from "svelte";
   import HelpTooltip from "../../help-tooltip.svelte";
   import { Separator } from "../../ui/separator";
-  import { humanize } from "$lib/utils";
+  import { Label } from "../../ui/label";
+  import { Switch } from "../../ui/switch";
+  import type { ChartOptions } from "../chart-details-pane/types";
+  import ChartOptionsMenu from "./chart-options.svelte";
 
   interface Props {
     data: DashboardStatsValue[] | null;
@@ -16,9 +19,10 @@
     start: number;
     end: number;
     checkPointValue?: number;
+    chartOptions?: ChartOptions;
   }
 
-  let { data, range, start, end, chartLabel, checkPointValue }: Props = $props();
+  let { data, range, start, end, chartLabel, checkPointValue, chartOptions }: Props = $props();
   let canvas: HTMLCanvasElement;
   let chart = $state<Chart | null>(null);
 
@@ -46,7 +50,7 @@
                   hour: "2-digit",
                   minute: "2-digit",
                 }));
-
+  let showLogarithmic = $state<boolean>(false);
 
   // Chart configuration
   function createChartConfig(): ChartConfiguration<"line"> {
@@ -136,23 +140,27 @@
         },
         scales: {
           x: {
+            bounds: 'data',
             type: "linear",
-            grid: {
-              color: "rgba(0, 0, 0, 0.1)",
-            },
+            // grid: {
+            //   color: "rgba(0, 0, 0, 0.1)",
+            // },
             ticks: {
               color: "#6b7280",
-              maxTicksLimit: 10,
+              maxTicksLimit: 7,
               callback: function (value) {
                 return new Date(value).toLocaleTimeString(undefined, {
+                  hourCycle: "h23",
                   hour: "2-digit",
                   minute: "2-digit",
                 });
               },
+              minRotation: 50,
+              maxRotation: 60,
             },
           },
           y: {
-            beginAtZero: true,
+            type: 'linear',
             grid: {
               color: "rgba(0, 0, 0, 0.1)",
             },
@@ -162,11 +170,6 @@
                 return value.toLocaleString();
               },
             },
-          },
-        },
-        elements: {
-          point: {
-            hoverRadius: 4,
           },
         },
       },
@@ -248,6 +251,7 @@
         
         
     }
+    chart.options!.scales!.y!.type = showLogarithmic ? 'logarithmic' : 'linear';
     chart.update('active');
   }
 
@@ -255,6 +259,16 @@
   $effect(() => {
     if (chart && data) {
       // Add a small delay to ensure the chart updates properly
+      setTimeout(() => {
+        updateChart();
+      }, 0);
+    }
+  });
+
+  // Watch for logarithmic scale changes
+  $effect(() => {
+    if (chart && data) {
+      const _showLogarithmic = showLogarithmic;
       setTimeout(() => {
         updateChart();
       }, 0);
@@ -286,7 +300,12 @@
 </script>
 
 <div class="flex flex-col h-full">
-    <h2 class="text-xl font-semibold text-gray-700 mb-2">{chartLabel}</h2>
+    <div class="flex flex-row justify-between">
+      <h2 class="text-xl font-semibold text-gray-700 mb-2">{chartLabel}</h2>
+      {#if chartOptions}
+        <ChartOptionsMenu chartOptions={chartOptions} bind:logSwitch={showLogarithmic} />
+      {/if}
+    </div>
     <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
      <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
        <div class="flex flex-col justify-between h-full">

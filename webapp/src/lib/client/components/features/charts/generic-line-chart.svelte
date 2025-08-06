@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { DashboardStatsValue } from "$lib/types";
   import type { Chart, ChartConfiguration } from "chart.js/auto";
+  // import chartTrendLine from 'chartjs-plugin-trendline';
   import { onDestroy, onMount } from "svelte";
   import HelpTooltip from "../../help-tooltip.svelte";
   import { Separator } from "../../ui/separator";
   import { humanize } from "$lib/utils";
+  import type { ChartOptions } from "../chart-details-pane/types";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -14,15 +16,18 @@
     dataIsTimeBased?: boolean;
     includeFullCount?: boolean;
     includeCurrentValue?: boolean;
+    chartOptions?: ChartOptions;
   }
 
-  let { data, dataSetLabel, tooltipLabel, helpText, dataIsTimeBased = false, includeFullCount = false, includeCurrentValue = false }: Props = $props();
+  let { data, dataSetLabel, tooltipLabel, helpText, dataIsTimeBased = false, includeFullCount = false, includeCurrentValue = false, chartOptions }: Props = $props();
 
   let canvas: HTMLCanvasElement | null = $state(null);
   let chart = $state<Chart | null>(null);
 
     let fullCount: number | undefined = $state(undefined);
     let currentValue: number | undefined = $state(undefined);
+    let showTrendLine = $state(false);
+    let showLogarithmic = $state(false);
 
 
   function createChartConfig(): ChartConfiguration<"line"> {
@@ -77,6 +82,7 @@
         scales: {
           x: {
             type: "linear",
+            bounds: 'data',
             grid: {
               color: "rgba(0, 0, 0, 0.1)",
             },
@@ -110,12 +116,12 @@
   }
 
   async function initChart() {
+    if(!canvas) {
+        return;
+    }
     try {
         const { Chart } = await import('chart.js/auto');
-        if(!canvas) {
-            return;
-        }
-
+        // Chart.register(chartTrendLine);
         chart = new Chart(canvas, createChartConfig());
     } catch (error) {
         console.error('Error initializing chart:', error);

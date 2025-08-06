@@ -1,4 +1,5 @@
 import type { DashboardStats, DashboardStatsValue, StatsRange } from "$lib/types";
+import type { RegressionOptions } from "../charts/regression";
 
 export type ChartType = 'events-in-queue' | 'queue-lag' | 'events-read' | 'events-written' | 'execution-count' | 'error-count' | 'execution-time' | 'write-lag';
 export interface Chart {
@@ -16,6 +17,7 @@ export interface Chart {
     start?: number;
     end?: number;
     checkPointValue?: number;
+    chartOptions?: ChartOptions;
 }
 
 // Different type of tabs
@@ -27,4 +29,11 @@ export interface ChartTab {
     type: 'read' | 'write' | 'bot-details';
     label: string;
     charts: Chart[];
+}
+
+export interface ChartOptions {
+    logSwitchEnabled?: boolean;
+    trendLineEnabled?: boolean;
+    trendLineOptions?: Omit<RegressionOptions, 'data'>;
+    trendLineLabel?: string;
 }
