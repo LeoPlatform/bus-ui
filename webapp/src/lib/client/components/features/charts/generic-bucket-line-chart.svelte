@@ -38,6 +38,12 @@
     bucket.prev(new Date(start), rangeData.count).valueOf()
   );
 
+  let queueStartBucket = $derived( bucket.prev(new Date(lastBucket), rangeData.count).valueOf());
+  let humanQueueStart = $derived(new Date(queueStartBucket).toLocaleTimeString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }));
+
   let humanStart = $derived(new Date(start).toLocaleTimeString(undefined, {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -314,6 +320,9 @@
                <div class="text-lg text-blue-500 font-bold">{totalCount.toLocaleString()}</div>
                <HelpTooltip helpText="The total number of events in the queue for the time range displayed." help={true}/>
            </div>
+           <div class="flex items-center justify-center">
+              <div class="text-xs font-bold">{humanQueueStart}-{humanEnd}</div>
+            </div>
            <Separator/>
            <div class="flex items-center justify-center gap-2 h-full">
              <div class="text-lg text-[#F47D4A] font-bold">{countInLastBucket.toLocaleString()}</div>

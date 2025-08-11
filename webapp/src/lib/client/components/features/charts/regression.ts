@@ -20,8 +20,8 @@ export interface RegressionOptions {
 }
 
 
-function convertToRegressionValidData(data: DashboardStatsValue[]): [number, number][] {
-    return data.map((item) => [item.time, item.value]);
+function convertToRegressionValidData(data: DashboardStatsValue[]): {data: [number, number][], xVals: [number, number][]} {
+    return {data: data.map((item) => [item.time, item.value]), xVals: data.filter((item) => item.value == 0).map((item) => [item.time, item.value])};
 }
 
 export function createDataSet(opts: RegressionOptions): ChartDataset<"line"> {
@@ -37,7 +37,7 @@ export function createDataSet(opts: RegressionOptions): ChartDataset<"line"> {
         opts.data = opts.data.slice(opts.offset);
     }
 
-    const data = convertToRegressionValidData(opts.data);
+    const {data, xVals} = convertToRegressionValidData(opts.data);
 
 
     let reg: regression.Result;
@@ -65,10 +65,17 @@ export function createDataSet(opts: RegressionOptions): ChartDataset<"line"> {
                     break;
             }
     }
+    // Extend the regression line and predict what 0 values would be
+    const extendedData = xVals.map(([x, _]) => {
+        const point = reg!.predict(x);
+        return {x: point[0], y: point[1]};
+    });
+
+
     const regressionLine = reg!.points.map((item) => ({
         x: item[0], // Maps to time
         y: item[1],
-    })).sort((a, b) => a.x - b.x);
+    })).concat(extendedData).sort((a, b) => a.x - b.x);
     return {
         // labels: regressionLine.map((item) => item.x),
         data: regressionLine,

@@ -129,8 +129,8 @@
         const sourceLagData = dashboardStats.queues.read[queueId].source_lags.sort((a, b) => a.time - b.time);
         const queueLagData = dashboardStats.queues.read[queueId].queue_lags.sort((a, b) => a.time - b.time);
 
-        currentSourceLag = sourceLagData[sourceLagData.length - 1].value;
-        currentQueueLag = queueLagData[queueLagData.length - 1].value;
+        currentSourceLag = [...sourceLagData].reverse().find(d => d.value !== 0)?.value ?? 0;
+        currentQueueLag = [...queueLagData].reverse().find(d => d.value !== 0)?.value ?? 0;
         
         return { sourceLagData, queueLagData };
     }
@@ -219,14 +219,14 @@
         <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
             <div class="flex flex-col gap-2 justify-between h-full">
                 <div class="flex items-center justify-center gap-2 h-full">
-                    <div class="text-lg font-bold">Source Lag</div>
-                    <div class="text-lg text-blue-500 font-bold">{humanize(currentSourceLag)}</div>
+                    <div class="text-md font-bold">Source Lag</div>
+                    <div class="text-md text-blue-500 font-bold">{humanize(currentSourceLag)}</div>
                     <HelpTooltip helpText="The lag between the source and the queue." help={true}/>
                 </div>
                 <Separator/>
                 <div class="flex items-center justify-center gap-2 h-full">
-                    <div class="text-lg font-bold">Queue Lag</div>
-                    <div class="text-lg text-red-500 font-bold">{humanize(currentQueueLag)}</div>
+                    <div class="text-md font-bold">Queue Lag</div>
+                    <div class="text-md text-red-500 font-bold">{humanize(currentQueueLag)}</div>
                     <HelpTooltip helpText="The lag within the queue processing." help={true}/>
                 </div>
             </div>
