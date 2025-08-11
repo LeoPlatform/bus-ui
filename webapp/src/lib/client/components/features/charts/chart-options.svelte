@@ -14,8 +14,26 @@
     // lagEstimationType: 'linear' | 'exponential';
   }
 
-  let { chartOptions, logSwitch = $bindable(), regressionType = $bindable(), bestFit = $bindable(false) }: ChartOptionsProps = $props();
+  let { chartOptions, logSwitch = $bindable(), regressionType = $bindable(), bestFit = $bindable() }: ChartOptionsProps = $props();
 
+  function selectRegressionType(type: RegressionType) {
+    regressionType = type;
+    bestFit = false;
+  }
+
+  // Handle mutual exclusivity when bestFit changes
+  $effect(() => {
+    if (bestFit) {
+      regressionType = undefined;
+    }
+  });
+
+  // Handle mutual exclusivity when regressionType changes
+  $effect(() => {
+    if (regressionType !== undefined) {
+      bestFit = false;
+    }
+  });
 </script>
 
 <Menubar.Root>
@@ -37,17 +55,24 @@
         <Menubar.SubTrigger>Trend Line</Menubar.SubTrigger>
         <Menubar.SubContent>
             {#each regressionTypes as r}
-                <Menubar.CheckboxItem value={r} checked={r === regressionType && !bestFit} onclick={() => {regressionType = r; bestFit = false;}}>{r.charAt(0).toLocaleUpperCase() + r.slice(1)}</Menubar.CheckboxItem>
+                <Menubar.CheckboxItem 
+                  value={r} 
+                  checked={r === regressionType && !bestFit} 
+                  onclick={() => selectRegressionType(r)}
+                >
+                  {r.charAt(0).toLocaleUpperCase() + r.slice(1)}
+                </Menubar.CheckboxItem>
             {/each}
           <!-- <Menubar.CheckboxItem checked={chartOptions.trendLineOptions?.type === 'linear'}>Linear</Menubar.CheckboxItem>
           <Menubar.CheckboxItem checked={chartOptions.trendLineOptions?.type === 'exponential'}>Exponential</Menubar.CheckboxItem>
           <Menubar.CheckboxItem checked={chartOptions.trendLineOptions?.type === 'polynomial'}>Polynomial</Menubar.CheckboxItem>
           <Menubar.CheckboxItem checked={chartOptions.trendLineOptions?.type === 'power'}>Power</Menubar.CheckboxItem>
           <Menubar.CheckboxItem checked={chartOptions.trendLineOptions?.type === 'logarithmic'}>Logarithmic</Menubar.CheckboxItem> -->
-          <Menubar.CheckboxItem bind:checked={bestFit} onclick={() => {
-            regressionType = undefined;
-            bestFit = true;
-          }}>Best Fit</Menubar.CheckboxItem>
+          <Menubar.CheckboxItem 
+            bind:checked={bestFit}
+          >
+            Best Fit
+          </Menubar.CheckboxItem>
         </Menubar.SubContent>
       </Menubar.Sub>
         <!-- <Menubar.Item> -->

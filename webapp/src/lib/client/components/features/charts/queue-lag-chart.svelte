@@ -25,7 +25,9 @@
     let currentQueueLag = $state<number>(0);    
     let showLogarithmic = $state<boolean>(false);
     let trendLineType = $state<RegressionType | undefined>('linear');
-    let bestFit = $state<boolean | undefined>(false);
+    let bestFit = $state<boolean>(false);
+    
+
 
     function createChartConfig(): ChartConfiguration<'line'> {
         return {
@@ -156,13 +158,31 @@
         chart.data.datasets[0].data = chartData.sourceLagData.map((d: DashboardStatsValue) => d.value || 0);
         chart.data.datasets[1].data = chartData.queueLagData.map((d: DashboardStatsValue) => d.value || 0);
         chart.options!.scales!.y!.type = showLogarithmic ? 'logarithmic' : 'linear';
-        chart.data.datasets[2] = createDataSet({
-            type: trendLineType,
-            data: chartData.sourceLagData,
-            bestFit: bestFit,
-            offset: -10,
-            label: chartOptions?.trendLineLabel,
-        })
+
+        // Only create trend line if either trendLineType or bestFit is selected
+        if (trendLineType || bestFit) {
+            const datasetOptions: any = {
+                data: chartData.sourceLagData,
+                offset: -10,
+                label: chartOptions?.trendLineLabel,
+            };
+            
+            if (trendLineType) {
+                datasetOptions.type = trendLineType;
+            }
+            
+            if (bestFit === true) {
+                datasetOptions.bestFit = true;
+            }
+            
+
+            chart.data.datasets[2] = createDataSet(datasetOptions);
+        } else {
+            // Remove trend line dataset if neither is selected
+            if (chart.data.datasets.length > 2) {
+                chart.data.datasets = chart.data.datasets.slice(0, 2);
+            }
+        }
         chart.update('active');
     }
 

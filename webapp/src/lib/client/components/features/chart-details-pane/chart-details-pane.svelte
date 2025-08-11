@@ -74,6 +74,9 @@
               tooltipLabel: 'Executions',
               helpText: 'The total number of executions in the graph',
               includeFullCount: true,
+              chartOptions: {
+                logSwitchEnabled: true,
+              },
             },
             {
               type: 'error-count',
@@ -82,6 +85,9 @@
               tooltipLabel: 'Errors',
               helpText: 'The total number of errors in the graph',
               includeFullCount: true,
+              chartOptions: {
+                logSwitchEnabled: true,
+              },
             },
             {
               type: 'execution-time',
@@ -91,6 +97,9 @@
               helpText: 'The execution time of the last run',
               includeCurrentValue: true,
               dataIsTimeBased: true,
+              chartOptions: {
+                logSwitchEnabled: true,
+              },
             }
           ]
         });
@@ -123,6 +132,9 @@
                 range,
                 start,
                 end,
+                chartOptions: {
+                  logSwitchEnabled: true,
+                },
               }, {
                 type: 'queue-lag',
                 data: dashboardStats,
@@ -152,6 +164,9 @@
                 tooltipLabel: 'Events Written',
                 helpText: 'The total number of events written in the graph',
                 includeFullCount: true,
+                chartOptions: {
+                  logSwitchEnabled: true,
+                },
               },
               {
                 type: 'write-lag',
@@ -161,6 +176,11 @@
                 helpText: 'The current lag between when the last event was created and when it was written to the queue',
                 includeCurrentValue: true,
                 dataIsTimeBased: true,
+                chartOptions: {
+                  logSwitchEnabled: true,
+                  trendLineEnabled: true,
+                  trendLineLabel: 'Write Lag Trend',
+                },
               }
             ]
           });

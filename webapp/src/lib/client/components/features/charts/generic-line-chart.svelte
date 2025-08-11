@@ -7,6 +7,7 @@
   import { Separator } from "../../ui/separator";
   import { humanize } from "$lib/utils";
   import type { ChartOptions } from "../chart-details-pane/types";
+  import ChartOptionsMenu from "./chart-options.svelte";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -135,6 +136,8 @@
 
     chart.data.labels = data.map((d: DashboardStatsValue) => d.time);
     chart.data.datasets[0].data = data.map((d: DashboardStatsValue) => d.value || 0);
+    chart.options!.scales!.y!.type = showLogarithmic ? 'logarithmic' : 'linear';
+
     chart.update('active');
 
     if(includeFullCount) {
@@ -165,7 +168,12 @@
 </script>
 
 <div class="flex flex-col h-full">
-    <h2 class="text-xl font-semibold text-gray-700 mb-2">{dataSetLabel}</h2>
+    <div class="flex flex-row justify-between">
+      <h2 class="text-xl font-semibold text-gray-700 mb-2">{dataSetLabel}</h2>
+      {#if chartOptions}
+        <ChartOptionsMenu chartOptions={chartOptions} bind:logSwitch={showLogarithmic} />
+      {/if}
+    </div>
     <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
         {#if includeFullCount || includeCurrentValue}
             <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
