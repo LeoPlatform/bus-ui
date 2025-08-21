@@ -1,8 +1,10 @@
 import type { UserData } from "$lib/types";
 import { BotTableState } from "./components/features/bot-table/bot-table.state.svelte";
 import { BotState } from "./components/features/bot/bot.state.svelte";
+import { DashboardState } from "./components/features/dashboard/dashboard.state.svelte";
 import { SearchBarState } from "./components/features/search-bar/search-bar.state.svelte";
 import { TimePickerState } from "./components/features/time-picker/time-picker.state.svelte";
+import { browser } from '$app/environment';
 type GlobalFetch = typeof globalThis.fetch;
 
 export class AppState {
@@ -12,15 +14,21 @@ export class AppState {
     #userData: UserData;
     #timePickerState: TimePickerState | undefined;
     #searchBarState: SearchBarState | undefined;
+    #isLocal: boolean;
+    #dashboardState: DashboardState | undefined;
 
     constructor(fetch: GlobalFetch, userData: UserData) {
         this.#fetch = fetch;
         this.#userData = userData;
-
+        this.#isLocal = browser && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'));
     }
    
     get userData() {
         return this.#userData;
+    }
+
+    get isLocal() {
+        return this.#isLocal;
     }
 
     get botState() {
@@ -53,13 +61,25 @@ export class AppState {
         return this.#searchBarState;
     }
 
+    get dashboardState() {
+        if(!this.#dashboardState) {
+            this.#dashboardState = new DashboardState(this.#fetch);
+            this.#dashboardState.setTimePickerState(this.timePickerState);
+        }
+        return this.#dashboardState;
+    }
+
     navigateToRelationshipView(id: string) {
         console.log('going to workflow', id);
-        window.location.href = `/workflows/${id}`;
+        if (browser) {
+            window.location.href = `/workflows/${id}`;
+        }
     }
 
     navigateToDashboardView(id: string) {
         console.log('going to dashboard', id);
-        window.location.href = `/dashboard/${id}`;
+        if (browser) {
+            window.location.href = `/dashboard/${id}`;
+        }
     }
 }

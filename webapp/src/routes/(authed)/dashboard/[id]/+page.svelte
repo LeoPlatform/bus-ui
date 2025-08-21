@@ -1,8 +1,18 @@
 <script lang="ts">
-  import UnderConstruction from '$lib/client/components/under-construction.svelte';
-    import type { PageData } from './$types';
+  import type { AppState } from "$lib/client/appstate.svelte";
+  import Dashboard from "$lib/client/components/features/dashboard/dashboard.svelte";
+  import UnderConstruction from "$lib/client/components/under-construction.svelte";
+  import { getContext } from "svelte";
 
-    let { data }: { data: PageData } = $props();
+  let { data }: { data: { id: string } } = $props();
+
+  const appState = getContext<AppState>("appState");
 </script>
 
-<UnderConstruction title="Dashboard" />
+{#if appState.isLocal}
+  <div class="flex flex-col h-full">
+    <Dashboard id={data.id} />
+  </div>
+{:else}
+  <UnderConstruction title="Dashboard" />
+{/if}
