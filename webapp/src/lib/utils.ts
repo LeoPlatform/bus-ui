@@ -3,6 +3,8 @@ import { twMerge } from "tailwind-merge";
 import { NodeType } from "./types";
 import type { SearchItem } from "./client/components/features/search-bar/types";
 
+
+export const queueSystemReplaceRegex = /queue:|system:/g;
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
@@ -45,6 +47,9 @@ export function getNodeTypeLink(nodeType: NodeType): string {
 			return '/queue.png';
 		case NodeType.System:
 			return '/system.png';
+		default:
+			console.warn('Unknown node type:', nodeType);
+			return '/bot.png'; // fallback to bot icon
     }
 }
 
@@ -56,5 +61,7 @@ export function getLogicalId(item: SearchItem): string {
 			return item.type + ':' + item.id;
 		case 'system':
 			return item.type + ':' + item.id;
+		default:
+			return item.id; // fallback to just the id
 	}
 }

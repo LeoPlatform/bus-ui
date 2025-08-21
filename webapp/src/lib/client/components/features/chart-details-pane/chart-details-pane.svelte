@@ -12,7 +12,7 @@
   import { getContext } from "svelte";
   import { bucketsData, ranges } from "$lib/bucketUtils";
   import GenericBucketLineChart from "../charts/generic-bucket-line-chart.svelte";
-  const labelReplaceRegex = /queue:|system:/g;
+  import { queueSystemReplaceRegex } from "$lib/utils";
 
   let compState = getContext<AppState>('appState').timePickerState;
 
@@ -110,7 +110,7 @@
         Object.keys(dashboardStats.queues.read).forEach(queueId => {
           tabs.push({
             type: 'read',
-            label: queueId.replaceAll(labelReplaceRegex, ""),
+            label: queueId.replaceAll(queueSystemReplaceRegex, ""),
             charts: [
               {
                 type: 'events-in-queue',
@@ -155,7 +155,7 @@
         Object.keys(dashboardStats.queues.write).forEach(queueId => {
           tabs.push({
             type: 'write',
-            label: queueId.replaceAll(labelReplaceRegex, ""),
+            label: queueId.replaceAll(queueSystemReplaceRegex, ""),
             charts: [
               {
                 type: 'events-written',

@@ -287,6 +287,10 @@ export interface DashboardStatsRequest {
   timestamp: number,
 }
 
+export interface GetSettingsRequest {
+  id: string,
+}
+
 export interface DashboardStatsValue {
   value: number,
   time: number,
@@ -362,6 +366,27 @@ export interface DashboardStatsCompare {
   duration: DashboardStatsCompareValue,
 }
 
+export interface DashboardQueueStatsCompare {
+  reads: DashboardStatsCompareValue,
+  writes: DashboardStatsCompareValue,
+  read_lag: DashboardStatsQueueLagCompare,
+  write_lag: DashboardStatsQueueLagCompare,
+}
+
+export interface DashboardQueueStats {
+  reads: DashboardStatsValue[],
+  writes: DashboardStatsValue[],
+  read_lag: DashboardStatsValue[],
+  write_lag: DashboardStatsValue[],
+  bots: DashboardStatsQueueReadWrite[],
+  compare: DashboardQueueStatsCompare,
+  max_read_checkpoint: string,
+  max_write_checkpoint: string,
+  start: number,
+  end: number,
+  buckets: number[],
+}
+
 export interface DashboardStats {
   executions: DashboardStatsValue[],
   errors: DashboardStatsValue[],
@@ -433,6 +458,7 @@ export interface QueueSettings {
   name?: string,
   paused?: boolean,
   timestamp?: number,
+  max_eid?: string,
 }
 
 export interface SystemSettings {

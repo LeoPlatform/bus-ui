@@ -1454,7 +1454,6 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       {selectedLink}
       visible={chartsVisible}
       onClose={closeCharts}
-      range={currentRange}
     />
   </div>
 </div>

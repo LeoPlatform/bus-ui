@@ -1,15 +1,17 @@
-import { LEO_CRON_TABLE, LEO_STATS_TABLE } from "$env/static/private";
+import { LEO_CRON_TABLE, LEO_EVENT_TABLE, LEO_STATS_TABLE } from "$env/static/private";
 import { createDynamoClient } from "$lib/server/aws_utils";
 import { getLeoCronTable } from "$lib/server/utils";
 import { botDetailLoading, botDetailError, botDetailStore } from "$lib/stores/botDetailStore";
 import { statsDetailLoading } from "$lib/stores/statsDetailStore";
-import type { AwsCreds, BotSettings, CheckpointType, DashboardStats, DashboardStatsRequest, MergedStatsRecord, StatsDynamoRecord, StatsQueryRequest, StatsRecord } from "$lib/types";
+import type { AwsCreds, BotSettings, CheckpointType, DashboardStats, DashboardStatsRequest, MergedStatsRecord, QueueSettings, StatsDynamoRecord, StatsQueryRequest, StatsRecord } from "$lib/types";
 import { DynamoDBClient, QueryCommand, ReturnConsumedCapacity, type QueryOutput } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, ScanCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { bucketsData, ranges } from "$lib/bucketUtils";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {  mergeStatsResults } from "$lib/stats/utils";
 import { approximateMissingLagValues, calculateReadQueueStats, generateQueueData, mergeDynamoRecordToDashboardStats } from "../dashboard/api-utils";
+import { queueSystemReplaceRegex } from "$lib/utils";
+import type { DashboardSettings } from "$lib/client/components/features/dashboard/types";
 
 
 
@@ -234,6 +236,16 @@ export async function getDashboardStats(creds: AwsCreds, params: DashboardStatsR
     return botDashboardStats;
 }
 
+export async function getSettings(creds: AwsCreds, id: string): Promise<DashboardSettings> {
+
+    if (id.startsWith('queue:') || id.startsWith('system:')) {
+        return await getQueueSettings(creds, id) as DashboardSettings;
+    }
+
+    return await getBotState(creds, id) as DashboardSettings;
+
+}
+
 
 export async function parallelQuery<T>(client: DynamoDBClient, queries: QueryCommand[], mergeFn: (res: QueryOutput) => T): Promise<T[]> {
     if (queries.length < 1) {
@@ -305,6 +317,22 @@ async function getBotState(creds: AwsCreds, id: string): Promise<BotSettings> {
     }
 
     return response.Item as BotSettings;
+}
+
+async function getQueueSettings(creds: AwsCreds, id: string): Promise<QueueSettings> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const command = new GetCommand({
+        TableName: LEO_EVENT_TABLE,
+        Key: { event: id.replace(queueSystemReplaceRegex, "") }
+    });
+    const response = await docClient.send(command);
+
+    if(!response.Item) {
+        throw new Error(`Queue ${id} not found in the event table`);
+    }
+
+    return response.Item as QueueSettings;
 }
 
 async function scan(client: DynamoDBDocumentClient, input: ScanCommandInput): Promise<ScanCommandOutput> {
