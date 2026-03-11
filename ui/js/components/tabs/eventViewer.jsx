@@ -421,7 +421,7 @@ class EventViewer extends React.Component {
 													// let [diffElementThingy, setDiffElementThingy] = useState(old_new && old_obj && new_obj ? getOldNewDiff(old_obj, new_obj) : '');
 													
 
-													detail = $('<div/>').text(JSON.stringify(detail, null, 4)).html()
+													detail = JSON.stringify(detail, null, 4)
 
 													var detailSearch = detail
 													var detailString = detail
@@ -452,7 +452,7 @@ class EventViewer extends React.Component {
 														:
 														<div key="index" className="current-payload">
 															<button type="button" id="copy-button" data-clipboard-target="#data-to-copy" className="copy-button theme-button">Copy to Clipboard</button>
-															<pre id="data-to-copy" className="user-selectable pre-wrap" dangerouslySetInnerHTML={{__html: detailString}}></pre>
+															<pre id="data-to-copy" className="user-selectable pre-wrap">{detailString}</pre>
 														</div>}
 													</div>)
 												}
