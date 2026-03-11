@@ -421,7 +421,7 @@ class EventViewer extends React.Component {
 													// let [diffElementThingy, setDiffElementThingy] = useState(old_new && old_obj && new_obj ? getOldNewDiff(old_obj, new_obj) : '');
 													
 
-													detail = $('<div/>').text(JSON.stringify(detail, null, 4)).html()
+													detail = JSON.stringify(detail, null, 4)
 
 													var detailSearch = detail
 													var detailString = detail
