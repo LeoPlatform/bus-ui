@@ -3,6 +3,9 @@
 	"version": "3.0.5",
 	"description": "",
 	"main": "app.js",
+	"engines": {
+		"node": ">=20"
+	},
 	"scripts": {
 		"start": "leo-cli test .",
 		"old_start": "leo-cli test .",
@@ -59,7 +62,7 @@
 			"parallelCompile": 10,
 			"3rdParty": true,
 			"excludeProfiles": true,
-			"runtime": "nodejs16.x"
+			"runtime": "nodejs20.x"
 		},
 		"console": {
 			"navigation": [
@@ -97,7 +100,6 @@
 		"material-ui": "^0.19.4",
 		"mobx": "^3.3.0",
 		"mobx-react": "^4.3.4",
-		"mocha": "^3.0.2",
 		"moment": "^2.13.0",
 		"moment-round": "^1.0.1",
 		"moment-timezone": "^0.5.13",
@@ -113,6 +115,7 @@
 		"uuid": "^2.0.3"
 	},
 	"devDependencies": {
-		"babel-preset-env": "^1.7.0"
+		"babel-preset-env": "^1.7.0",
+		"mocha": "^11.7.5"
 	}
 }
