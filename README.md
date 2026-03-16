@@ -2,6 +2,15 @@
 
 ## Link to the Bus: https://github.com/LeoPlatform/bus
 
+# Prerequisites
+
+- **Node.js 20+** (use `nvm use 20` if you have nvm)
+- **leo-cli 3.0.3-beta+** installed globally: `npm install -g leo-cli@3.0.3-beta`
+- The `--openssl-legacy-provider` flag is required for webpack/babel on Node 20:
+  ```
+  NODE_OPTIONS=--openssl-legacy-provider bus=TestCup npm start
+  ```
+
 # Run local
 
 ## Add a file test/process.js
