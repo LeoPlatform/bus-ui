@@ -18,7 +18,7 @@
 			],
 			"name": "Leo_Botmon_api_settings",
 			"handler": "handler",
-			"memory": 256,
+			"memory": 512,
 			"timeout": 10,
 			"env": {
 				"Resources": {
