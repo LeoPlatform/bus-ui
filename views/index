@@ -82,7 +82,7 @@
 	window.leoDocsLink = 'http://docs.leoplatform.io/docs/'
 	
 	window.leo = Object.assign(${leo}, window.leo);
-	window.leoAws = {cognitoId: leo.logins || leo.CognitoId, region: "${leo.Region}", cognito_region: '${leo.Region}'}
+	window.leoAws = {cognitoId: leo.logins || leo.CognitoId || (leo.cognito && leo.cognito.id), region: "${leo.Region}" || leo.region, cognito_region: '${leo.Region}' || leo.region}
 
 </script>
 <script src="https://d3js.org/d3.v3.min.js"></script>
