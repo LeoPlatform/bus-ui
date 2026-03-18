@@ -396,6 +396,7 @@ export interface DashboardStats {
   kinesis_number?: string,
   start: number,
   end: number,
+  currentBucketStart?: number,
   buckets: number[]
 }
 

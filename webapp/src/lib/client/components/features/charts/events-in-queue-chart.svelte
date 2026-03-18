@@ -8,17 +8,16 @@
   import { Separator } from '../../ui/separator';
 
   interface Props {
-    data: DashboardStats | null;
-    queueId: string;
+    values: DashboardStatsValue[];
+    lastRead: number;
     range: StatsRange;
     start: number;
     end: number;
   }
 
-  let { data, queueId, range, start, end }: Props = $props();
+  let { values, lastRead, range, start, end }: Props = $props();
   let canvas: HTMLCanvasElement;
   let chart = $state<Chart | null>(null);
-  let lastRead = $derived(data?.queues?.read?.[queueId]?.last_read_event_timestamp || 0);
   let totalEvents = $state<number>(0);
   let eventsInBucket = $state<number>(0);
   let eventsLastBucket = $state<number>(0);

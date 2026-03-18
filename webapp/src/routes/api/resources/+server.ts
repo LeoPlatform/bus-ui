@@ -6,7 +6,10 @@ import type { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import type { RequestHandler } from './$types';
 import * as async from 'async';
 import { parallelScan } from '$lib/server/services/dynamoService';
-import { LEO_CRON_TABLE, LEO_EVENT_TABLE, LEO_SYSTEM_TABLE } from '$env/static/private';
+import { env } from '$env/dynamic/private';
+const LEO_CRON_TABLE = () => env.LEO_CRON_TABLE ?? process.env.LEO_CRON_TABLE ?? '';
+const LEO_EVENT_TABLE = () => env.LEO_EVENT_TABLE ?? process.env.LEO_EVENT_TABLE ?? '';
+const LEO_SYSTEM_TABLE = () => env.LEO_SYSTEM_TABLE ?? process.env.LEO_SYSTEM_TABLE ?? '';
 import { json } from '@sveltejs/kit';
 import { promisify } from 'util';
 
@@ -47,9 +50,9 @@ async function getResources(creds: AwsCreds): Promise<SearchItem[]> {
 
       // Fix: Use spread operator to concatenate arrays
       const arr: SearchItem[] = [
-        ...(results.systems ?? []),
-        ...(results.queues ?? []),
-        ...(results.bots ?? [])
+        ...(Array.isArray(results.systems) ? results.systems : []),
+        ...(Array.isArray(results.queues) ? results.queues : []),
+        ...(Array.isArray(results.bots) ? results.bots : [])
       ];
 
       let newArr = arr.filter((res) => {
@@ -68,7 +71,7 @@ async function fetchSystemData(client: DynamoDBClient): Promise<SearchItem[]> {
   return parallelScan<SystemSettings>(
     client,
     {
-      tableName: LEO_SYSTEM_TABLE,
+      tableName: LEO_SYSTEM_TABLE(),
       returnConsumedCapacity: "TOTAL",
     },
     10
@@ -86,11 +89,11 @@ async function fetchBotData(client: DynamoDBClient): Promise<SearchItem[]> {
   return parallelScan<BotSettings>(
       client,
       {
-        tableName: LEO_CRON_TABLE,
+        tableName: LEO_CRON_TABLE(),
         returnConsumedCapacity: "TOTAL",
       },
       100
-    ).then(data => data.map((val) => {
+    ).then(data => data.filter(val => !val.archived).map((val) => {
       let systems =  {
         id: val.id,
         name: val.name,
@@ -104,7 +107,7 @@ async function fetchQueueData(client: DynamoDBClient): Promise<SearchItem[]> {
   return parallelScan<QueueSettings>(
       client,
       {
-        tableName: LEO_EVENT_TABLE,
+        tableName: LEO_EVENT_TABLE(),
         returnConsumedCapacity: "TOTAL",
       },
       100

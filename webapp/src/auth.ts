@@ -1,22 +1,8 @@
 import { SvelteKitAuth } from "@auth/sveltekit";
 import Cognito from "@auth/sveltekit/providers/cognito";
 import Google from "@auth/sveltekit/providers/google";
-import {
-  AUTH_SECRET,
-  AWS_REGION,
-  AUTH_COGNITO_USER_POOL_ID,
-  AUTH_COGNITO_IDENTITY_POOL_ID,
-  AUTH_GOOGLE_ID,
-  AUTH_GOOGLE_SECRET,
-  AUTH_GITHUB_ID,
-  AUTH_GITHUB_SECRET,
-  LOCAL,
-  AWS_ACCESS_KEY_ID,
-  AWS_SECRET_ACCESS_KEY,
-  AWS_SESSION_TOKEN,
-  AUTH_CONFIG_SOURCE,
-  DEBUG_AUTH,
-} from "$env/static/private";
+// Use process.env so build succeeds without .env; set at runtime for auth to work.
+const e = () => process.env;
 import { fromCognitoIdentityPool } from "@aws-sdk/credential-providers";
 import { error } from "@sveltejs/kit";
 import type { OAuthConfig, OAuthUserConfig } from "@auth/sveltekit/providers";
@@ -97,11 +83,13 @@ import {
 
 async function initAuthConfig(): Promise<AuthConfig> {
   let config = loadAuthConfigFromEnv();
+  const AUTH_CONFIG_SOURCE = process.env.AUTH_CONFIG_SOURCE;
+  const LOCAL = process.env.LOCAL;
 
   try {
-      if (AUTH_CONFIG_SOURCE && !LOCAL) {
-        config = await loadAuthConfigFromExternalSource(AUTH_CONFIG_SOURCE);
-    } else {
+    if (AUTH_CONFIG_SOURCE && !LOCAL) {
+      config = await loadAuthConfigFromExternalSource(AUTH_CONFIG_SOURCE);
+    } else if (AUTH_CONFIG_SOURCE) {
       config = await loadAuthConfigFromLocal(AUTH_CONFIG_SOURCE);
     }
   } catch (error) {
@@ -130,7 +118,7 @@ async function getAwsCredentials(
     logins["accounts.google.com"] = idToken;
   } else if (provider === "cognito") {
     logins[
-      `cognito-idp.${AWS_REGION}.amazonaws.com/${AUTH_COGNITO_USER_POOL_ID}`
+      `cognito-idp.${e().AWS_REGION}.amazonaws.com/${e().AUTH_COGNITO_USER_POOL_ID}`
     ] = idToken;
   } else if (provider === "github") {
     console.warn(
@@ -143,8 +131,8 @@ async function getAwsCredentials(
   }
 
   const cognitoIdentityPool = fromCognitoIdentityPool({
-    clientConfig: { region: AWS_REGION },
-    identityPoolId: AUTH_COGNITO_IDENTITY_POOL_ID,
+    clientConfig: { region: e().AWS_REGION ?? 'us-east-1' },
+    identityPoolId: e().AUTH_COGNITO_IDENTITY_POOL_ID ?? '',
     logins,
   });
 
@@ -164,16 +152,16 @@ async function refreshAccessToken(refreshToken: string, provider: string) {
       case "google":
         url = "https://oauth2.googleapis.com/token";
         params = new URLSearchParams({
-          client_id: AUTH_GOOGLE_ID,
-          client_secret: AUTH_GOOGLE_SECRET,
+          client_id: e().AUTH_GOOGLE_ID ?? '',
+          client_secret: e().AUTH_GOOGLE_SECRET ?? '',
           refresh_token: refreshToken,
           grant_type: "refresh_token",
         });
         break;
       case "cognito":
-        url = `https://cognito-idp.${AWS_REGION}.amazonaws.com/${AUTH_COGNITO_USER_POOL_ID}/oauth2/token`;
+        url = `https://cognito-idp.${e().AWS_REGION}.amazonaws.com/${e().AUTH_COGNITO_USER_POOL_ID}/oauth2/token`;
         params = new URLSearchParams({
-          client_id: process.env.AUTH_COGNITO_CLIENT_ID || "",
+          client_id: e().AUTH_COGNITO_CLIENT_ID || "",
           grant_type: "refresh_token",
           refresh_token: refreshToken,
         });
@@ -181,8 +169,8 @@ async function refreshAccessToken(refreshToken: string, provider: string) {
       case "github":
         url = "https://github.com/login/oauth/access_token";
         params = new URLSearchParams({
-          client_id: AUTH_GITHUB_ID,
-          client_secret: AUTH_GITHUB_SECRET,
+          client_id: e().AUTH_GITHUB_ID ?? '',
+          client_secret: e().AUTH_GITHUB_SECRET ?? '',
           refresh_token: refreshToken,
           grant_type: "refresh_token",
         });
@@ -218,52 +206,28 @@ async function refreshAccessToken(refreshToken: string, provider: string) {
 
 export const { handle, signIn, signOut } = SvelteKitAuth({
   providers: activeProviders,
-  secret: AUTH_SECRET,
+  secret: e().AUTH_SECRET ?? '',
   trustHost: true,
-  debug: DEBUG_AUTH == "true",
+  debug: e().DEBUG_AUTH === "true",
   callbacks: {
     async session({ session, token }) {
       session.user && (session.user.sub = token.sub);
       session.access_token = token.access_token;
       session.id_token = token.id_token;
+      (session as { refresh_token?: string }).refresh_token = token.refresh_token;
+      (session as { expires_at?: number }).expires_at = token.expires_at;
+      (session as { provider?: string }).provider = token.provider;
 
-      // If we are local use our local credentials
-      if (LOCAL && AWS_SESSION_TOKEN) {
+      // AWS credentials are now provided on-demand via /api/aws-creds and getSession (Stage 2).
+      // For local dev with env creds, still attach so getSession can use them.
+      if (process.env.LOCAL && e().AWS_SESSION_TOKEN) {
         session.aws_credentials = {
-          accessKeyId: AWS_ACCESS_KEY_ID,
-          secretAccessKey: AWS_SECRET_ACCESS_KEY,
-          sessionToken: AWS_SESSION_TOKEN,
+          accessKeyId: e().AWS_ACCESS_KEY_ID ?? '',
+          secretAccessKey: e().AWS_SECRET_ACCESS_KEY ?? '',
+          sessionToken: e().AWS_SESSION_TOKEN ?? '',
           expiration: endOfToday(),
         };
-        // Get temp AWS credentials if we have the token from any provider
-      } else if (token.id_token) {
-        try {
-          //Ensure the provider is enabled
-          if (!authConfig.providers[token.provider as string]?.enabled) {
-            error(403, `Provider ${token.provider} is disabled`);
-          }
-
-          // Get temp AWS creds from the configured Identity Pool
-          const credentials = await getAwsCredentials(
-            token.id_token as string,
-            token.provider
-          );
-
-          if (credentials.sessionToken && credentials.expiration) {
-            session.aws_credentials = {
-              accessKeyId: credentials.accessKeyId,
-              secretAccessKey: credentials.secretAccessKey,
-              sessionToken: credentials.sessionToken,
-              expiration: credentials.expiration,
-            };
-          } else {
-            error(403, "Session tokens are missing from call to identity pool");
-          }
-        } catch (error) {
-          console.error("Error getting AWS credentials:", error);
-        }
       }
-
       return session;
     },
 

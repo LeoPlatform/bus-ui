@@ -54,6 +54,10 @@ export function getNodeTypeLink(nodeType: NodeType): string {
 }
 
 export function getLogicalId(item: SearchItem): string {
+	// If the ID already has a type prefix, return as-is
+	if (/^(bot|queue|system):/.test(item.id)) {
+		return item.id;
+	}
 	switch (item.type) {
 		case 'bot':
 			return item.id;
@@ -62,6 +66,6 @@ export function getLogicalId(item: SearchItem): string {
 		case 'system':
 			return item.type + ':' + item.id;
 		default:
-			return item.id; // fallback to just the id
+			return item.id;
 	}
 }

@@ -20,9 +20,13 @@
     end: number;
     checkPointValue?: number;
     chartOptions?: ChartOptions;
+    formatTotal?: (value: number) => string;
+    overrideTotal?: number;
+    overrideCountInLastBucket?: number;
+    overrideCountInBucket?: number;
   }
 
-  let { data, range, start, end, chartLabel, checkPointValue, chartOptions }: Props = $props();
+  let { data, range, start, end, chartLabel, checkPointValue, chartOptions, formatTotal, overrideTotal, overrideCountInLastBucket, overrideCountInBucket }: Props = $props();
   let canvas: HTMLCanvasElement;
   let chart = $state<Chart | null>(null);
 
@@ -149,10 +153,10 @@
             bounds: 'data',
             type: "linear",
             // grid: {
-            //   color: "rgba(0, 0, 0, 0.1)",
+            //   color: "rgba(128, 128, 128, 0.15)",
             // },
             ticks: {
-              color: "#6b7280",
+              color: "#888888",
               maxTicksLimit: 7,
               callback: function (value) {
                 return new Date(value).toLocaleTimeString(undefined, {
@@ -168,10 +172,10 @@
           y: {
             type: 'linear',
             grid: {
-              color: "rgba(0, 0, 0, 0.1)",
+              color: "rgba(128, 128, 128, 0.15)",
             },
             ticks: {
-              color: "#6b7280",
+              color: "#888888",
               callback: function (value) {
                 return value.toLocaleString();
               },
@@ -205,14 +209,14 @@
     }
 
     
-    countInBucket = data.reduce((acc, point) => {
+    countInBucket = overrideCountInBucket ?? data.reduce((acc, point) => {
       if(point.time >= start) {
         acc += (point.value || 0);
       }
       return acc;
     }, 0);
-    totalCount = data.reduce((acc, point) => acc + point.value, 0);
-    countInLastBucket = data.reduce((acc, point) => {
+    totalCount = overrideTotal ?? data.reduce((acc, point) => acc + point.value, 0);
+    countInLastBucket = overrideCountInLastBucket ?? data.reduce((acc, point) => {
       if(point.time >= lastBucket && point.time < start) {
         acc += (point.value || 0);
       }
@@ -307,38 +311,38 @@
 
 <div class="flex flex-col h-full">
     <div class="flex flex-row justify-between">
-      <h2 class="text-xl font-semibold text-gray-700 mb-2">{chartLabel}</h2>
+      <h2 class="text-xl font-semibold text-foreground mb-2">{chartLabel}</h2>
       {#if chartOptions}
         <ChartOptionsMenu chartOptions={chartOptions} bind:logSwitch={showLogarithmic} />
       {/if}
     </div>
-    <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
+    <div class="flex flex-row bg-muted/20 rounded-md w-full h-full overflow-hidden">
      <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
        <div class="flex flex-col justify-between h-full">
            <div class="flex items-center justify-center gap-2 h-full">
                <!-- <div class="text-lg font-bold">Total Events</div> -->
-               <div class="text-lg text-blue-500 font-bold">{totalCount.toLocaleString()}</div>
+               <div class="text-lg text-blue-500 font-bold">{formatTotal ? formatTotal(totalCount) : totalCount.toLocaleString()}</div>
                <HelpTooltip helpText="The total number of events in the queue for the time range displayed." help={true}/>
            </div>
            <div class="flex items-center justify-center">
-              <div class="text-xs font-bold">{humanQueueStart}-{humanEnd}</div>
+              <div class="text-[10px] text-muted-foreground font-medium">{humanQueueStart}-{humanEnd}</div>
             </div>
            <Separator/>
            <div class="flex items-center justify-center gap-2 h-full">
-             <div class="text-lg text-[#F47D4A] font-bold">{countInLastBucket.toLocaleString()}</div>
+             <div class="text-lg text-[#F47D4A] font-bold">{formatTotal ? formatTotal(countInLastBucket) : countInLastBucket.toLocaleString()}</div>
              <HelpTooltip helpText="The number of events in the last bucket." help={true}/>
            </div>
            <div class="flex items-center justify-center">
-                <div class="text-xs font-bold">{humanLastBucket}-{humanStart}</div>
+                <div class="text-[10px] text-muted-foreground font-medium">{humanLastBucket}-{humanStart}</div>
            </div>
            <Separator/>
            <div class="flex items-center justify-center gap-2 h-full">
                <!-- <div class="text-lg font-bold">Events In Last Bucket</div> -->
-               <div class="text-lg text-[#88a550] font-bold">{countInBucket.toLocaleString()}</div>
+               <div class="text-lg text-[#88a550] font-bold">{formatTotal ? formatTotal(countInBucket) : countInBucket.toLocaleString()}</div>
                <HelpTooltip helpText="The number of events in the current bucket." help={true}/>
            </div>
            <div class="flex items-center justify-center">
-                <div class="text-xs font-bold">{humanStart}-{humanEnd}</div>
+                <div class="text-[10px] text-muted-foreground font-medium">{humanStart}-{humanEnd}</div>
             </div>
        </div>
    </div>

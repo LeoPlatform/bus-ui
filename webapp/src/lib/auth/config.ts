@@ -6,7 +6,6 @@ import GitHub from '@auth/sveltekit/providers/github';
 import { z } from 'zod';
 import { dev } from '$app/environment';
 import { readFile } from 'fs/promises';
-import { AUTH_CONFIG_SOURCE } from '$env/static/private';
 
 // Define a schema for auth provider configuration
 export const AuthProviderConfigSchema = z.object({
@@ -105,9 +104,9 @@ export async function loadAuthConfigFromExternalSource(source: string | URL): Pr
   }
 }
 
-export async function loadAuthConfigFromLocal(source: string | URL): Promise<AuthConfig> {
+export async function loadAuthConfigFromLocal(source: string): Promise<AuthConfig> {
   try {
-    const data = await readFile(AUTH_CONFIG_SOURCE, 'utf-8');
+    const data = await readFile(source, 'utf-8');
     const obj = JSON.parse(data);
     return AuthConfigSchema.parse(obj);
   } catch (error) {

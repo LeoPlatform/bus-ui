@@ -66,6 +66,46 @@
   // Make range reactive to time picker state changes
   let currentRange = $derived(appState.timePickerState?.range || 'minute15');
 
+  function getCirclePath(r: number) {
+    return `M 0,${-r} A ${r},${r} 0 1,1 0,${r} A ${r},${r} 0 1,1 0,${-r}`;
+  }
+
+  function getTrianglePath(r: number) {
+    const x = r * Math.cos(Math.PI / 6);
+    const y = r * Math.sin(Math.PI / 6);
+    return `M 0,${-r} L ${x},${y} L ${-x},${y} Z`;
+  }
+
+  function getOctagonPath(r: number) {
+    let path = "";
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * 45 + 22.5) * Math.PI / 180;
+      const x = r * Math.cos(angle);
+      const y = r * Math.sin(angle);
+      path += (i === 0 ? "M" : "L") + ` ${x},${y}`;
+    }
+    return path + " Z";
+  }
+
+  function getNodeShapePath(status: string | undefined, r: number) {
+    if (status === 'danger') return getTrianglePath(r);
+    if (status === 'blocked' || status === 'rogue') return getOctagonPath(r);
+    return getCirclePath(r);
+  }
+
+  function getNodeStrokeColor(status: string | undefined) {
+    switch (status) {
+      case 'danger': return 'var(--status-danger)';
+      case 'error':
+      case 'blocked':
+      case 'rogue': return 'var(--status-error)';
+      case 'paused': return 'var(--status-paused)';
+      case 'archived': return 'var(--status-archived)';
+      case 'running':
+      default: return 'var(--status-normal)';
+    }
+  }
+
   let nodesNeedingFilters = $derived.by(() => {
     if (!relationShipTree) return new Set<string>();
     
@@ -825,13 +865,14 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         return;
       }
 
-      // Base circle for all nodes
+      // Base shape for all nodes based on status
+      const status = d.data.status;
       element
-        .append("circle")
-        .attr("class", "node-circle")
-        .attr("r", nodeWidth! / 2)
-        .style("fill", "#FFFF")
-        .style("stroke", strokeColor!)
+        .append("path")
+        .attr("class", "node-shape")
+        .attr("d", getNodeShapePath(status, nodeWidth! / 2))
+        .style("fill", "var(--color-background)")
+        .style("stroke", getNodeStrokeColor(status))
         .style("stroke-width", d.data.depth === 0 ? 8 : 2);
 
       
@@ -1214,6 +1255,34 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     // Update button states for all nodes (both new and existing)
     nodeUpdate.each(function (d) {
       const element = d3.select(this);
+      
+      // Update shape and color based on current status
+      const status = d.data.status;
+      element.select(".node-shape")
+        .attr("d", getNodeShapePath(status, nodeWidth! / 2))
+        .style("stroke", getNodeStrokeColor(status));
+
+      // Update bot image if needed
+      if (d.data.type === "bot") {
+        let botImg;
+        const botStatus = status || 'running';
+        
+        if (d.data.paused) {
+          botImg = "/bot-paused.png";
+        } else if (botStatus === 'rogue') {
+          botImg = "/bot-rogue.png";
+        } else if (botStatus === 'danger') {
+          botImg = "/bot-danger.png";
+        } else if (botStatus === 'blocked') {
+          botImg = "/bot-blocked.png";
+        } else if (botStatus === 'archived') {
+          botImg = "/bot-archived.png";
+        } else {
+          botImg = "/bot.png";
+        }
+        element.select(".node-image").attr("xlink:href", botImg);
+      }
+
       const originalData = findOriginalData(relationShipTree, d.data.id);
       const isRootNode = d.data.id === relationShipTree.id;
       

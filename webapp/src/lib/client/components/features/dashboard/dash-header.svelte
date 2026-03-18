@@ -67,18 +67,18 @@
 </script>
 
 
-<div class="flex flex-row overflow-hidden w-full">
-    <img src={getNodeTypeLink(type)} alt={type} class="w-17 h-17" />
-    <div class="flex flex-col no-wrap overflow-hidden">
-        <div class="flex flex-row gap-2">
-            <div class="text-2xl font-bold">
+<div class="flex flex-row overflow-hidden w-full items-start">
+    <img src={getNodeTypeLink(type)} alt={type} class="w-16 h-16 object-contain mr-4" />
+    <div class="flex flex-col no-wrap overflow-hidden gap-1">
+        <div class="flex flex-row gap-2 items-center">
+            <div class="text-2xl font-bold text-foreground">
                 {name}
             </div>
             <Tooltip.Provider >
                 <Tooltip.Root>
                     <Tooltip.Trigger>
                         
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" class="h-8 w-8">
                             <ListTree class="size-5" />
                         </Button>
                         
@@ -93,8 +93,8 @@
             <Tooltip.Provider>
                 <Tooltip.Root>
                     <Tooltip.Trigger>
-                        <a href={awsUrl} target="_blank" aria-label="View in AWS Lambda">
-                            <img src={'/aws/lambda.png'} class="w-6 h-6" alt="AWS Lambda" />
+                        <a href={awsUrl} target="_blank" aria-label="View in AWS Lambda" class="flex items-center justify-center h-8 w-8 hover:bg-accent rounded-md">
+                            <img src={'/aws/lambda.png'} class="w-6 h-6 object-contain" alt="AWS Lambda" />
                         </a>
                     </Tooltip.Trigger>
                     <Tooltip.Content>
@@ -107,8 +107,8 @@
             <Tooltip.Provider>
                 <Tooltip.Root>
                     <Tooltip.Trigger>
-                        <a href={repoUrl} target="_blank" aria-label="View in Repo">
-                            <img src={repoImagePath} class="w-6 h-6" alt="Repo" />
+                        <a href={repoUrl} target="_blank" aria-label="View in Repo" class="flex items-center justify-center h-8 w-8 hover:bg-accent rounded-md">
+                            <img src={repoImagePath} class="w-6 h-6 object-contain dark:invert" alt="Repo" />
                         </a>
                     </Tooltip.Trigger>
                     <Tooltip.Content>
@@ -119,19 +119,19 @@
             {/if}
         </div>
 
-        <div class="flex flex-row gap-2">
-            <Label class="text-gray-500"> ID </Label>
-            <div class="text-gray-800">
+        <div class="flex flex-row gap-2 items-center">
+            <Label class="text-muted-foreground text-xs uppercase tracking-wider font-semibold">ID</Label>
+            <div class="text-muted-foreground text-sm font-mono">
                 {getLogicalId({id, type})}
             </div>
         </div>
 
         {#if tags && Object.keys(tags).length > 0}
-            <div class="flex flex-row gap-2">
+            <div class="flex flex-row gap-2 mt-1 flex-wrap">
                 {#each Object.entries(tags) as [key, value]}
                     {#if key !== 'repo'}
-                        <Badge variant="secondary" class="bg-lime-600 text-white">
-                            <Tag />
+                        <Badge variant="secondary" class="bg-lime-600/20 text-lime-600 dark:bg-lime-500/20 dark:text-lime-400 hover:bg-lime-600/30 border-0">
+                            <Tag class="w-3 h-3 mr-1" />
                             {key}: {value}
                         </Badge>
                     {/if}
@@ -142,9 +142,11 @@
 
     </div>
     <div class="grow shrink-0"></div>
-    <div class="flex flex-row gap-2 p-2">
-        <CheckpointActionBar currentCheckpoint={currentCheckpoint} isPaused={isPaused} />
-    </div>
+    {#if type === NodeType.Bot}
+        <div class="flex flex-row gap-2 p-2">
+            <CheckpointActionBar currentCheckpoint={currentCheckpoint} isPaused={isPaused} />
+        </div>
+    {/if}
 </div>
 
 <!-- <div class="flex flex-col"> 

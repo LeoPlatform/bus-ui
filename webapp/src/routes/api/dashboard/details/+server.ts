@@ -1,4 +1,4 @@
-import { getDashboardStats } from '$lib/server/services/dynamoService';
+import { getDashboardStats, getQueueDashboardStats } from '$lib/server/services/dynamoService';
 import { getSession } from '$lib/server/utils';
 import type { DashboardStatsApiResponse, DashboardStatsRequest } from '$lib/types';
 import { json } from '@sveltejs/kit';
@@ -12,6 +12,10 @@ export const POST: RequestHandler = async ({locals, request}) => {
     }
 
     const requestBody: DashboardStatsRequest = await request.json();
+
+    if (requestBody.id.startsWith('queue:') || requestBody.id.startsWith('system:')) {
+        return json({ dashStats: await getQueueDashboardStats(session.aws_credentials!, requestBody) });
+    }
 
     return json({dashStats: await getDashboardStats(session.aws_credentials!, requestBody)} as DashboardStatsApiResponse);
 };

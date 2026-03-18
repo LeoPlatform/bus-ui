@@ -3,9 +3,12 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {
-		// 	user: import('$lib/types').User
-		// }
+		interface Locals {
+			/** Set by hooks after AuthProvider flow (Stage 2). Until then, auth uses @auth/sveltekit and session. */
+			user?: import('$lib/server/auth/types.js').BusUser;
+			/** Set by hooks when AuthProvider is loaded (Stage 2). */
+			authProvider?: import('$lib/server/auth/types.js').AuthProvider;
+		}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}

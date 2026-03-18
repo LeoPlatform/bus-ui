@@ -36,6 +36,7 @@ export function mergeDynamoRecordToDashboardStats(items: StatsDynamoRecord[], pa
         kinesis_number: "",
         start: startTime.valueOf(),
         end: endTime.valueOf(),
+        currentBucketStart: currentBucketTimestamp,
         buckets: buckets,
     }
 
@@ -255,7 +256,13 @@ export function calculateReadQueueStats(readQueueStats: QueryOutput, dashStats: 
     readQueueItems.map(stat => {
         let time = stat.time || new Date(stat.bucket!.replace(/^.*_/, "")).valueOf();
         let index = params.bucketArrayIndex[time];
-        let queue = dashStats.queues.read![stat.id];
+        // stat.id from the stats table is prefixed (e.g. "queue:mongo-common"),
+        // but dashStats.queues.read keys are unprefixed (from checkpoint records).
+        // Try both forms for lookup.
+        let rawId = stat.id.replace(/^(queue|system):/, '');
+        let queue = dashStats.queues.read![stat.id] || dashStats.queues.read![rawId];
+
+        if (!queue) return; // Queue not in dashboard stats — skip
 
         Object.keys(stat.current?.write || {}).map(key => {
             let link = stat.current?.write![key]!;

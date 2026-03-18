@@ -60,38 +60,35 @@
 
     <div class="flex flex-col w-full">
         <!-- Header Bar -->
-        <div class="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-200 shadow-sm">
+        <div class="flex items-center justify-between bg-muted/50 p-2 rounded-lg border shadow-sm">
             <!-- Left Side - Pause/Play Button -->
             <div class="flex items-center space-x-3 gap-2">
                 <Button 
                     variant="default" 
                     size="sm" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white p-2 h-10 w-10"
+                    class="bg-blue-600 hover:bg-blue-700 text-white p-2 h-9 w-9"
                     onclick={handleTogglePause}
                 >
                     {#if isPaused}
-                        <Play class="h-5 w-5" />
+                        <Play class="h-4 w-4" />
                     {:else}
-                        <Pause class="h-5 w-5" />
+                        <Pause class="h-4 w-4" />
                     {/if}
                 </Button>
                 
                 <!-- Lightning Bolt Icon -->
-                <Zap class="h-5 w-5 text-blue-600 fill-blue-600" />
+                <Zap class="h-4 w-4 text-blue-600 fill-blue-600" />
                 
                 <!-- Checkpoint ID -->
                 {#if currentCheckpoint}
-                    <CopyButton>{currentCheckpoint}</CopyButton>
-                    <!-- <Badge variant="outline" class="bg-white text-blue-800 border-blue-300 font-mono text-sm px-3 py-1">
-                        {currentCheckpoint}
-                    </Badge> -->
+                    <CopyButton truncate={true} maxLength={50}>{currentCheckpoint}</CopyButton>
                 {:else}
-                    <Badge variant="outline" class="bg-white text-blue-800 border-blue-300 font-mono text-sm px-3 py-1">
+                    <Badge variant="outline" class="bg-background text-muted-foreground border-border font-mono text-sm px-3 py-1">
                         No checkpoint available
                     </Badge>
                 {/if}
             </div>
-            <Menubar.Root class="bg-gray-100">
+            <Menubar.Root class="bg-transparent border-0">
                 <Menubar.Menu>
                     <Menubar.Trigger><SlidersHorizontal class="w-4 h-4" /></Menubar.Trigger>
                     <Menubar.Content align="end">

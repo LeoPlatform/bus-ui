@@ -27,7 +27,7 @@
 
   let appState = getContext<AppState>('appState');
 
-  let data: BotSettings[] = appState.botState.botSettings;
+  let data: BotSettings[] = $derived(appState.botState.botSettings.filter(bot => !bot.archived));
 
   let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 30 });
   let sorting = $state<SortingState>([]);

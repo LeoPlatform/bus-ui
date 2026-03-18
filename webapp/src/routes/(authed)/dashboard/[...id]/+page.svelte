@@ -9,10 +9,6 @@
   const appState = getContext<AppState>("appState");
 </script>
 
-{#if appState.isLocal}
-  <div class="flex flex-col h-full">
-    <Dashboard id={data.id} />
-  </div>
-{:else}
-  <UnderConstruction title="Dashboard" />
-{/if}
+<div class="flex flex-col h-full">
+  <Dashboard id={data.id} />
+</div>

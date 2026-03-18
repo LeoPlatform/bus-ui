@@ -8,9 +8,12 @@ export class DashboardState {
     #fetch: GlobalFetch;
     #dashType: NodeType = $state(NodeType.Bot);
     #settings: DashboardSettings | undefined = $state(undefined);
+    #stats: any | undefined = $state(undefined);
+    #range: string = $state('minute_15');
     #timePickerState: TimePickerState | null = null;
     #id: string = $state('');
     #isPaused: boolean | undefined = $derived(this.#settings?.paused);
+    #loading: boolean = $state(false);
 
     constructor(fetch: GlobalFetch) {
         this.#fetch = fetch;
@@ -18,6 +21,19 @@ export class DashboardState {
 
     get settings() {
         return this.#settings;
+    }
+
+    get stats() {
+        return this.#stats;
+    }
+
+    get range() {
+        return this.#range;
+    }
+
+    set range(r: string) {
+        this.#range = r;
+        this.getDashStats();
     }
 
     get dashType() {
@@ -34,16 +50,25 @@ export class DashboardState {
 
     set id(id: string) {
         this.#id = id;
-        // Clear settings when ID changes to prevent stale data
+        // Clear stale data when ID changes
         this.#settings = undefined;
+        this.#stats = undefined;
+        this.#loading = true;
     }
 
     get isPaused() {
         return this.#isPaused;
     }
 
+    get loading() {
+        return this.#loading;
+    }
+
     setTimePickerState(timePickerState: TimePickerState) {
         this.#timePickerState = timePickerState;
+        this.#timePickerState.setOnTimeRangeChangeCallback((state) => {
+            this.range = state.range;
+        });
     }
 
     async getSettings() {
@@ -52,9 +77,9 @@ export class DashboardState {
         }
 
         const id = this.#id;
-        
-        try {
+        this.#loading = true;
 
+        try {
             const res = await this.#fetch("/api/dashboard/settings", {
                 method: "POST",
                 headers: {
@@ -69,7 +94,7 @@ export class DashboardState {
             }
 
             const data = await res.json();
-            
+
             // The API returns {settings: ...} so we need to extract the settings
             if (data && typeof data === 'object' && 'settings' in data) {
                 this.#settings = data.settings;
@@ -79,6 +104,8 @@ export class DashboardState {
             }
         } catch (error) {
             throw error;
+        } finally {
+            this.#loading = false;
         }
     }
 
@@ -86,8 +113,40 @@ export class DashboardState {
         if(!this.#id) {
             throw new Error('No ID set');
         }
-        
-        // TODO: Implement dashboard stats fetching
+
+        this.#loading = true;
+
+        try {
+            const timestamp = this.#timePickerState?.endTime ?? Date.now();
+
+            const res = await this.#fetch(`/api/dashboard/details`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: this.#id,
+                    range: this.#range,
+                    timestamp
+                })
+            });
+
+            if(!res.ok) {
+                console.error(`Failed to get stats for ${this.#id}: ${res.status} ${res.statusText}`);
+                return;
+            }
+
+            const data = await res.json();
+            if (data && data.dashStats) {
+                this.#stats = data.dashStats;
+            } else {
+                this.#stats = data;
+            }
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+        } finally {
+            this.#loading = false;
+        }
     }
 
     async togglePause() {

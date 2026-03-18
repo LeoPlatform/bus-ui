@@ -5,12 +5,21 @@
 
     type CopyButtonProps = {
         children?: Snippet<[]>;
+        truncate?: boolean;
+        maxLength?: number;
     }
 
-    let {children}: CopyButtonProps = $props();
+    let {children, truncate = false, maxLength = 30}: CopyButtonProps = $props();
 
     let hiddenRef: HTMLElement;
     let value: string | undefined = $state(undefined);
+    let displayValue: string | undefined = $derived.by(() => {
+        if (!value) return undefined;
+        if (truncate && value.length > maxLength) {
+            return value.substring(0, maxLength) + '...';
+        }
+        return value;
+    });
     let showCheckmark = $state(false);
 
     $effect(() => {
@@ -64,14 +73,14 @@
     bind:this={hiddenRef}
     style="display: none; position: absolute; left: -9999px;">{#if children}{@render children()}{/if}</pre>
 
-    <span class="inline-flex w-fit items-center">
-        <span>{value}</span>
+    <span class="inline-flex w-fit items-center gap-1">
+        <span class="text-sm font-mono text-muted-foreground" title={truncate ? value : undefined}>{displayValue}</span>
         <span class="w-6 h-6 flex items-center justify-center">
             {#if showCheckmark}
                 <Check class="w-3.5 h-3.5 text-green-500" />
             {:else}
                 <Button variant="ghost" class="h-full w-full min-h-0 p-0 rounded-none hover:bg-transparent" onclick={copy} disabled={!value}>
-                    <Copy class="w-3.5 h-3.5 text-gray-400" />
+                    <Copy class="w-3.5 h-3.5 text-gray-400 hover:text-foreground transition-colors" />
                 </Button>
             {/if}
         </span>

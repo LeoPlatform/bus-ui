@@ -12,14 +12,20 @@ export function getLeoCronTable(): string {
 }
 
 export async function getSession(locals: App.Locals) {
-    const session = await locals.auth();
-
-  if (!session?.user || !session.aws_credentials) {
-    // throw new Error('unauthorized');
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-    });
+  const user = locals.user;
+  const provider = locals.authProvider;
+  if (!user || !provider) {
+    console.error("getSession: missing user or provider", { hasUser: !!user, hasProvider: !!provider });
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
   }
-
-  return session;
+  let aws_credentials = (await locals.auth())?.aws_credentials;
+  if (!aws_credentials && provider.getAwsCredentials) {
+    const creds = await provider.getAwsCredentials(user);
+    if (creds) aws_credentials = creds;
+  }
+  if (!aws_credentials) {
+    console.error("getSession: missing aws_credentials");
+    return new Response(JSON.stringify({ error: 'no AWS credentials' }), { status: 401 });
+  }
+  return { user, aws_credentials };
 }

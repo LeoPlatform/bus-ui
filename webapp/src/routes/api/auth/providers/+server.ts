@@ -7,7 +7,7 @@ import {
   loadAuthConfigFromExternalSource,
   loadAuthConfigFromLocal,
 } from "$lib/auth/config";
-import { AUTH_CONFIG_SOURCE, LOCAL } from "$env/static/private";
+import { env } from "$env/dynamic/private";
 
 // Cache auth config to avoid redundant loading
 let cachedAuthConfig: AuthConfig | null = null;
@@ -22,19 +22,36 @@ async function getAuthConfig(): Promise<AuthConfig> {
     return cachedAuthConfig;
   }
 
+  const AUTH_CONFIG_SOURCE = env.AUTH_CONFIG_SOURCE;
+  const LOCAL = env.LOCAL;
+
   // Load auth config
   let config = loadAuthConfigFromEnv();
 
-  // Try to load from remote source if specified
+  // Try to load from remote source or local file if specified
   try {
     if (AUTH_CONFIG_SOURCE && !LOCAL) {
-        config = await loadAuthConfigFromExternalSource(AUTH_CONFIG_SOURCE);
-    } else {
+      config = await loadAuthConfigFromExternalSource(AUTH_CONFIG_SOURCE);
+    } else if (AUTH_CONFIG_SOURCE) {
       config = await loadAuthConfigFromLocal(AUTH_CONFIG_SOURCE);
     }
   } catch (error) {
     console.error("Failed to load auth config from source:", error);
     // Fall back to env config
+  }
+
+  // If LOCAL is true, ensure we have at least one provider so the UI doesn't get stuck
+  if (LOCAL === 'true') {
+    let hasEnabled = false;
+    for (const key in config.providers) {
+      if (config.providers[key].enabled) {
+        hasEnabled = true;
+        break;
+      }
+    }
+    if (!hasEnabled) {
+      config.providers['local'] = { enabled: true };
+    }
   }
 
   // Update cache

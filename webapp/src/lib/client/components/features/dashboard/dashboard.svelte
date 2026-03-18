@@ -1,12 +1,22 @@
 <script lang="ts">
-    import { getContext, onMount } from "svelte";
+    import { getContext } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
   import { NodeType } from "$lib/types";
   import { type DashboardTab, DashboardTabType, parseDashboardTags } from "./types";
   import DashHeader from "./dash-header.svelte";
+  import * as Tabs from "$lib/client/components/ui/tabs/index";
+  import BotDashboardTab from "./bot-dashboard-tab.svelte";
+  import BotSettingsTab from "./bot-settings-tab.svelte";
+  import QueueDashboardTab from "./queue-dashboard-tab.svelte";
+  import QueueEventsTab from "./queue-events-tab.svelte";
+  import QueueSchemaTab from "./queue-schema-tab.svelte";
+  import SystemSettingsTab from "./system-settings-tab.svelte";
+  import TimePicker from "../time-picker/time-picker.svelte";
+  import { Skeleton } from "$lib/client/components/ui/skeleton/index";
 
     const appState = getContext<AppState>("appState");
     const compState = appState.dashboardState;
+    compState.setTimePickerState(appState.timePickerState);
 
     type DashboardProps = {
         id: string;
@@ -14,11 +24,11 @@
 
     let {id}: DashboardProps = $props();
 
-    compState.id = id;
-
     let settings = $derived(compState.settings);
     let name = $derived(settings?.name);
-    
+
+    let dashType = $derived(compState.dashType);
+
     // Handle different dashboard types - only bots have checkpoints and tags
     let currentCheckpoint = $derived.by(() => {
         if (dashType === NodeType.Bot && settings?.checkpoints?.read) {
@@ -33,7 +43,7 @@
         }
         return undefined;
     });
-    
+
     // Only bots have lambda properties
     let lambdaName = $derived.by(() => {
         if (dashType === NodeType.Bot) {
@@ -41,7 +51,7 @@
         }
         return undefined;
     });
-    
+
     // Use default region for bots since it's not stored in settings
     let lambdaRegion = $derived.by(() => {
         if (dashType === NodeType.Bot) {
@@ -49,7 +59,7 @@
         }
         return undefined;
     });
-    
+
     // Only bots have tags
     let tags = $derived.by(() => {
         if (dashType === NodeType.Bot && settings?.tags) {
@@ -58,17 +68,6 @@
         return {};
     });
 
-    let dashTypeVal: NodeType = NodeType.Bot;
-
-    if (id.startsWith('queue:')) {
-        dashTypeVal = NodeType.Queue;
-    } else if (id.startsWith('system:')) {
-        dashTypeVal = NodeType.System;
-    }
-
-    compState.dashType = dashTypeVal;
-
-    let dashType = $derived(compState.dashType);
     let tabs = $derived(getTabs(dashType));
 
     function getTabs(dashType: NodeType): DashboardTab[] {
@@ -86,7 +85,7 @@
             ];
         case NodeType.System:
             return [
-                {label: DashboardTabType.Dashboard},
+                {label: DashboardTabType.Settings},
             ];
         default:
             return [
@@ -95,48 +94,121 @@
        }
     }
 
-    onMount(async () => {
-        try {
-            await compState.getSettings();
-        } catch (error) {
-            console.error('Failed to load dashboard settings:', error);
-            // Error is now handled in the state class
+    // React to id changes — update dash type, set state, and re-fetch data
+    $effect(() => {
+        let dashTypeVal: NodeType = NodeType.Bot;
+        if (id.startsWith('queue:')) {
+            dashTypeVal = NodeType.Queue;
+        } else if (id.startsWith('system:')) {
+            dashTypeVal = NodeType.System;
         }
-    })
+        compState.dashType = dashTypeVal;
+        compState.id = id;
+
+        // Fetch settings and stats whenever the id changes
+        Promise.all([
+            compState.getSettings(),
+            compState.getDashStats()
+        ]).catch((error) => {
+            console.error('Failed to load dashboard data:', error);
+        });
+    });
 
 </script>
 
-<div class="flex flex-col h-full"> 
+<div class="flex flex-col h-full p-4 lg:p-6">
     <!-- Header Section -->
     <div class="flex flex-row justify-between items-center w-full"> 
         <DashHeader name={name || id} id={id} type={dashType} currentCheckpoint={currentCheckpoint} lambdaName={lambdaName} lambdaRegion={lambdaRegion} tags={tags} />
     </div>
     
-    <!-- Loading State -->
-    <!-- {#if isLoading}
-        <div class="flex items-center justify-center p-8">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            <span class="ml-2">Loading dashboard...</span>
-        </div>
-    {:else if error} -->
-        <!-- Error State -->
-        <!-- <div class="flex items-center justify-center p-8">
-            <div class="text-red-600 text-center">
-                <p class="font-semibold">Failed to load dashboard</p>
-                <p class="text-sm text-gray-600">{error}</p>
-                <button 
-                    class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    on:click={() => compState.getSettings()}
-                >
-                    Retry
-                </button>
+    {#if !compState.settings || !compState.stats}
+        <!-- Skeleton loading state -->
+        <div class="flex-1 mt-4 space-y-4">
+            <div class="flex gap-2">
+                <Skeleton class="h-9 w-24" />
+                <Skeleton class="h-9 w-24" />
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Skeleton class="h-48 rounded-lg" />
+                <Skeleton class="h-48 rounded-lg" />
+                <Skeleton class="h-48 rounded-lg" />
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <Skeleton class="h-64 rounded-lg" />
+                <Skeleton class="h-64 rounded-lg" />
             </div>
         </div>
-    {:else} -->
-        <!-- Body Section -->
-        <!-- <div class="flex-1 p-4"> -->
-            <!-- Dashboard content will go here -->
-            <!-- <p class="text-gray-500">Dashboard content coming soon...</p>
-        </div>
-    {/if} -->
+    {:else}
+    <div class="flex-1 mt-4 flex flex-col min-h-0">
+        <Tabs.Root value={tabs[0].label} class="w-full flex-1 flex flex-col min-h-0">
+            <div class="flex flex-row justify-between items-center mb-4">
+                <Tabs.List>
+                    {#each tabs as tab}
+                        <Tabs.Trigger value={tab.label}>{tab.label}</Tabs.Trigger>
+                    {/each}
+                </Tabs.List>
+                <div class="flex items-center">
+                    <TimePicker />
+                </div>
+            </div>
+            
+            <Tabs.Content value={DashboardTabType.Dashboard} class="flex-1 flex flex-col min-h-0">
+                <div class="mt-4 flex-1 flex flex-col min-h-0">
+                    {#if dashType === NodeType.Bot}
+                        <BotDashboardTab />
+                    {:else if dashType === NodeType.Queue}
+                        <QueueDashboardTab />
+                    {:else}
+                        <div class="p-4 border rounded-md">
+                            <h2 class="text-xl font-semibold mb-4">Dashboard</h2>
+                            <p class="text-muted-foreground">Dashboard content coming soon...</p>
+                        </div>
+                    {/if}
+                </div>
+            </Tabs.Content>
+            
+            <Tabs.Content value={DashboardTabType.Settings}>
+                <div class="mt-4">
+                    {#if dashType === NodeType.Bot}
+                        <BotSettingsTab id={id} />
+                    {:else if dashType === NodeType.System}
+                        <SystemSettingsTab id={id} />
+                    {:else}
+                        <div class="p-4 border rounded-md">
+                            <h2 class="text-xl font-semibold mb-4">Settings</h2>
+                            <p class="text-muted-foreground">Settings content coming soon...</p>
+                        </div>
+                    {/if}
+                </div>
+            </Tabs.Content>
+            
+            <Tabs.Content value={DashboardTabType.Events}>
+                <div class="mt-4">
+                    {#if dashType === NodeType.Queue}
+                        <QueueEventsTab id={id} />
+                    {:else}
+                        <div class="p-4 border rounded-md">
+                            <h2 class="text-xl font-semibold mb-4">Events</h2>
+                            <p class="text-muted-foreground">Events content coming soon...</p>
+                        </div>
+                    {/if}
+                </div>
+            </Tabs.Content>
+            
+            <Tabs.Content value={DashboardTabType.Schema}>
+                <div class="mt-4">
+                    {#if dashType === NodeType.Queue}
+                        <QueueSchemaTab id={id} />
+                    {:else}
+                        <div class="p-4 border rounded-md">
+                            <h2 class="text-xl font-semibold mb-4">Schema</h2>
+                            <p class="text-muted-foreground">Schema content coming soon...</p>
+                        </div>
+                    {/if}
+                </div>
+            </Tabs.Content>
+        </Tabs.Root>
+    </div>
+    {/if}
 </div>
