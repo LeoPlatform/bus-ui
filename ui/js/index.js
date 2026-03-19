@@ -89,3 +89,10 @@ $(function () {
         require("react-dom").render( < Root /> , document.getElementById('EventBus'));
     })
 })
+
+// leo-cli wires webpack-hot-middleware with reload=false; without module.hot.accept(), updates never apply.
+if (typeof module !== 'undefined' && module.hot) {
+	module.hot.accept(function () {
+		window.location.reload();
+	});
+}

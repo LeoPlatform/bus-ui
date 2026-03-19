@@ -74,7 +74,16 @@
 	<div id="EventBus"></div>
 </body>
 
-<script src="${leo.CustomJS}"></script>
+<!-- CustomJS: deployed stacks set this (e.g. getTokenAdminFirstJQuery.js). leo-cli local often omits it or substitutes the literal "undefined" — skip loading in that case. Uses document.write so load order matches a static tag (before the next inline script). -->
+<script type="text/javascript">
+(function (customJs) {
+	if (!customJs || customJs === 'undefined' || customJs === 'null' || customJs.indexOf('http') !== 0) {
+		return;
+	}
+	var src = String(customJs).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+	document.write('<script type="text/javascript" src="' + src + '"><\/script>');
+})("${leo.CustomJS}");
+</script>
 <script type="text/javascript">
 
     window.botmon = {version:"${leo.version}"};
@@ -82,7 +91,14 @@
 	window.leoDocsLink = 'http://docs.leoplatform.io/docs/'
 	
 	window.leo = Object.assign(${leo}, window.leo);
-	window.leoAws = {cognitoId: leo.logins || leo.CognitoId, region: "${leo.Region}", cognito_region: '${leo.Region}'}
+	(function () {
+		var region = leo.Region || (leo.Resources && leo.Resources.Region) || (leo.leosdk && leo.leosdk.Region) || (leo.leoauthsdk && leo.leoauthsdk.Region) || leo.region || '';
+		window.leoAws = {
+			cognitoId: leo.logins || leo.CognitoId || (leo.Resources && leo.Resources.CognitoId) || (leo.cognito && leo.cognito.id),
+			region: region,
+			cognito_region: region
+		};
+	})();
 
 </script>
 <script src="https://d3js.org/d3.v3.min.js"></script>

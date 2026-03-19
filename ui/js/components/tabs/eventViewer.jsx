@@ -361,7 +361,7 @@ class EventViewer extends React.Component {
 																	}
 																	{
 																		!this.props.hideReply
-																			? <a onClick={this.startReplay.bind(this, detail, index)} className="event-viewer-action-button" title="Reset bot checkpoint to this event and reprocess from here (this event and all later events on the queue)">
+																			? <a onClick={this.startReplay.bind(this, detail, index)} className="event-viewer-action-button" title="Replay from this event">
 																				<i className="icon-ccw" style={{ fontSize: '1.25em' }} />
 																			</a>
 																			: false

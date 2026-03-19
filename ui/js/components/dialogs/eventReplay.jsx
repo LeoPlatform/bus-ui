@@ -105,14 +105,22 @@ class EventReplay extends React.Component {
 	render() {
 
 		return (<div>
-			<div className="EventReplayDialog theme-form">
-				<p style={{ margin: '0 0 12px', fontSize: '12px', lineHeight: 1.45, opacity: 0.85 }}>
-					Sets the selected bot&rsquo;s read checkpoint to this event and runs processing from there forward.
-					This is not limited to the single row you clicked&mdash;later events on the queue are included.
-				</p>
-				<div>
-					<label>Select Bot</label>
-					<select name="botId">
+			{/* Do not add theme-form here: the dialog already wraps content in form.theme-form, and
+			    .theme-form > div { display: table-row } breaks layout for callout + field rows. */}
+			<div className="EventReplayDialog">
+				<div className="event-replay-callout" role="note">
+					<span className="event-replay-callout-title" id="event-replay-callout-heading">How this works</span>
+					<ul className="event-replay-callout-list" aria-labelledby="event-replay-callout-heading">
+						<li>Sets the bot&rsquo;s read checkpoint to this event.</li>
+						<li>
+							Processing includes <strong>this event and all later events</strong> on the queue
+							&mdash;not only the row you clicked.
+						</li>
+					</ul>
+				</div>
+				<div className="event-replay-field">
+					<label htmlFor="event-replay-bot-select">Select bot</label>
+					<select id="event-replay-bot-select" className="wide" name="botId">
 						{
 							Object.keys(this.state.bots).map((botId) => {
 								var bot = this.dataStore.nodes[botId] || this.state.bots[botId]
