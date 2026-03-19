@@ -361,7 +361,7 @@ class EventViewer extends React.Component {
 																	}
 																	{
 																		!this.props.hideReply
-																			? <a onClick={this.startReplay.bind(this, detail, index)} className="event-viewer-action-button" title="replay">
+																			? <a onClick={this.startReplay.bind(this, detail, index)} className="event-viewer-action-button" title="Replay from this event">
 																				<i className="icon-ccw" style={{ fontSize: '1.25em' }} />
 																			</a>
 																			: false

@@ -36,43 +36,59 @@ class EventReplay extends React.Component {
 
 		LeoKit.modal($('.EventReplayDialog'),
 			{
-				Replay: (formData) => {
+				Apply: {
+					label: 'Reset checkpoint & reprocess',
+					action: (formData) => {
 
-					if (!formData.botId) {
-						window.messageModal('No bot to replay to', 'warning')
-						return false
-					}
-
-					LeoKit.confirm('Replay bot "' + this.dataStore.nodes[formData.botId].label + '".', () => {
-
-						let checkpoint = this.props.detail.eid;
-
-						if (checkpoint.slice(-1) == '0') {
-							checkpoint = checkpoint.slice(0, -1)
-						} else {
-							checkpoint = checkpoint.slice(0, -1) + (checkpoint.slice(-1) - 1)
+						if (!formData.botId) {
+							window.messageModal('Select a bot to update the checkpoint.', 'warning')
+							return false
 						}
 
-						let id = refUtil.botRef(formData.botId).id;
+						const botLabel = this.dataStore.nodes[formData.botId].label
 
-						let data = {
-							id: id,
-							checkpoint: { [`queue:${this.props.detail.event}`]: checkpoint },
-							executeNow: true
-						};
+						LeoKit.confirm(
+							'Reset checkpoint for bot "' + botLabel + '" to this event and reprocess from here? ' +
+								'The bot will handle this event and all later events on the queue (not only this single row).',
+							() => {
 
-						$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
-							window.messageLogNotify('Replay triggered for ' + this.dataStore.nodes[formData.botId].label, 'info')
-						}).fail((result) => {
-							window.messageLogModal('Failure triggering replay for ' + this.dataStore.nodes[formData.botId].label, 'error', result)
-						})
+								let checkpoint = this.props.detail.eid;
 
-					})
+								if (checkpoint.slice(-1) == '0') {
+									checkpoint = checkpoint.slice(0, -1)
+								} else {
+									checkpoint = checkpoint.slice(0, -1) + (checkpoint.slice(-1) - 1)
+								}
 
+								let id = refUtil.botRef(formData.botId).id;
+
+								let data = {
+									id: id,
+									checkpoint: { [`queue:${this.props.detail.event}`]: checkpoint },
+									executeNow: true
+								};
+
+								$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
+									window.messageLogNotify(
+										'Checkpoint reset; processing from this event for ' + botLabel,
+										'info'
+									)
+								}).fail((result) => {
+									window.messageLogModal(
+										'Failure resetting checkpoint for ' + botLabel,
+										'error',
+										result
+									)
+								})
+
+							}
+						)
+
+					}
 				},
 				cancel: false
 			},
-			'Replay Event',
+			'Reprocess from this event',
 			this.props.onClose
 		)
 
@@ -89,18 +105,22 @@ class EventReplay extends React.Component {
 	render() {
 
 		return (<div>
-			<div className="EventReplayDialog theme-form">
-				{/*<div>
-					<label>Replay Single Event</label>
-					<input type="radio" name="events" value="1" />
+			{/* Do not add theme-form here: the dialog already wraps content in form.theme-form, and
+			    .theme-form > div { display: table-row } breaks layout for callout + field rows. */}
+			<div className="EventReplayDialog">
+				<div className="event-replay-callout" role="note">
+					<span className="event-replay-callout-title" id="event-replay-callout-heading">How this works</span>
+					<ul className="event-replay-callout-list" aria-labelledby="event-replay-callout-heading">
+						<li>Sets the bot&rsquo;s read checkpoint to this event.</li>
+						<li>
+							Processing includes <strong>this event and all later events</strong> on the queue
+							&mdash;not only the row you clicked.
+						</li>
+					</ul>
 				</div>
-				<div>
-					<label>Replay all Events from this point on</label>
-					<input type="radio" name="events" value="${eventCount}" />
-				</div>*/}
-				<div>
-					<label>Select Bot</label>
-					<select name="botId">
+				<div className="event-replay-field">
+					<label htmlFor="event-replay-bot-select">Select bot</label>
+					<select id="event-replay-bot-select" className="wide" name="botId">
 						{
 							Object.keys(this.state.bots).map((botId) => {
 								var bot = this.dataStore.nodes[botId] || this.state.bots[botId]

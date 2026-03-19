@@ -1,18 +1,21 @@
 {
 	"name": "botmon",
-	"version": "3.0.5",
+	"version": "3.0.6",
 	"description": "",
 	"main": "app.js",
 	"engines": {
 		"node": ">=20"
 	},
 	"scripts": {
-		"start": "leo-cli test .",
+		"start": "node scripts/start-local.js",
+		"start:raw": "leo-cli test .",
 		"old_start": "leo-cli test .",
 		"test": "mocha --require ./test/bootstrap.js --recursive -w",
 		"debug": "node-debug leo test .",
-		"build": "leo-cli publish . --force all --build --save",
-		"publish": "leo-cli publish . --force all"
+		"build": "node scripts/build-local.js",
+		"build:raw": "leo-cli publish . --force all --build --save",
+		"publish": "node scripts/publish-local.js",
+		"publish:raw": "leo-cli publish . --force all"
 	},
 	"config": {
 		"leo": {
