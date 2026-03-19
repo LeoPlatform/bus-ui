@@ -36,43 +36,59 @@ class EventReplay extends React.Component {
 
 		LeoKit.modal($('.EventReplayDialog'),
 			{
-				Replay: (formData) => {
+				Apply: {
+					label: 'Reset checkpoint & reprocess',
+					action: (formData) => {
 
-					if (!formData.botId) {
-						window.messageModal('No bot to replay to', 'warning')
-						return false
-					}
-
-					LeoKit.confirm('Replay bot "' + this.dataStore.nodes[formData.botId].label + '".', () => {
-
-						let checkpoint = this.props.detail.eid;
-
-						if (checkpoint.slice(-1) == '0') {
-							checkpoint = checkpoint.slice(0, -1)
-						} else {
-							checkpoint = checkpoint.slice(0, -1) + (checkpoint.slice(-1) - 1)
+						if (!formData.botId) {
+							window.messageModal('Select a bot to update the checkpoint.', 'warning')
+							return false
 						}
 
-						let id = refUtil.botRef(formData.botId).id;
+						const botLabel = this.dataStore.nodes[formData.botId].label
 
-						let data = {
-							id: id,
-							checkpoint: { [`queue:${this.props.detail.event}`]: checkpoint },
-							executeNow: true
-						};
+						LeoKit.confirm(
+							'Reset checkpoint for bot "' + botLabel + '" to this event and reprocess from here? ' +
+								'The bot will handle this event and all later events on the queue (not only this single row).',
+							() => {
 
-						$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
-							window.messageLogNotify('Replay triggered for ' + this.dataStore.nodes[formData.botId].label, 'info')
-						}).fail((result) => {
-							window.messageLogModal('Failure triggering replay for ' + this.dataStore.nodes[formData.botId].label, 'error', result)
-						})
+								let checkpoint = this.props.detail.eid;
 
-					})
+								if (checkpoint.slice(-1) == '0') {
+									checkpoint = checkpoint.slice(0, -1)
+								} else {
+									checkpoint = checkpoint.slice(0, -1) + (checkpoint.slice(-1) - 1)
+								}
 
+								let id = refUtil.botRef(formData.botId).id;
+
+								let data = {
+									id: id,
+									checkpoint: { [`queue:${this.props.detail.event}`]: checkpoint },
+									executeNow: true
+								};
+
+								$.post(window.api + '/cron/save', JSON.stringify(data), (response) => {
+									window.messageLogNotify(
+										'Checkpoint reset; processing from this event for ' + botLabel,
+										'info'
+									)
+								}).fail((result) => {
+									window.messageLogModal(
+										'Failure resetting checkpoint for ' + botLabel,
+										'error',
+										result
+									)
+								})
+
+							}
+						)
+
+					}
 				},
 				cancel: false
 			},
-			'Replay Event',
+			'Reprocess from this event',
 			this.props.onClose
 		)
 
@@ -90,14 +106,10 @@ class EventReplay extends React.Component {
 
 		return (<div>
 			<div className="EventReplayDialog theme-form">
-				{/*<div>
-					<label>Replay Single Event</label>
-					<input type="radio" name="events" value="1" />
-				</div>
-				<div>
-					<label>Replay all Events from this point on</label>
-					<input type="radio" name="events" value="${eventCount}" />
-				</div>*/}
+				<p style={{ margin: '0 0 12px', fontSize: '12px', lineHeight: 1.45, opacity: 0.85 }}>
+					Sets the selected bot&rsquo;s read checkpoint to this event and runs processing from there forward.
+					This is not limited to the single row you clicked&mdash;later events on the queue are included.
+				</p>
 				<div>
 					<label>Select Bot</label>
 					<select name="botId">
