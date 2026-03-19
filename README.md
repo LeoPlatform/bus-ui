@@ -84,6 +84,7 @@ After the UI loads and you can sign in:
 | `module/undefined` script | View page source: if you still see `${leo.CustomJS}` literally, template substitution failed—fix webpack/leo-cli errors in the terminal. If `CustomJS` is the word `undefined`, the dev server didn’t inject the bundle URL. |
 | Blank page after fixing the above | AWS credentials must allow Cognito + API calls for the chosen `bus=` environment. |
 | Terminal shows “Compiled” but the browser never updates | **HMR**: `leo-cli` uses `webpack-hot-middleware` with `reload=false`; the app must call `module.hot.accept()` — bus-ui does this in `ui/js/index.js` (full page reload on change). If **file saves don’t trigger** rebuilds (Docker/NFS), add **`"webpackPoll": 1000`** (milliseconds) next to other keys under **`package.json` → `config.leo`** so leo-cli passes polling to webpack’s watch options. |
+| `npm run publish` / `npm run build` fails with `ERR_OSSL_EVP_UNSUPPORTED` or `digital envelope routines::unsupported` | Node’s OpenSSL 3 vs old webpack/babel. Use **`npm run publish`** / **`npm run build`** (they set `--openssl-legacy-provider` via `scripts/publish-local.js` / `build-local.js`), or export `NODE_OPTIONS=--openssl-legacy-provider`. **`publish:raw` / `build:raw`** skip that flag. |
 
 ## Add a file test/process.js
 
@@ -181,11 +182,18 @@ console.log(`Connecting to Bus: ${config.BusName}, Botmon: ${config.StackName}`)
 
 # Deployment
 
-run `npm run publish`
+Run **`npm run publish`** (wraps `leo-cli` with **`--openssl-legacy-provider`**, same as `npm start`, so webpack/babel work on Node 17+).
 
->[!TIP] 
-You can optionally add a tag to the command by adding 
-`shell --tag {tag_name}` to the end of the publish command where `{tag_name}` resolves to a custom folder 
+Optional tag for a custom S3 folder:
+
+```bash
+npm run publish -- --tag lynn_dep
+```
+
+Use **`npm run publish:raw`** only if you intentionally skip the OpenSSL flag (not recommended on Node 20).
+
+>[!TIP]
+> Pass any extra `leo-cli publish` flags after `--` as shown above.
 
 This will output the name of an S3 file that you will need to copy
 

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Load test/process.js into process.env, then run leo-cli test .
- * Ensures leosdk / Resources exist before API bundles pull in leo-sdk.
+ * leo-cli publish with NODE_OPTIONS openssl legacy provider (same as npm start).
  */
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -10,14 +9,10 @@ const { spawnSync } = require('child_process');
 require('./ensure-legacy-openssl')();
 
 const root = path.resolve(__dirname, '..');
+const passthrough = process.argv.slice(2);
+const args = ['publish', '.', '--force', 'all'].concat(passthrough);
 
-if (!process.env.bus) {
-	process.env.bus = 'TestCup';
-}
-
-require('./sync-test-env').apply();
-
-const r = spawnSync('leo-cli', ['test', '.'], {
+const r = spawnSync('leo-cli', args, {
 	stdio: 'inherit',
 	cwd: root,
 	env: process.env,
