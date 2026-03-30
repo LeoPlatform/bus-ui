@@ -235,12 +235,12 @@
   <div class="flex-1 bg-white rounded-lg p-4 shadow-sm border border-gray-200 overflow-hidden">
     <div class="h-full overflow-hidden">
       {#if chart.type === 'events-in-queue'}
-      <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} checkPointValue={chart.checkPointValue} range={range} start={chart.start || end} end={chart.end || end} chartOptions={chart.chartOptions}/>
+      <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} checkPointValue={chart.checkPointValue} range={range} start={chart.start || end} end={chart.end || end} rangeStart={dashboardStats?.start} chartOptions={chart.chartOptions}/>
         <!-- <EventsInQueueChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} start={start} end={end} /> -->
       {:else if chart.type === 'queue-lag'}
         <QueueLagChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} chartOptions={chart.chartOptions}/>
       {:else if chart.type === 'events-read'}
-        <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} range={chart.range || range} start={chart.start || start} end={chart.end || end} chartOptions={chart.chartOptions}/>
+        <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} range={chart.range || range} start={chart.start || start} end={chart.end || end} rangeStart={dashboardStats?.start} chartOptions={chart.chartOptions}/>
         <!-- <EventsReadChart data={chart.data as DashboardStats} queueId={chart.queueId || ''} range={chart.range || range} start={start} end={end} /> -->
       {:else if chart.type === 'execution-count' || chart.type === 'error-count' || chart.type === 'execution-time' || chart.type === 'events-written' || chart.type === 'write-lag'}
         <GenericLineChart data={chart.data as DashboardStatsValue[]} dataSetLabel={chart.dataSetLabel!} tooltipLabel={chart.tooltipLabel!} helpText={chart.helpText!} includeFullCount={chart.includeFullCount} includeCurrentValue={chart.includeCurrentValue} dataIsTimeBased={chart.dataIsTimeBased} chartOptions={chart.chartOptions}/>

@@ -1,13 +1,16 @@
 import {
-    type RelationshipTree,
+  type CatalogRow,
+  type RelationshipTree,
   StatsRange,
   type BotSettings,
   type BotSettingsApiResponse,
   type MergedStatsRecord,
+  type QueueSettings,
   type StatsApiResponse,
   type DashboardStats,
   type DashboardStatsApiResponse,
   type CheckpointType,
+  type SystemSettings,
 } from "$lib/types";
 import type { TimePickerState } from "../time-picker/time-picker.state.svelte";
 import type { BotStatus } from "./bot-status.constants";
@@ -17,9 +20,45 @@ type GlobalFetch = typeof globalThis.fetch;
 
 const STALE_TIME = 1000 * 30; // 30 seconds
 
+function catalogRowFromQueue(q: QueueSettings): CatalogRow | null {
+  const event = q.event;
+  if (!event || /\/_archive$|\/_snapshot$/.test(event)) return null;
+  const id = /^queue:/.test(event) ? event : `queue:${event}`;
+  const tagVal = q.other?.tags;
+  const tags =
+    tagVal == null || tagVal === "" ? undefined : String(tagVal);
+  return {
+    kind: "queue",
+    id,
+    name: q.name || event.replace(/^queue:/, ""),
+    tags,
+    archived: q.archived,
+    health: {},
+    errorCount: 0,
+    lambdaName: undefined,
+  };
+}
+
+function catalogRowFromSystem(s: SystemSettings): CatalogRow {
+  const raw = s.id.replace(/^system:/, "");
+  const id = /^system:/.test(s.id) ? s.id : `system:${s.id}`;
+  return {
+    kind: "system",
+    id,
+    name: s.label || raw,
+    tags: undefined,
+    archived: s.archived,
+    health: {},
+    errorCount: 0,
+    lambdaName: undefined,
+  };
+}
+
 export class BotState {
   #fetch: GlobalFetch;
   #botSettings = $state<BotSettings[]>([]);
+  #queueRows = $state<QueueSettings[]>([]);
+  #systemRows = $state<SystemSettings[]>([]);
   #relationShipTree = $state<RelationshipTree | null>(null);
   #stats = $state<MergedStatsRecord[]>([]);
   #visibleIds = $state<string[]>([]);
@@ -44,6 +83,31 @@ export class BotState {
   });
   #timePickerState: TimePickerState | null = null;
 
+  /** Home table: bots + queues + systems (does not drive relationship tree). */
+  catalogRows = $derived.by((): CatalogRow[] => {
+    const rows: CatalogRow[] = [];
+    for (const b of this.#botSettings) {
+      rows.push({
+        kind: "bot",
+        id: b.id,
+        name: b.name ?? b.lambdaName,
+        tags: b.tags,
+        archived: b.archived,
+        health: b.health,
+        errorCount: b.errorCount,
+        lambdaName: b.lambdaName,
+      });
+    }
+    for (const q of this.#queueRows) {
+      const r = catalogRowFromQueue(q);
+      if (r) rows.push(r);
+    }
+    for (const s of this.#systemRows) {
+      rows.push(catalogRowFromSystem(s));
+    }
+    return rows;
+  });
+
   constructor(fetch: GlobalFetch, staleTime: number = 1000 * 30) {
     this.#fetch = fetch;
     this.#fetchedStats = new Map();
@@ -60,6 +124,11 @@ export class BotState {
 
   get botSettings() {
     return this.#botSettings;
+  }
+
+  /** Non-archived bots with active SLA / lag / error alarms (after stats merge). */
+  get alarmedBotCount(): number {
+    return this.#botSettings.filter((b) => !b.archived && Boolean(b.isAlarmed)).length;
   }
   get relationShipTree() {
     return this.#relationShipTree!;
@@ -160,13 +229,14 @@ export class BotState {
       }
       
       const data = (await res.json()) as BotSettingsApiResponse;
-      
-      // Safety check: ensure botData exists and is an array
+
       if (!data || !data.botData || !Array.isArray(data.botData)) {
-        console.warn('Invalid bot settings response:', data);
+        console.warn("Invalid bot settings response:", data);
         return;
       }
-      
+
+      this.#queueRows = Array.isArray(data.queueData) ? data.queueData : [];
+      this.#systemRows = Array.isArray(data.systemData) ? data.systemData : [];
       this.mergeBotSettingsIntoState(data.botData);
     } catch (error) {
       console.error('Error fetching bot settings:', error);

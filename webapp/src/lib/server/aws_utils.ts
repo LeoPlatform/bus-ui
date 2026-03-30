@@ -1,5 +1,6 @@
 import type {AwsCreds} from '$lib/types';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { S3Client } from '@aws-sdk/client-s3';
 import { env } from '$env/dynamic/private';
 
 const AWS_REGION = () => env.AWS_REGION ?? process.env.AWS_REGION ?? 'us-east-1';
@@ -19,6 +20,6 @@ export function createDynamoClient(creds: AwsCreds): DynamoDBClient {
     return createAwsClient(DynamoDBClient, creds);
 }
 
-// export function createS3Client(creds: AwsCreds): S3Client {
-//     return createAwsClient(S3Client, creds);
-// }
+export function createS3Client(creds: AwsCreds): S3Client {
+    return createAwsClient(S3Client, creds);
+}

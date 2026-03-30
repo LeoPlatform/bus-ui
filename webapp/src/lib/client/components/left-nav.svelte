@@ -1,20 +1,17 @@
 <script lang="ts">
   import type { Route } from "$lib/types";
   import * as Tooltip from '$lib/client/components/ui/tooltip/index';
-  import { Button } from "$lib/client/components/ui/button";
   import { page } from '$app/state';
+  import { alarmedBotNavCount } from '$lib/client/shell-badge';
 
   const currentRoute = $derived(page.url.pathname ? page.url.pathname : '/');
 
   type Props = {
     routes: Route[];
-    appState?: any;
+    appState?: unknown;
   }
 
-  let { routes, appState } = $props();
-
-  // Mock data for demonstration - you can replace with real data
-  const mockBadgeCount = 142;
+  let { routes, appState: _appState } = $props();
 </script>
 
 <div class="h-screen w-16 bg-lime-600 flex flex-col shadow-lg">
@@ -45,10 +42,13 @@
                     />
                   {/if}
                   
-                  <!-- Badge for first route (you can customize this logic) -->
-                  {#if index === 0 && mockBadgeCount > 0}
-                    <div class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-md">
-                      {mockBadgeCount > 99 ? '99+' : mockBadgeCount}
+                  <!-- Alarmed bots (from authed layout + stats); shown on Workflows (first nav item) -->
+                  {#if index === 0 && $alarmedBotNavCount > 0}
+                    <div
+                      class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-6 h-6 px-1 flex items-center justify-center shadow-md"
+                      aria-label="Alarmed bots: {$alarmedBotNavCount}"
+                    >
+                      {$alarmedBotNavCount > 99 ? '99+' : $alarmedBotNavCount}
                     </div>
                   {/if}
                   
@@ -60,7 +60,11 @@
               </a>
             </Tooltip.Trigger>
             <Tooltip.Content side="right" class="flex items-center gap-4 bg-gray-900 text-white border-gray-700">
-              <span class="font-medium">{route.label}</span>
+              <span class="font-medium">
+                {route.label}{index === 0 && $alarmedBotNavCount > 0
+                  ? ` · ${$alarmedBotNavCount} alarmed`
+                  : ''}
+              </span>
             </Tooltip.Content>
           </Tooltip.Root>
         </Tooltip.Provider>

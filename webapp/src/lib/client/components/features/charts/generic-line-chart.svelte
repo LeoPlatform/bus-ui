@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DashboardStatsValue } from "$lib/types";
   import type { Chart, ChartConfiguration } from "chart.js/auto";
-  // import chartTrendLine from 'chartjs-plugin-trendline';
+  import annotationPlugin from "chartjs-plugin-annotation";
   import { onDestroy, onMount } from "svelte";
   import HelpTooltip from "../../help-tooltip.svelte";
   import { Separator } from "../../ui/separator";
@@ -30,6 +30,7 @@
     let showTrendLine = $state(false);
     let showLogarithmic = $state(false);
 
+  let nowRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
   function createChartConfig(): ChartConfiguration<"line"> {
     return {
@@ -54,7 +55,7 @@
         maintainAspectRatio: false,
         interaction: {
           intersect: false,
-          mode: "index",
+          mode: "nearest",
         },
         plugins: {
           legend: {
@@ -122,7 +123,7 @@
     }
     try {
         const { Chart } = await import('chart.js/auto');
-        // Chart.register(chartTrendLine);
+        Chart.register(annotationPlugin);
         chart = new Chart(canvas, createChartConfig());
     } catch (error) {
         console.error('Error initializing chart:', error);
@@ -130,22 +131,53 @@
   }
 
   function updateChart() {
-    if(!chart) {
+    if (!chart) {
         return;
     }
 
-    chart.data.labels = data.map((d: DashboardStatsValue) => d.time);
-    chart.data.datasets[0].data = data.map((d: DashboardStatsValue) => d.value || 0);
-    chart.options!.scales!.y!.type = showLogarithmic ? 'logarithmic' : 'linear';
+    const xScale = chart.options!.scales!.x as { min?: number; max?: number };
 
-    chart.update('active');
+    if (!data?.length) {
+      chart.data.labels = [];
+      chart.data.datasets[0].data = [];
+      delete xScale.min;
+      delete xScale.max;
+      chart.options!.plugins!.annotation = { annotations: {} };
+      chart.options!.scales!.y!.type = showLogarithmic ? "logarithmic" : "linear";
+      chart.update("active");
+      return;
+    }
 
-    if(includeFullCount) {
+    const pts = data.map((d: DashboardStatsValue) => ({ x: d.time, y: d.value || 0 }));
+    chart.data.labels = [];
+    chart.data.datasets[0].data = pts as any;
+
+    const nowMs = Date.now();
+    const xs = pts.map((p) => p.x);
+    xScale.min = Math.min(...xs, nowMs);
+    xScale.max = Math.max(...xs, nowMs);
+
+    chart.options!.plugins!.annotation = {
+      annotations: {
+        nowLine: {
+          type: "line",
+          scaleID: "x",
+          value: nowMs,
+          borderColor: "rgba(239, 68, 68, 0.95)",
+          borderWidth: 2,
+        },
+      },
+    };
+
+    chart.options!.scales!.y!.type = showLogarithmic ? "logarithmic" : "linear";
+    chart.update("active");
+
+    if (includeFullCount) {
         fullCount = data.reduce((acc, d) => acc + (d.value || 0), 0);
     }
 
-    if(includeCurrentValue) {
-        currentValue = data[data.length - 1].value;
+    if (includeCurrentValue) {
+        currentValue = data[data.length - 1]?.value;
     }
   }
 
@@ -155,11 +187,29 @@
     }
   });
 
+  function refreshNowLine() {
+    if (!chart?.options?.plugins?.annotation) return;
+    const annos = chart.options.plugins.annotation.annotations as Record<string, { value?: number }>;
+    if (!annos?.nowLine) return;
+    const nowMs = Date.now();
+    annos.nowLine.value = nowMs;
+    const xScale = chart.options.scales!.x as { min?: number; max?: number };
+    if (typeof xScale.max === "number" && nowMs > xScale.max) {
+      xScale.max = nowMs;
+    }
+    chart.update("none");
+  }
+
   onMount(() => {
     initChart();
+    nowRefreshInterval = setInterval(refreshNowLine, 30_000);
   });
 
   onDestroy(() => {
+    if (nowRefreshInterval) {
+      clearInterval(nowRefreshInterval);
+      nowRefreshInterval = null;
+    }
     if(chart) {
         chart.destroy();
         chart = null;

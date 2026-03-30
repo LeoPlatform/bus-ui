@@ -1,4 +1,4 @@
-<script lang="ts" generics="TData, TValue">
+<script lang="ts">
   import {
     type ColumnDef,
     getCoreRowModel,
@@ -9,6 +9,7 @@
     type SortingState,
     type ColumnFiltersState,
     type VisibilityState,
+    type FilterFn,
   } from "@tanstack/table-core";
   import { createSvelteTable, FlexRender, renderComponent } from "$lib/client/components/ui/data-table";
 
@@ -21,97 +22,131 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Input from "$lib/client/components/ui/input/input.svelte";
   import * as DropdownMenu from "$lib/client/components/ui/dropdown-menu";
-  import type { BotSettings } from "$lib/types";
+  import type { CatalogRow } from "$lib/types";
   import { getContext } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
+  import { cn } from "$lib/utils.js";
 
   let appState = getContext<AppState>('appState');
 
-  let data: BotSettings[] = $derived(appState.botState.botSettings.filter(bot => !bot.archived));
+  let data: CatalogRow[] = $derived(
+    appState.botState.catalogRows.filter((row) => !row.archived),
+  );
 
   let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 30 });
   let sorting = $state<SortingState>([]);
   let columnFilters = $state<ColumnFiltersState>([]);
   let columnVisibility = $state<VisibilityState>({});
 
-  const columns: ColumnDef<BotSettings>[] = [
-    {
-        // accessorKey: 'name',
-        accessorFn: row => {
-            return row.name ?? row.lambdaName ?? "unknown";
-        },
-        header: ({ column }) => {
+  const nameFilter: FilterFn<CatalogRow> = (row, _columnId, filterValue) => {
+    const q = String(filterValue ?? "").trim().toLowerCase();
+    if (!q) return true;
+    const r = row.original;
+    const hay = `${r.id} ${r.name ?? ""} ${r.lambdaName ?? ""}`.toLowerCase();
+    return hay.includes(q);
+  };
 
+  const columns: ColumnDef<CatalogRow>[] = [
+    {
+        accessorFn: (row) => row.name ?? row.lambdaName ?? row.id,
+        filterFn: nameFilter,
+        header: ({ column }) => {
             return renderComponent(BotTableHeaderSort, {
                 onclick: () => column.toggleSorting(),
-                headerName: "Bot Name",
+                headerName: "Name",
                 column,
             })
         },
-        id: 'botName',
-        // cell: info => info.getValue(),
-        cell: ({cell}) => {
+        id: 'nodeName',
+        cell: ({ cell }) => {
+            const row = cell.row.original;
             return renderComponent(BotTableNameCell, {
-                id: cell.row.original.id,
-                tags: cell.row.original.tags,
+                id: row.id,
+                name: row.name ?? row.lambdaName ?? row.id,
+                tags: row.tags,
+                kind: row.kind,
             })
         },
         enableHiding: false,
     },
     {
-        accessorFn: row => {
-           return row.health?.source_lag ?? 0;
-        },
+        accessorFn: (row) =>
+            row.kind === "bot" ? (row.health?.source_lag ?? 0) : -1,
         id: "sourceLag",
         header: ({ column }) => {
-
             return renderComponent(BotTableHeaderSort, {
                 onclick: () => column.toggleSorting(),
                 headerName: "Source Lag",
                 column,
+                align: "center",
             })
         },
-        cell: info => info.getValue()
+        cell: ({ row }) =>
+            row.original.kind === "bot" ? (row.original.health?.source_lag ?? 0) : "—",
     },
     {
-        // accessorKey: 'health.write_lag',
         id: "writeLag",
         header: ({ column }) => {
-
             return renderComponent(BotTableHeaderSort, {
                 onclick: () => column.toggleSorting(),
                 headerName: "Write Lag",
                 column,
+                align: "center",
             })
         },
-        accessorFn: row => {
-            return row.health?.write_lag ?? 0;
-        },
-        cell: info => info.getValue()
+        accessorFn: (row) =>
+            row.kind === "bot" ? (row.health?.write_lag ?? 0) : -1,
+        cell: ({ row }) =>
+            row.original.kind === "bot" ? (row.original.health?.write_lag ?? 0) : "—",
     },
     {
-        accessorFn: row => {
-            return row.errorCount ?? 0;
-        },
+        accessorFn: (row) =>
+            row.kind === "bot" ? (row.errorCount ?? 0) : -1,
         id: "errors",
         header: ({ column }) => {
-
             return renderComponent(BotTableHeaderSort, {
                 onclick: () => column.toggleSorting(),
                 headerName: "Errors",
                 column,
+                align: "center",
             })
         },
-        cell: info => info.getValue()
-    }, 
+        cell: ({ row }) =>
+            row.original.kind === "bot" ? (row.original.errorCount ?? 0) : "—",
+    },
     {
-        accessorKey: 'lambdaName',
-        header: 'Lambda Name',
-        cell: info => info.getValue()
+        accessorFn: (row) => row.lambdaName ?? "",
+        id: "lambdaName",
+        header: "Lambda",
+        cell: ({ row }) =>
+            row.original.kind === "bot" ? (row.original.lambdaName ?? "") : "—",
     }
 ]
 
-  const table = createSvelteTable({
+  const metricColumnIds = new Set(["sourceLag", "writeLag", "errors"]);
+
+  function headClass(columnId: string) {
+    return cn(
+      "h-10 px-2 py-2 align-middle font-medium first:pl-4 last:pr-4",
+      metricColumnIds.has(columnId) &&
+        "w-[10rem] min-w-[10rem] text-center",
+      columnId === "nodeName" && "min-w-0",
+      columnId === "lambdaName" && "min-w-0 w-[22%] max-w-[20rem]",
+    );
+  }
+
+  function cellClass(columnId: string) {
+    return cn(
+      "py-2 px-2 first:pl-4 last:pr-4 min-w-0",
+      columnId === "nodeName" && "h-full align-top",
+      columnId !== "nodeName" && "align-middle",
+      metricColumnIds.has(columnId) &&
+        "w-[10rem] min-w-[10rem] text-center tabular-nums whitespace-nowrap",
+      columnId === "lambdaName" && "w-[22%] max-w-[20rem] truncate",
+    );
+  }
+
+  const table = createSvelteTable<CatalogRow>({
     data,
     columns,
     state: {
@@ -164,17 +199,16 @@
   });
 </script>
 
-<div class="pl-2 pr-2">
-  <div class="flex items-center justify-end space-x-2 py-4">
+<div class="w-full min-w-0">
+  <div class="flex flex-wrap items-center justify-end gap-2 py-4">
     <Input 
-      placeholder="Filter Bots..."
-      value={(table.getColumn("botName")?.getFilterValue() as string) ?? ""}
+      placeholder="Filter by name or id…"
+      value={(table.getColumn("nodeName")?.getFilterValue() as string) ?? ""}
       onchange={(e) => {
-        // console.log(typeof e);
-        table.getColumn("botName")?.setFilterValue(e.currentTarget.value);
+        table.getColumn("nodeName")?.setFilterValue(e.currentTarget.value);
       }}
       oninput={(e) => {
-        table.getColumn("botName")?.setFilterValue(e.currentTarget.value);
+        table.getColumn("nodeName")?.setFilterValue(e.currentTarget.value);
       }}
       class="max-w-sm"
     />
@@ -213,13 +247,13 @@
       <ChevronRight class="size-5" aria-hidden="true" />
     </Button>
   </div>
-  <div class="rounded-md border">
-    <Table.Root>
+  <div class="rounded-md border overflow-hidden">
+    <Table.Root class="table-fixed w-full">
       <Table.Header>
         {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
           <Table.Row>
             {#each headerGroup.headers as header (header.id)}
-              <Table.Head>
+              <Table.Head class={headClass(header.column.id)}>
                 {#if !header.isPlaceholder}
                   <FlexRender
                     content={header.column.columnDef.header}
@@ -235,7 +269,14 @@
         {#each table.getRowModel().rows as row (row.id)}
           <Table.Row data-state={row.getIsSelected() && "selected"}>
             {#each row.getVisibleCells() as cell (cell.id)}
-              <Table.Cell>
+              <Table.Cell
+                class={cellClass(cell.column.id)}
+                title={cell.column.id === "lambdaName" &&
+                row.original.kind === "bot" &&
+                row.original.lambdaName
+                  ? row.original.lambdaName
+                  : undefined}
+              >
                 <FlexRender
                   content={cell.column.columnDef.cell}
                   context={cell.getContext()}

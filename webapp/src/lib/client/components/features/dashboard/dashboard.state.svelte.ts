@@ -149,12 +149,29 @@ export class DashboardState {
         }
     }
 
-    async togglePause() {
-        // If we don't have a paused state that is fine just don't do anything
-        if(this.#isPaused !== undefined) {
-            this.#isPaused = !this.#isPaused;
-            //TODO: Update the settings with the new paused state
+    async saveSettings(updates: Record<string, any>): Promise<void> {
+        if (!this.#id) {
+            throw new Error('No ID set');
         }
+
+        const res = await this.#fetch('/api/dashboard/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: this.#id, updates }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to save settings: ${res.status} ${text}`);
+        }
+
+        // Refresh settings from server so UI reflects saved values
+        await this.getSettings();
+    }
+
+    async togglePause() {
+        const newPaused = !this.#isPaused;
+        await this.saveSettings({ paused: newPaused });
     }
 
     async changeCheckpoint() {
@@ -168,6 +185,37 @@ export class DashboardState {
 
     async forceRunReally() {
         // TODO: Implement force run really
+    }
+
+    /** Pass `forId` when the UI route id may update before `this.id` syncs (e.g. queue schema tab). */
+    async getSchema(forId?: string): Promise<Record<string, any> | null> {
+        const sid = forId ?? this.#id;
+        if (!sid) return null;
+
+        const res = await this.#fetch('/api/dashboard/schema', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: sid }),
+        });
+
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.schema ?? null;
+    }
+
+    async saveSchema(schema: Record<string, any>): Promise<void> {
+        if (!this.#id) throw new Error('No ID set');
+
+        const res = await this.#fetch('/api/dashboard/schema', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: this.#id, schema }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to save schema: ${res.status} ${text}`);
+        }
     }
 
     // Method to clear state when component unmounts

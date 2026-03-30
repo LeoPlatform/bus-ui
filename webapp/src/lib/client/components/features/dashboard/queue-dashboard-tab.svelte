@@ -7,7 +7,7 @@
     import GenericBucketLineChart from "../charts/generic-bucket-line-chart.svelte";
     import Input from "$lib/client/components/ui/input/input.svelte";
     import { humanize, getNodeTypeLink } from "$lib/utils";
-    import { NodeType, type DashboardStatsQueueReadWrite } from "$lib/types";
+    import { NodeType, type DashboardStatsQueueReadWrite, type StatsRange } from "$lib/types";
     import ArrowUpDown from "@lucide/svelte/icons/arrow-up-down";
     import ArrowUp from "@lucide/svelte/icons/arrow-up";
     import ArrowDown from "@lucide/svelte/icons/arrow-down";
@@ -16,6 +16,7 @@
     const compState = appState.dashboardState;
 
     let data = $derived(compState.stats);
+    let statsRange = $derived(compState.range as StatsRange);
 
     let writeSearch = $state("");
     let readSearch = $state("");
@@ -116,9 +117,11 @@
                         <GenericBucketLineChart
                             data={data.writes}
                             chartLabel="Writes"
-                            range={compState.range}
+                            range={statsRange}
                             start={data?.currentBucketStart || data?.start || 0}
                             end={data?.end || 0}
+                            rangeStart={data?.start}
+                            showTitle={false}
                         />
                     {:else}
                         <div class="flex items-center justify-center h-full text-muted-foreground">No data</div>
@@ -137,9 +140,11 @@
                         <GenericBucketLineChart
                             data={data.reads}
                             chartLabel="Reads"
-                            range={compState.range}
+                            range={statsRange}
                             start={data?.currentBucketStart || data?.start || 0}
                             end={data?.end || 0}
+                            rangeStart={data?.start}
+                            showTitle={false}
                         />
                     {:else}
                         <div class="flex items-center justify-center h-full text-muted-foreground">No data</div>
@@ -158,9 +163,11 @@
                         <GenericBucketLineChart
                             data={data.read_lag}
                             chartLabel="Read Lag"
-                            range={compState.range}
+                            range={statsRange}
                             start={data?.currentBucketStart || data?.start || 0}
                             end={data?.end || 0}
+                            rangeStart={data?.start}
+                            showTitle={false}
                             formatTotal={(val) => humanize(val)}
                         />
                     {:else}
@@ -198,7 +205,7 @@
                         {writeSearch ? 'No matching producers' : 'No Sources'}
                     </div>
                 {:else}
-                    <Table.Root>
+                    <Table.Root class="text-base">
                         <Table.Header>
                             <Table.Row>
                                 <Table.Head>
@@ -218,7 +225,7 @@
                             {#each writeBots as [, bot]}
                                 <Table.Row>
                                     <Table.Cell>
-                                        <a href="/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-sm">
+                                        <a href="/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
                                             <img src={botIcon} alt="" class="w-5 h-5 shrink-0" />
                                             <span class="truncate">{displayName(bot.label || bot.id)}</span>
                                         </a>
@@ -264,7 +271,7 @@
                         {readSearch ? 'No matching consumers' : 'No Destinations'}
                     </div>
                 {:else}
-                    <Table.Root>
+                    <Table.Root class="text-base">
                         <Table.Header>
                             <Table.Row>
                                 <Table.Head>
@@ -299,7 +306,7 @@
                             {#each readBots as [, bot]}
                                 <Table.Row>
                                     <Table.Cell>
-                                        <a href="/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-sm">
+                                        <a href="/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
                                             <img src={botIcon} alt="" class="w-5 h-5 shrink-0" />
                                             <span class="truncate">{displayName(bot.label || bot.id)}</span>
                                         </a>

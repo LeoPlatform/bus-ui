@@ -66,6 +66,24 @@ export interface LambdaSettings {
 
 export interface BotSettingsApiResponse {
   botData: BotSettings[];
+  /** Leo event table scan — optional for older clients */
+  queueData?: QueueSettings[];
+  /** Leo system table scan */
+  systemData?: SystemSettings[];
+}
+
+/** Unified home / catalog table row (bots from cron + queues from events + systems). */
+export type CatalogNodeKind = "bot" | "queue" | "system";
+
+export interface CatalogRow {
+  kind: CatalogNodeKind;
+  id: string;
+  name?: string;
+  tags?: string;
+  archived?: boolean;
+  health?: BotHealth;
+  errorCount?: number;
+  lambdaName?: string;
 }
 
 export interface BotHealth {
@@ -384,6 +402,8 @@ export interface DashboardQueueStats {
   max_write_checkpoint: string,
   start: number,
   end: number,
+  /** Same semantics as bot dashboard — start of the “current” compare bucket */
+  currentBucketStart?: number,
   buckets: number[],
 }
 
@@ -460,12 +480,19 @@ export interface QueueSettings {
   paused?: boolean,
   timestamp?: number,
   max_eid?: string,
+  /** Minimum stream position (Leo event settings); stored as string or number in Dynamo */
+  min_kinesis_number?: string | number,
+  /** Tags and other metadata (old `eventsettings` shape) */
+  other?: {
+    tags?: string | null,
+  },
 }
 
 export interface SystemSettings {
   id: string,
   icon?: string,
   label?: string,
+  archived?: boolean,
   settings?: {
     system: string
   }

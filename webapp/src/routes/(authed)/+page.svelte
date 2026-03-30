@@ -1,18 +1,7 @@
 <script lang="ts">
-  import type { AppState } from "$lib/client/appstate.svelte";
-    import BotTable from "$lib/client/components/features/bot-table/bot-table.svelte";
-  import SearchBar from "$lib/client/components/features/search-bar/search-bar.svelte";
-  import { getContext } from "svelte";
-   
-    
+  import BotTable from "$lib/client/components/features/bot-table/bot-table.svelte";
 </script>
 
-<div class="flex flex-col w-full">
-  <div class="w-1/2 pt-2 pl-2">
-    <SearchBar/> 
-
-  </div>
-  
+<div class="mx-auto flex w-full max-w-7xl flex-col px-3 pb-2 pt-2 sm:px-4">
   <BotTable />
-
 </div>

@@ -4,7 +4,8 @@ import { BotState } from "./components/features/bot/bot.state.svelte";
 import { DashboardState } from "./components/features/dashboard/dashboard.state.svelte";
 import { SearchBarState } from "./components/features/search-bar/search-bar.state.svelte";
 import { TimePickerState } from "./components/features/time-picker/time-picker.state.svelte";
-import { browser } from '$app/environment';
+import { browser } from "$app/environment";
+import { goto } from "$app/navigation";
 type GlobalFetch = typeof globalThis.fetch;
 
 export class AppState {
@@ -70,16 +71,14 @@ export class AppState {
     }
 
     navigateToRelationshipView(id: string) {
-        console.log('going to workflow', id);
         if (browser) {
-            window.location.href = `/workflows/${id}`;
+            void goto(`/workflows/${id}`);
         }
     }
 
     navigateToDashboardView(id: string) {
-        console.log('going to dashboard', id);
         if (browser) {
-            window.location.href = `/dashboard/${id}`;
+            void goto(`/dashboard/${id}`);
         }
     }
 }

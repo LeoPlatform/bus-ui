@@ -16,12 +16,15 @@
     let systemType = $state<string>('Custom');
     let label = $state<string>('');
     let iconUrl = $state<string>('');
+    let saving = $state(false);
+    let saveError = $state<string | null>(null);
+    let saveSuccess = $state(false);
 
     $effect(() => {
         if (settings) {
-            label = settings.label || '';
-            iconUrl = settings.icon || '';
-            systemType = settings.settings?.system || 'Custom';
+            label = (settings as any).label || '';
+            iconUrl = (settings as any).icon || '';
+            systemType = (settings as any).settings?.system || 'Custom';
         }
     });
 
@@ -33,8 +36,29 @@
         { value: 'Custom', label: 'Custom' }
     ];
 
-    function saveSettings() {
-        console.log('Saving system settings', { systemType, label, iconUrl });
+    async function saveSettings() {
+        saving = true;
+        saveError = null;
+        saveSuccess = false;
+        try {
+            await compState.saveSettings({
+                label,
+                icon: iconUrl.trim() || null,
+                settings: { system: systemType },
+            });
+            saveSuccess = true;
+            setTimeout(() => { saveSuccess = false; }, 3000);
+        } catch (e: any) {
+            saveError = e.message ?? 'Save failed';
+        } finally {
+            saving = false;
+        }
+    }
+
+    function resetForm() {
+        label = (settings as any)?.label || '';
+        iconUrl = (settings as any)?.icon || '';
+        systemType = (settings as any)?.settings?.system || 'Custom';
     }
 </script>
 
@@ -68,14 +92,19 @@
                 <Label for="iconUrl">Icon URL</Label>
                 <Input id="iconUrl" bind:value={iconUrl} placeholder="Custom Icon URL" />
             </div>
+
+            {#if saveError}
+                <p class="text-sm text-destructive">{saveError}</p>
+            {/if}
+            {#if saveSuccess}
+                <p class="text-sm text-green-500">Settings saved.</p>
+            {/if}
         </CardContent>
         <CardFooter class="flex justify-end gap-2">
-            <Button variant="outline" on:click={() => {
-                label = settings?.label || '';
-                iconUrl = settings?.icon || '';
-                systemType = settings?.settings?.system || 'Custom';
-            }}>Reset</Button>
-            <Button on:click={saveSettings}>Save Settings</Button>
+            <Button variant="outline" onclick={resetForm} disabled={saving}>Reset</Button>
+            <Button onclick={saveSettings} disabled={saving}>
+                {saving ? 'Saving…' : 'Save Settings'}
+            </Button>
         </CardFooter>
     </Card>
 </div>

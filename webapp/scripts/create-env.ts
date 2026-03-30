@@ -37,6 +37,7 @@ async function main(): Promise<void> {
         leo_stats_table: config.Resources.LeoStats,
         leo_event_table: config.leosdk.LeoEvent,
         leo_system_table: config.leosdk.LeoSystem,
+        leo_s3: config.leosdk.LeoS3,
         local: true,
         auth_config_source: argv.configLocation ?? existingEnvFileData['AUTH_CONFIG_SOURCE'],
         auth_secret: existingEnvFileData['AUTH_SECRET'],

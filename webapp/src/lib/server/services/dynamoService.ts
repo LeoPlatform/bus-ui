@@ -5,9 +5,9 @@ const LEO_STATS_TABLE = () => env.LEO_STATS_TABLE ?? process.env.LEO_STATS_TABLE
 const LEO_SYSTEM_TABLE = () => env.LEO_SYSTEM_TABLE ?? process.env.LEO_SYSTEM_TABLE ?? '';
 import { createDynamoClient } from "$lib/server/aws_utils";
 import { getLeoCronTable } from "$lib/server/utils";
-import type { AwsCreds, BotSettings, CheckpointType, DashboardStats, DashboardStatsRequest, MergedStatsRecord, QueueSettings, StatsDynamoRecord, StatsQueryRequest, StatsRecord } from "$lib/types";
+import type { AwsCreds, BotSettings, CheckpointType, DashboardStats, DashboardStatsRequest, MergedStatsRecord, QueueSettings, StatsDynamoRecord, StatsQueryRequest, StatsRecord, SystemSettings } from "$lib/types";
 import { DynamoDBClient, QueryCommand, ReturnConsumedCapacity, type QueryOutput } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, ScanCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { bucketsData, ranges } from "$lib/bucketUtils";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {  mergeStatsResults } from "$lib/stats/utils";
@@ -63,6 +63,53 @@ export async function getRelationShips(creds: AwsCreds): Promise<BotSettings[]> 
     }
 }
 
+async function scanTableAllItems(
+    docClient: DynamoDBDocumentClient,
+    tableName: string
+): Promise<Record<string, unknown>[]> {
+    if (!tableName) return [];
+    const items: Record<string, unknown>[] = [];
+    let lek: Record<string, NativeAttributeValue> | undefined;
+    do {
+        const out = await docClient.send(
+            new ScanCommand({
+                TableName: tableName,
+                ExclusiveStartKey: lek,
+            })
+        );
+        items.push(...((out.Items ?? []) as Record<string, unknown>[]));
+        lek = out.LastEvaluatedKey;
+    } while (lek);
+    return items;
+}
+
+/** Full Leo event table scan for catalog (queues). */
+export async function scanLeoEventQueues(creds: AwsCreds): Promise<QueueSettings[]> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const table = LEO_EVENT_TABLE();
+    try {
+        const rows = await scanTableAllItems(docClient, table);
+        return rows as QueueSettings[];
+    } catch (err) {
+        console.error("scanLeoEventQueues failed", err);
+        return [];
+    }
+}
+
+/** Full Leo system table scan for catalog (systems). */
+export async function scanLeoSystems(creds: AwsCreds): Promise<SystemSettings[]> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const table = LEO_SYSTEM_TABLE();
+    try {
+        const rows = await scanTableAllItems(docClient, table);
+        return rows as SystemSettings[];
+    } catch (err) {
+        console.error("scanLeoSystems failed", err);
+        return [];
+    }
+}
 
 export async function getStats(creds: AwsCreds, params: StatsQueryRequest): Promise<MergedStatsRecord[]> {
     const client = createDynamoClient(creds);
@@ -503,6 +550,97 @@ async function getQueueSettings(creds: AwsCreds, id: string): Promise<QueueSetti
     }
 
     return response.Item as QueueSettings;
+}
+
+/**
+ * Save bot settings updates to the LeoCron table.
+ * updates can include top-level fields (archived, paused) and a nested health object.
+ */
+export async function saveBotSettings(creds: AwsCreds, id: string, updates: Record<string, any>): Promise<void> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const botId = id.replace(/^bot:/, "");
+
+    // Fetch existing item so we can merge safely (avoids conditional expression complexity)
+    const existing = await docClient.send(new GetCommand({
+        TableName: LEO_CRON_TABLE(),
+        Key: { id: botId }
+    }));
+
+    const current = existing.Item ?? { id: botId };
+
+    // Deep-merge: merge health sub-object if present
+    const updated: Record<string, any> = { ...current };
+    for (const [k, v] of Object.entries(updates)) {
+        if (k === 'health' && v && typeof v === 'object') {
+            updated.health = { ...(current.health ?? {}), ...v };
+        } else {
+            updated[k] = v;
+        }
+    }
+
+    await docClient.send(new PutCommand({
+        TableName: LEO_CRON_TABLE(),
+        Item: updated,
+    }));
+}
+
+/**
+ * Save queue settings updates to the LeoEvent table.
+ */
+export async function saveQueueSettings(creds: AwsCreds, id: string, updates: Record<string, any>): Promise<void> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const queueId = id.replace(queueSystemReplaceRegex, "");
+
+    const existing = await docClient.send(new GetCommand({
+        TableName: LEO_EVENT_TABLE(),
+        Key: { event: queueId }
+    }));
+
+    const current = existing.Item ?? { event: queueId };
+    const updated: Record<string, any> = { ...current };
+    for (const [k, v] of Object.entries(updates)) {
+        if (k === 'other' && v && typeof v === 'object' && !Array.isArray(v)) {
+            updated.other = { ...(current.other ?? {}), ...v };
+        } else {
+            updated[k] = v;
+        }
+    }
+
+    await docClient.send(new PutCommand({
+        TableName: LEO_EVENT_TABLE(),
+        Item: updated,
+    }));
+}
+
+/**
+ * Save system settings updates to the LeoSystem table.
+ */
+export async function saveSystemSettings(creds: AwsCreds, id: string, updates: Record<string, any>): Promise<void> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const sysId = id.replace(/^system:/, "");
+
+    const existing = await docClient.send(new GetCommand({
+        TableName: LEO_SYSTEM_TABLE(),
+        Key: { id: sysId }
+    }));
+
+    const current = existing.Item ?? { id: sysId };
+    const updated: Record<string, any> = { ...current };
+    for (const [k, v] of Object.entries(updates)) {
+        if (k === 'settings' && v && typeof v === 'object') {
+            updated.settings = { ...(current.settings ?? {}), ...v };
+        } else {
+            updated[k] = v;
+        }
+    }
+
+    await docClient.send(new PutCommand({
+        TableName: LEO_SYSTEM_TABLE(),
+        Item: updated,
+    }));
 }
 
 async function scan(client: DynamoDBDocumentClient, input: ScanCommandInput): Promise<ScanCommandOutput> {

@@ -5,30 +5,40 @@
   import ArrowAZ from "@lucide/svelte/icons/arrow-down-a-z";
   import ArrowZA from "@lucide/svelte/icons/arrow-down-z-a";
   import type { Column } from "@tanstack/table-core";
-  import type { BotSettings } from "$lib/types";
+  import type { CatalogRow } from "$lib/types";
+  import { cn } from "$lib/utils.js";
 
   let {
     column,
     variant = "ghost",
     headerName,
+    align = "start",
+    class: className,
     ...restProps
   }: ComponentProps<typeof Button> & {
-    column: Column<BotSettings>;
+    column: Column<CatalogRow, unknown>;
     headerName: string;
+    /** Metric columns: center label + sort control in the cell */
+    align?: "start" | "center";
   } = $props();
-  //   console.log("sort button");
 </script>
 
 <Button
   {variant}
   {...restProps}
+  class={cn(
+    "inline-flex h-auto min-h-9 items-center gap-2 px-2 py-1.5 whitespace-nowrap [&_svg]:shrink-0",
+    align === "center" && "w-full justify-center text-center",
+    align === "start" && "justify-start text-left",
+    className,
+  )}
 >
-  {headerName}
+  <span>{headerName}</span>
   {#if column.getIsSorted() === "asc"}
-    <ArrowAZ class="ml-2" />
+    <ArrowAZ class="size-4 shrink-0" />
   {:else if column.getIsSorted() === "desc"}
-    <ArrowZA class="ml-2" />
+    <ArrowZA class="size-4 shrink-0" />
   {:else}
-    <ArrowUp class="ml-2" />
+    <ArrowUp class="size-4 shrink-0" />
   {/if}
 </Button>

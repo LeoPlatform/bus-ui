@@ -10,6 +10,7 @@
   import QueueDashboardTab from "./queue-dashboard-tab.svelte";
   import QueueEventsTab from "./queue-events-tab.svelte";
   import QueueSchemaTab from "./queue-schema-tab.svelte";
+  import QueueSettingsTab from "./queue-settings-tab.svelte";
   import SystemSettingsTab from "./system-settings-tab.svelte";
   import TimePicker from "../time-picker/time-picker.svelte";
   import { Skeleton } from "$lib/client/components/ui/skeleton/index";
@@ -81,6 +82,7 @@
             return [
                 {label: DashboardTabType.Dashboard},
                 {label: DashboardTabType.Events},
+                {label: DashboardTabType.Settings},
                 {label: DashboardTabType.Schema},
             ];
         case NodeType.System:
@@ -112,6 +114,18 @@
         ]).catch((error) => {
             console.error('Failed to load dashboard data:', error);
         });
+    });
+
+    /** Keep charts aligned with wall clock: stats only loaded on id/range change otherwise, while the “now” line was advancing every 30s. */
+    $effect(() => {
+        const currentId = id;
+        if (!currentId) return;
+        const t = setInterval(() => {
+            compState.getDashStats().catch((err) => {
+                console.error('Dashboard stats refresh failed:', err);
+            });
+        }, 45_000);
+        return () => clearInterval(t);
     });
 
 </script>
@@ -172,6 +186,8 @@
                 <div class="mt-4">
                     {#if dashType === NodeType.Bot}
                         <BotSettingsTab id={id} />
+                    {:else if dashType === NodeType.Queue}
+                        <QueueSettingsTab id={id} />
                     {:else if dashType === NodeType.System}
                         <SystemSettingsTab id={id} />
                     {:else}
