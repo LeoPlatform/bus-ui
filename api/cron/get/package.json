@@ -21,7 +21,7 @@
 			],
 			"name": "Leo_Botmon_api_cron_get",
 			"handler": "handler",
-			"memory": 256,
+			"memory": 512,
 			"timeout": 10,
 			"build": {}
 		}

@@ -18,7 +18,7 @@
 					"ref": "core.roles.LeoHealthCheckRole"
 				}
 			},
-			"memory": 256,
+			"memory": 512,
 			"timeout": 10,
 			"cron": {
 				"owner": "leo",
