@@ -21,7 +21,9 @@
 			"env": {
 				"Resources": {
 					"LeoStats": "${LeoStats}"
-				}
+				},
+				"BOT_SCAN_SEGMENTS": "${BotScanSegments}",
+				"QUEUE_SCAN_SEGMENTS": "${QueueScanSegments}"
 			},
 			"build": {
 				"include": [
