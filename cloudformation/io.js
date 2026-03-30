@@ -13,5 +13,15 @@ module.exports = {
 			"Description": "Custom Javascript for the web app",
 			"Type": "String"
 		},
+		"BotScanSegments": {
+			"Description": "Number of parallel scan segments for the bots (LeoCron) DynamoDB table",
+			"Type": "String",
+			"Default": "1"
+		},
+		"QueueScanSegments": {
+			"Description": "Number of parallel scan segments for the queues (LeoEvent) DynamoDB table",
+			"Type": "String",
+			"Default": "1"
+		},
 	}
 }

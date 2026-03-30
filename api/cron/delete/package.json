@@ -20,7 +20,7 @@
 			],
 			"name": "Leo_Botmon_api_cron_delete",
 			"handler": "handler",
-			"memory": 256,
+			"memory": 512,
 			"timeout": 10,
 			"build": {}
 		}

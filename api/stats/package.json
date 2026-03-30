@@ -17,11 +17,13 @@
 			"handler": "handler",
 			"role": null,
 			"memory": 1024,
-			"timeout": 10,
+			"timeout": 30,
 			"env": {
 				"Resources": {
 					"LeoStats": "${LeoStats}"
-				}
+				},
+				"BOT_SCAN_SEGMENTS": "${BotScanSegments}",
+				"QUEUE_SCAN_SEGMENTS": "${QueueScanSegments}"
 			},
 			"build": {
 				"include": [

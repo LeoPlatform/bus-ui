@@ -18,7 +18,7 @@
 					"ref": "core.roles.LeoHealthCheckRole"
 				}
 			},
-			"memory": 256,
+			"memory": 512,
 			"timeout": 10,
 			"cron": {
 				"owner": "leo",
@@ -30,7 +30,9 @@
 					"SnsTopic": "${HealthCheckSNS}",
 					"DomainUrl": "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/Release",
 					"LeoStats": "${LeoStats}"
-				}
+				},
+				"BOT_SCAN_SEGMENTS": "${BotScanSegments}",
+				"QUEUE_SCAN_SEGMENTS": "${QueueScanSegments}"
 			},
 			"build": {
 				"include": [
