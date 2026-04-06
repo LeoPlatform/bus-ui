@@ -21,7 +21,7 @@ export function evaluateBotStatus(
 
   // If no stats available, return default values
   if (!stats) {
-    return { status, isAlarmed, alarms, rogue, errorCount: 0, errorRate: 0 };
+    return { status, isAlarmed, alarms, rogue, errorCount: 0, errorRate: 0, writeLag: 0, sourceLag: 0 };
   }
 
   // Calculate error statistics from raw stats
@@ -91,7 +91,9 @@ export function evaluateBotStatus(
     alarms,
     rogue,
     errorCount,
-    errorRate
+    errorRate,
+    writeLag,
+    sourceLag,
   };
 }
 

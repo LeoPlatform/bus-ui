@@ -84,6 +84,8 @@ export interface CatalogRow {
   health?: BotHealth;
   errorCount?: number;
   lambdaName?: string;
+  status?: string;
+  isAlarmed?: boolean;
 }
 
 export interface BotHealth {

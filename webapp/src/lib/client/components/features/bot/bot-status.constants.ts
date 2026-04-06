@@ -34,4 +34,6 @@ export interface BotStatusEvaluation {
   rogue: boolean;
   errorCount: number;
   errorRate: number;
+  writeLag: number;
+  sourceLag: number;
 }

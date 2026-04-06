@@ -25,14 +25,15 @@
   import type { CatalogRow } from "$lib/types";
   import { getContext, untrack } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
-  import { cn } from "$lib/utils.js";
+  import { cn, humanize } from "$lib/utils.js";
   import { Skeleton } from "$lib/client/components/ui/skeleton";
 
   let appState = getContext<AppState>('appState');
   let loading = $derived(appState.botState.loading);
 
   // Fetch stats only for bots visible on the current page (not all 8000+).
-  // Re-fetches when pagination or sorting changes the visible rows.
+  // Debounced to avoid spamming the API when the user types in the filter.
+  let statsDebounce: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const rows = table.getRowModel().rows;
     if (!rows.length) return;
@@ -44,10 +45,13 @@
 
     if (botIds.length === 0) return;
 
-    untrack(() => {
+    clearTimeout(statsDebounce);
+    statsDebounce = setTimeout(() => {
       appState.botState.visibleIds = botIds;
       appState.botState.fetchBotStats().catch(() => {});
-    });
+    }, 500);
+
+    return () => clearTimeout(statsDebounce);
   });
 
   let data: CatalogRow[] = $derived(
@@ -86,6 +90,8 @@
                 name: row.name ?? row.lambdaName ?? row.id,
                 tags: row.tags,
                 kind: row.kind,
+                status: row.status,
+                isAlarmed: row.isAlarmed,
             })
         },
         enableHiding: false,
@@ -102,8 +108,11 @@
                 align: "center",
             })
         },
-        cell: ({ row }) =>
-            row.original.kind === "bot" ? (row.original.health?.source_lag ?? 0) : "—",
+        cell: ({ row }) => {
+            if (row.original.kind !== "bot") return "—";
+            const v = row.original.health?.source_lag ?? 0;
+            return v > 0 ? humanize(v) : "0";
+        },
     },
     {
         id: "writeLag",
@@ -117,8 +126,11 @@
         },
         accessorFn: (row) =>
             row.kind === "bot" ? (row.health?.write_lag ?? 0) : -1,
-        cell: ({ row }) =>
-            row.original.kind === "bot" ? (row.original.health?.write_lag ?? 0) : "—",
+        cell: ({ row }) => {
+            if (row.original.kind !== "bot") return "—";
+            const v = row.original.health?.write_lag ?? 0;
+            return v > 0 ? humanize(v) : "0";
+        },
     },
     {
         accessorFn: (row) =>

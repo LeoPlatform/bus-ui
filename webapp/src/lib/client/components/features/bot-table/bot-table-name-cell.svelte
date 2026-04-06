@@ -13,10 +13,22 @@
         name: string;
         tags?: string;
         kind: CatalogNodeKind;
+        status?: string;
+        isAlarmed?: boolean;
     };
 
     let appState = getContext<AppState>("appState");
-    let { id, name, tags, kind }: CellProps = $props();
+    let { id, name, tags, kind, status, isAlarmed }: CellProps = $props();
+
+    const STATUS_RING: Record<string, string> = {
+        danger: "ring-2 ring-amber-500",
+        rogue: "ring-2 ring-red-500",
+        blocked: "ring-2 ring-red-500",
+        paused: "ring-2 ring-gray-500 opacity-60",
+        archived: "opacity-40",
+    };
+
+    let ringClass = $derived(status ? (STATUS_RING[status] ?? "") : "");
 
     let tagsArr = $derived(
         tags
@@ -66,7 +78,7 @@
                             goToDashboardView(id);
                         }}
                     >
-                        <img src={iconSrc} alt="" class="max-h-full min-h-0 w-full object-contain" />
+                        <img src={iconSrc} alt="" class="max-h-full min-h-0 w-full object-contain rounded-md {ringClass}" />
                     </Button>
                 {/snippet}
             </Tooltip.Trigger>

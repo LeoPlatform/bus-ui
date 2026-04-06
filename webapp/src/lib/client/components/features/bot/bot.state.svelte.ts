@@ -101,9 +101,15 @@ export class BotState {
         name: b.name ?? b.lambdaName,
         tags: b.tags,
         archived: b.archived,
-        health: b.health,
+        health: {
+          ...b.health,
+          source_lag: (b as any).computedSourceLag || b.health?.source_lag,
+          write_lag: (b as any).computedWriteLag || b.health?.write_lag,
+        },
         errorCount: b.errorCount,
         lambdaName: b.lambdaName,
+        status: b.status,
+        isAlarmed: b.isAlarmed,
       });
     }
     for (const q of this.#queueRows) {
@@ -471,7 +477,14 @@ export class BotState {
       bot.alarms = statusEvaluation.alarms;
       bot.rogue = statusEvaluation.rogue;
       bot.alarmed = statusEvaluation.isAlarmed;
+      bot.errorCount = statusEvaluation.errorCount;
+      // Store computed lag values so the catalog/home table can display them
+      (bot as any).computedSourceLag = statusEvaluation.sourceLag;
+      (bot as any).computedWriteLag = statusEvaluation.writeLag;
     }
+
+    // Rebuild catalog so the home table picks up updated status/lag/error values
+    this.rebuildCatalog();
   }
   
 }
