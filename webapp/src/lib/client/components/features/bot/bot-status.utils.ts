@@ -152,15 +152,18 @@ function calculateWriteLag(stats: MergedStatsRecord): number {
 function calculateSourceLag(stats: MergedStatsRecord): number {
   const now = Date.now();
   let maxSourceLag = 0;
-  
+
   if (stats.read) {
     Object.values(stats.read).forEach(readStat => {
-      const lastRead = new Date(readStat.timestamp).getTime();
-      const lag = now - lastRead;
+      // Source lag uses source_timestamp (when the event was originally created),
+      // not timestamp (when the bot last processed). This measures how far behind
+      // the bot is from the actual event source time.
+      const sourceTime = readStat.source_timestamp || readStat.timestamp;
+      const lag = now - new Date(sourceTime).getTime();
       maxSourceLag = Math.max(maxSourceLag, lag);
     });
   }
-  
+
   return maxSourceLag;
 }
 
