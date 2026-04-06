@@ -392,6 +392,13 @@
         };
     });
 
+    // Show aggregation state when it has user-defined keys (strip internal empty object)
+    let aggDisplay = $derived.by((): [string, unknown][] | null => {
+        if (aggState == null || typeof aggState !== 'object') return null;
+        const entries = Object.entries(aggState as Record<string, unknown>);
+        return entries.length > 0 ? entries : null;
+    });
+
     let statusLine = $derived.by(() => {
         const parts: string[] = [];
         if ((resumptionToken || isSearching) && searchEndTime) {
@@ -482,6 +489,15 @@
         <div class="shrink-0 flex items-center gap-3 text-sm text-destructive">
             <p class="flex-1">{searchError}</p>
             <Button variant="outline" size="sm" onclick={() => startPayloadSearch()}>Retry</Button>
+        </div>
+    {/if}
+
+    {#if aggDisplay}
+        <div class="shrink-0 flex flex-wrap items-center gap-3 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-mono">
+            {#each aggDisplay as [key, value]}
+                <span class="text-muted-foreground">{key}:</span>
+                <span class="font-bold">{typeof value === 'number' ? value.toLocaleString() : JSON.stringify(value)}</span>
+            {/each}
         </div>
     {/if}
 
