@@ -11,13 +11,15 @@
   import { generateSmartCurve } from "./link-utils.svelte";
   import RelationshipFilterControls from "./relationship-filter-controls.svelte";
   import Filter from '@lucide/svelte/icons/filter';
+  import Pause from '@lucide/svelte/icons/pause';
+  import Crosshair from '@lucide/svelte/icons/crosshair';
+  import Settings from '@lucide/svelte/icons/settings';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import ChartDetailsPane from "../chart-details-pane/chart-details-pane.svelte";
 
   let appState = getContext<AppState>('appState');
-    appState.botState.buildRelationShipTree();
-  let relationShipTree = appState.botState.relationShipTree;
+  let relationShipTree = $derived(appState.botState.relationShipTree);
   let botStats = $derived(appState.botState.stats || []);
 
   let {
@@ -36,6 +38,8 @@
   if (!strokeColor) strokeColor = "#50ADE5";
 
   let expandedNodes = $state(new Set<string>());
+  /** When refocusing the tree on another bot, avoid carrying expand state from the previous root. */
+  let previousRelationshipRootId = $state<string | null>(null);
   let currentNodeCount = $derived(appState.botState.visibleIds.length);
 
   //TODO: will need to also track status, errors
@@ -91,6 +95,63 @@
     if (status === 'danger') return getTrianglePath(r);
     if (status === 'blocked' || status === 'rogue') return getOctagonPath(r);
     return getCirclePath(r);
+  }
+
+  function resolveBotImageHref(
+    paused: boolean | undefined,
+    botStatus: string | undefined,
+  ): string {
+    if (paused) return "/bot.png";
+    const s = botStatus || "running";
+    if (s === "rogue") return "/bot-rogue.png";
+    if (s === "danger") return "/bot-danger.png";
+    if (s === "blocked") return "/bot-blocked.png";
+    if (s === "archived") return "/bot-archived.png";
+    return "/bot.png";
+  }
+
+  const PAUSED_BOT_IMAGE_OPACITY = "0.5";
+  const PAUSED_BOT_IMAGE_FILTER = "saturate(0.3) brightness(0.88)";
+
+  /** Lucide Pause uses filled rects; createLucideIconFromComponent strips fill — restore for visibility */
+  function syncBotPauseIndicator(
+    nodeG: d3.Selection<any, any, any, any>,
+    nw: number,
+    data: { type: string; paused?: boolean },
+  ) {
+    nodeG.select("g.bot-pause-indicator").remove();
+    if (data.type !== "bot" || !data.paused) return;
+    const size = Math.round(Math.min(28, nw * 0.36));
+    const inset = Math.max(5, Math.round(nw * 0.08));
+    const cx = -nw / 2 + inset + size / 2;
+    const cy = -nw / 2 + inset + size / 2;
+    const g = createLucideIconFromComponent(
+      nodeG,
+      Pause,
+      cx,
+      cy,
+      size,
+      "bot-pause-indicator",
+    );
+    if (!g) return;
+    g.style("color", "var(--color-foreground)");
+    g.select("svg").selectAll("rect").style("fill", "currentColor").style("stroke", "none");
+    g.raise();
+  }
+
+  /** Light chip behind icon — use dark strokes (chevrons use black); theme foreground is often light-on-dark */
+  function styleLucideOnLightChip(
+    iconGroup: d3.Selection<any, unknown, any, any> | null,
+  ) {
+    if (!iconGroup?.node()) return;
+    const ink = "#111827";
+    iconGroup.style("color", ink);
+    iconGroup
+      .select("svg")
+      .selectAll("*")
+      .style("stroke", ink)
+      .style("fill", "none")
+      .style("stroke-width", 2.25);
   }
 
   function getNodeStrokeColor(status: string | undefined) {
@@ -207,18 +268,13 @@
 
 function updateContainerDimensions() {
   if (containerElement) {
-    // Get the parent container's dimensions
-    const parentElement = containerElement.parentElement;
-    if (parentElement) {
-      const parentRect = parentElement.getBoundingClientRect();
-      containerWidth = parentRect.width;
-      containerHeight = parentRect.height;
-    } else {
-      // Fallback to container's own dimensions
-      const rect = containerElement.getBoundingClientRect();
-      containerWidth = rect.width || window.innerWidth;
-      containerHeight = rect.height || window.innerHeight;
-    }
+    const rect = containerElement.getBoundingClientRect();
+    containerWidth = rect.width || window.innerWidth;
+    // Prefer measured layout box; fall back so first paint still gets a usable height
+    containerHeight =
+      rect.height > 0
+        ? rect.height
+        : Math.max(320, window.innerHeight - 160);
   }
 }
 
@@ -313,10 +369,8 @@ function updateContainerDimensions() {
     // Add zoom behavior
     zoomHandler = setupZoomBehavior(svg);
 
-    // Set initial transform to maintain centering
-    const initialTransform = d3.zoomIdentity.translate(containerWidth / 2, 0);
-
-    d3.select("#tree-container svg").call(zoomHandler).call(zoomHandler.transform, initialTransform);
+    // ViewBox is fit to content each render; keep zoom neutral so nothing is clipped
+    d3.select("#tree-container svg").call(zoomHandler).call(zoomHandler.transform, d3.zoomIdentity);
 
     renderVisualization();
   }
@@ -462,18 +516,24 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       containerHeight
     );
 
-    d3.select("#tree-container svg").attr(
-      "height",
-      maxHeight
-    );
-
     // Combine nodes from both trees
     const allNodes: d3.HierarchyPointNode<TreeNode>[] = [...rightTree.descendants(), ...leftTree.descendants()];
     // Combine links from both trees
     const allLinks = [...rightTree.links(), ...leftTree.links()];
     
     // Convert virtual links to direct links between actual nodes
-    const actualLinks = convertVirtualLinksToActual(allLinks);
+    const rawActualLinks = convertVirtualLinksToActual(allLinks);
+    // Left + right trees can yield the same logical edge twice; duplicate keys break the D3 join
+    // and can strand metric labels on the wrong <g> or at default (0,0).
+    function linkDatumKey(d: { source: { data: TreeNode }; target: { data: TreeNode } }) {
+      return `${d.source.data.id}-${d.source.data.direction}-${d.target.data.id}-${d.target.data.direction}`;
+    }
+    const linkDedup = new Map<string, (typeof rawActualLinks)[number]>();
+    for (const link of rawActualLinks) {
+      const k = linkDatumKey(link);
+      if (!linkDedup.has(k)) linkDedup.set(k, link);
+    }
+    const actualLinks = Array.from(linkDedup.values());
     // Filter out virtual nodes from rendering
     const actualNodes = allNodes.filter(node => !node.data.isVirtual);
     
@@ -586,22 +646,44 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       }
     });
 
+    // The focused entity is the root of BOTH the left and right d3 trees, so it appears twice in
+    // `actualNodes` with different (direction, depth) keys. Layout gives each copy its own x/y, but
+    // edges only reference one copy — paths and link metrics then use coordinates that do not match
+    // the visible node (labels drift to the side or off the edge after refocus).
+    const rootEntityId = relationShipTree.id;
+    const rootVariants = actualNodes.filter((n) => n.data.id === rootEntityId);
+    if (rootVariants.length > 1) {
+      const linked = new Set<d3.HierarchyPointNode<TreeNode>>();
+      for (const l of actualLinks) {
+        linked.add(l.source);
+        linked.add(l.target);
+      }
+      const primary =
+        rootVariants.find((n) => linked.has(n)) ?? rootVariants[0];
+      const sx = primary.x;
+      const sy = primary.y;
+      for (const n of rootVariants) {
+        n.x = sx;
+        n.y = sy;
+        nodePositions.set(getPositionKey(n.data.id, n.data.direction, n.data.depth), {
+          x: sx,
+          y: sy,
+        });
+      }
+    }
+
+    // Stop in-flight transitions so refocus / rapid updates don't leave paths/text mid-tween (stray metrics).
+    linkGroup.selectAll(".link-group *").interrupt();
+    linkGroup.selectAll(".link-group").interrupt();
+    nodeGroup.selectAll(".node *").interrupt();
+    nodeGroup.selectAll(".node").interrupt();
+
     // UPDATE PATTERN FOR LINKS - No more clearing!
     const linkSelection = linkGroup
       .selectAll(".link-group")
-      .data(
-        actualLinks,
-        (d: any) =>
-          `${d.source.data.id}-${d.source.data.direction}-${d.target.data.id}-${d.target.data.direction}`
-      );
+      .data(actualLinks, (d: any) => linkDatumKey(d));
 
-    // Remove old links with transition
-    linkSelection
-      .exit()
-      .transition()
-      .duration(500)
-      .style("opacity", 0)
-      .remove();
+    linkSelection.exit().remove();
 
     // Add new links
     const linkEnter = linkSelection
@@ -630,15 +712,6 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .style("stroke-width", "2px")
       .style("fill", "none");
 
-    // Add white background rectangle for text above the link
-    linkEnter
-      .append("rect")
-      .attr("class", "link-text-above-bg")
-      .style("fill", "white")
-      .style("rx", "3") // Rounded corners
-      .style("ry", "3")
-      .style("pointer-events", "none");
-
     // Add text above the link (event count)
     linkEnter
       .append("text")
@@ -646,17 +719,8 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .style("text-anchor", "middle")
       .style("font-size", "11px")
       .style("font-weight", "bold")
-      .style("fill", "#333")
+      .style("fill", "var(--color-foreground)")
       .style("pointer-events", "none"); // Prevent text from interfering with interactions
-
-    // Add white background rectangle for text below the link
-    linkEnter
-      .append("rect")
-      .attr("class", "link-text-below-bg")
-      .style("fill", "white")
-      .style("rx", "3") // Rounded corners
-      .style("ry", "3")
-      .style("pointer-events", "none");
 
     // Add text below the link (time ago)
     linkEnter
@@ -664,11 +728,15 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .attr("class", "link-text-below")
       .style("text-anchor", "middle")
       .style("font-size", "10px")
-      .style("fill", "#666")
+      .style("fill", "var(--color-foreground)")
       .style("pointer-events", "none"); // Prevent text from interfering with interactions
 
     // Merge and update all links
     const linkUpdate = linkEnter.merge(linkSelection);
+
+    linkUpdate
+      .selectAll(".link-text-above, .link-text-below")
+      .style("fill", "var(--color-foreground)");
 
     // Start links from their previous positions for smooth transitions
     linkUpdate
@@ -687,107 +755,61 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
 
    
 
-    // Update link text positions and content
-    linkUpdate
-      .selectAll(".link-text-above")
-      .transition()
-      .duration(500)
-      .attr("x", (d) => (d.source.x + d.target.x) / 2)
-      .attr("y", (d) => (d.source.y + d.target.y) / 2 - 8)
-      .text((d: any) => {
-         let linkSourceId;
-          let linkTargetId;
+    // Link metrics: set x/y synchronously. Animated <text> from implicit (0,0) + interrupted tweens
+    // left labels stuck in the viewport corner after refocus.
+    linkUpdate.selectAll(".link-text-above").each(function (d: any) {
+      const mx = (d.source.x + d.target.x) / 2;
+      const my = (d.source.y + d.target.y) / 2 - 8;
+      const t = d3.select(this);
+      if (!Number.isFinite(mx) || !Number.isFinite(my)) {
+        t.style("opacity", 0);
+        return;
+      }
+      t.style("opacity", 1).attr("x", mx).attr("y", my);
+      let linkSourceId: string;
+      let linkTargetId: string;
+      if (d.source.data.type == "bot") {
+        linkSourceId = `bot:${d.source.data.originalId || d.source.data.id}`;
+      } else {
+        linkSourceId = d.source.data.originalId || d.source.data.id;
+      }
+      if (d.target.data.type == "bot") {
+        linkTargetId = `bot:${d.target.data.originalId || d.target.data.id}`;
+      } else {
+        linkTargetId = d.target.data.originalId || d.target.data.id;
+      }
+      const stats = getLinkStats(linkSourceId, linkTargetId);
+      t.text(stats.eventCount.toLocaleString());
+    });
 
-          if (d.source.data.type == "bot") {
-            linkSourceId = `bot:${d.source.data.originalId || d.source.data.id}`;
-          } else {
-            linkSourceId = d.source.data.originalId || d.source.data.id;
-          }
+    linkUpdate.selectAll(".link-text-below").each(function (d: any) {
+      const mx = (d.source.x + d.target.x) / 2;
+      const my = (d.source.y + d.target.y) / 2 + 15;
+      const t = d3.select(this);
+      if (!Number.isFinite(mx) || !Number.isFinite(my)) {
+        t.style("opacity", 0);
+        return;
+      }
+      t.style("opacity", 1).attr("x", mx).attr("y", my);
+      const sourceType = d.source.data.type;
+      const targetType = d.target.data.type;
+      let linkSourceId: string;
+      let linkTargetId: string;
+      if (sourceType == "bot") {
+        linkSourceId = `bot:${d.source.data.originalId || d.source.data.id}`;
+      } else {
+        linkSourceId = d.source.data.originalId || d.source.data.id;
+      }
+      if (targetType == "bot") {
+        linkTargetId = `bot:${d.target.data.originalId || d.target.data.id}`;
+      } else {
+        linkTargetId = d.target.data.originalId || d.target.data.id;
+      }
+      const stats = getLinkStats(linkSourceId, linkTargetId);
+      t.text(getLowerText(stats));
+    });
 
-          if (d.target.data.type == "bot") {
-            linkTargetId = `bot:${d.target.data.originalId || d.target.data.id}`;
-          } else {
-            linkTargetId = d.target.data.originalId || d.target.data.id;
-          }
-        const stats = getLinkStats(linkSourceId, linkTargetId);
-        return stats.eventCount.toLocaleString();
-      }).each(function(d: any) {
-    // After text is set, get its dimensions and update background
-        try {
-          const bbox = this.getBBox();
-          const padding = 4;
-          
-          d3.select(this.parentNode)
-            .select(".link-text-above-bg")
-            .attr("x", bbox.x - padding)
-            .attr("y", bbox.y - padding)
-            .attr("width", bbox.width + (padding * 2))
-            .attr("height", bbox.height + (padding * 2));
-        } catch (error) {
-          // Fallback if getBBox fails
-          console.warn("getBBox failed for link-text-above, using fallback", error);
-          d3.select(this.parentNode)
-            .select(".link-text-above-bg")
-            .attr("x", -25)
-            .attr("y", -8)
-            .attr("width", 50)
-            .attr("height", 16);
-        }
-      });
-
-
-    linkUpdate
-      .selectAll(".link-text-below")
-      .transition()
-      .duration(500)
-      .attr("x", (d) => (d.source.x + d.target.x) / 2)
-      .attr("y", (d) => (d.source.y + d.target.y) / 2 + 15)
-      .text((d: any) => {
-         let linkSourceId;
-          let linkTargetId;
-          let sourceType = d.source.data.type;
-          let targetType = d.target.data.type;
-
-          if (sourceType == "bot") {
-            linkSourceId = `bot:${d.source.data.originalId || d.source.data.id}`;
-          } else {
-            linkSourceId = d.source.data.originalId || d.source.data.id;
-          }
-
-          if (targetType == "bot") {
-            linkTargetId = `bot:${d.target.data.originalId || d.target.data.id}`;
-          } else {
-            linkTargetId = d.target.data.originalId || d.target.data.id;
-          }
-          // console.log(linkSourceId);
-        const stats = getLinkStats(linkSourceId, linkTargetId);
-        return getLowerText(stats);
-      }).each(function(d: any) {
-        // After text is set, get its dimensions and update background
-        try {
-          const bbox = this.getBBox();
-          const padding = 4;
-          
-          d3.select(this.parentNode)
-            .select(".link-text-below-bg")
-            .attr("x", bbox.x - padding)
-            .attr("y", bbox.y - padding)
-            .attr("width", bbox.width + (padding * 2))
-            .attr("height", bbox.height + (padding * 2));
-        } catch (error) {
-          // Fallback if getBBox fails
-          console.warn("getBBox failed for link-text-below, using fallback", error);
-          d3.select(this.parentNode)
-            .select(".link-text-below-bg")
-            .attr("x", -30)
-            .attr("y", -8)
-            .attr("width", 60)
-            .attr("height", 16);
-        }
-      });
-
-    // Fade in new and updated links
-    linkUpdate.transition().duration(300).style("opacity", 1);
+    linkUpdate.style("opacity", 1);
 
     // Update selected link styling
     linkGroup.selectAll(".link-group").classed("selected", function(d: any) {
@@ -908,23 +930,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           .attr("height", nodeWidth!)
           .attr("width", nodeWidth!);
       } else if (d.data.type === "bot") {
-
-        let botImg;
-        const botStatus = d.data.status || 'running';
-        
-        if (d.data.paused) {
-          botImg = "/bot-paused.png";
-        } else if (botStatus === 'rogue') {
-          botImg = "/bot-rogue.png";
-        } else if (botStatus === 'danger') {
-          botImg = "/bot-danger.png";
-        } else if (botStatus === 'blocked') {
-          botImg = "/bot-blocked.png";
-        } else if (botStatus === 'archived') {
-          botImg = "/bot-archived.png";
-        } else {
-          botImg = "/bot.png";
-        }
+        const botImg = resolveBotImageHref(d.data.paused, d.data.status);
 
         element
           .append("image")
@@ -933,7 +939,9 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           .attr("x", -nodeWidth! / 2)
           .attr("y", -nodeWidth! / 2)
           .attr("height", nodeWidth!)
-          .attr("width", nodeWidth!);
+          .attr("width", nodeWidth!)
+          .style("opacity", d.data.paused ? PAUSED_BOT_IMAGE_OPACITY : 1)
+          .style("filter", d.data.paused ? PAUSED_BOT_IMAGE_FILTER : "none");
       } else {
         element
           .append("image")
@@ -1246,6 +1254,87 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         });
       }
 
+      // Focus (re-center tree) + dashboard — match old_ui target / gear
+      if (
+        d.data.type === "bot" ||
+        d.data.type === "queue" ||
+        d.data.type === "system"
+      ) {
+        const r = nodeWidth! / 2;
+        const hitR = 10;
+        const iconSize = 12;
+        const xEdge = r - 4;
+        const yTop = -r + 16;
+        const yBottom = -r + 38;
+        const entityId = getOriginalNodeId(d.data);
+        const isCurrentFocus = entityId === relationShipTree.id;
+
+        const quickActions = element
+          .append("g")
+          .attr("class", "node-quick-actions")
+          .style("opacity", 0)
+          .style("pointer-events", "all");
+
+        if (!isCurrentFocus) {
+          const focusBtn = quickActions.append("g").attr("class", "node-action-focus");
+          focusBtn
+            .append("circle")
+            .attr("cx", xEdge)
+            .attr("cy", yTop)
+            .attr("r", hitR)
+            .style("fill", "#f3f4f6")
+            .style("stroke", "#6b7280")
+            .style("stroke-width", 1)
+            .style("cursor", "pointer");
+          const focusIcon = createLucideIconFromComponent(
+            focusBtn,
+            Crosshair,
+            xEdge,
+            yTop,
+            iconSize,
+            "node-action-focus-icon",
+          );
+          styleLucideOnLightChip(focusIcon);
+          focusBtn.on("click", function (event, nd: any) {
+            event.stopPropagation();
+            appState.navigateToRelationshipView(getOriginalNodeId(nd.data));
+          });
+        }
+
+        const yGear = isCurrentFocus ? yTop : yBottom;
+        const dashBtn = quickActions.append("g").attr("class", "node-action-dashboard");
+        dashBtn
+          .append("circle")
+          .attr("cx", xEdge)
+          .attr("cy", yGear)
+          .attr("r", hitR)
+          .style("fill", "#f3f4f6")
+          .style("stroke", "#6b7280")
+          .style("stroke-width", 1)
+          .style("cursor", "pointer");
+        const dashIcon = createLucideIconFromComponent(
+          dashBtn,
+          Settings,
+          xEdge,
+          yGear,
+          iconSize,
+          "node-action-dashboard-icon",
+        );
+        styleLucideOnLightChip(dashIcon);
+        dashBtn.on("click", function (event, nd: any) {
+          event.stopPropagation();
+          appState.navigateToDashboardView(getOriginalNodeId(nd.data));
+        });
+
+        element
+          .on("mouseenter.nodeQuickActions", function () {
+            quickActions.transition().duration(200).style("opacity", 1);
+          })
+          .on("mouseleave.nodeQuickActions", function () {
+            quickActions.transition().duration(200).style("opacity", 0);
+          });
+      }
+
 
     });
 
@@ -1258,30 +1347,22 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       
       // Update shape and color based on current status
       const status = d.data.status;
-      element.select(".node-shape")
+      element
+        .select(".node-shape")
         .attr("d", getNodeShapePath(status, nodeWidth! / 2))
+        .style("fill", "var(--color-background)")
         .style("stroke", getNodeStrokeColor(status));
 
       // Update bot image if needed
       if (d.data.type === "bot") {
-        let botImg;
-        const botStatus = status || 'running';
-        
-        if (d.data.paused) {
-          botImg = "/bot-paused.png";
-        } else if (botStatus === 'rogue') {
-          botImg = "/bot-rogue.png";
-        } else if (botStatus === 'danger') {
-          botImg = "/bot-danger.png";
-        } else if (botStatus === 'blocked') {
-          botImg = "/bot-blocked.png";
-        } else if (botStatus === 'archived') {
-          botImg = "/bot-archived.png";
-        } else {
-          botImg = "/bot.png";
-        }
-        element.select(".node-image").attr("xlink:href", botImg);
+        const botImg = resolveBotImageHref(d.data.paused, status);
+        element
+          .select(".node-image")
+          .attr("xlink:href", botImg)
+          .style("opacity", d.data.paused ? PAUSED_BOT_IMAGE_OPACITY : 1)
+          .style("filter", d.data.paused ? PAUSED_BOT_IMAGE_FILTER : "none");
       }
+      syncBotPauseIndicator(element, nodeWidth!, d.data);
 
       const originalData = findOriginalData(relationShipTree, d.data.id);
       const isRootNode = d.data.id === relationShipTree.id;
@@ -1418,11 +1499,74 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     }
 
 
+    // Fit SVG viewBox to graph bounds (includes negative x from the left tree) so wide layouts are not clipped
+    const svgRoot = d3.select("#tree-container svg");
+    if (!svgRoot.empty() && actualNodes.length > 0) {
+      const pad = 100;
+      const nw = nodeWidth ?? 50;
+      const nodeR = nw / 2 + 32;
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const d of actualNodes) {
+        minX = Math.min(minX, d.x - nodeR);
+        maxX = Math.max(maxX, d.x + nodeR);
+        minY = Math.min(minY, d.y - nodeR - 48);
+        maxY = Math.max(maxY, d.y + nodeR + 96);
+      }
+      for (const d of actualLinks) {
+        const midX = (d.source.x + d.target.x) / 2;
+        const midY = (d.source.y + d.target.y) / 2;
+        minX = Math.min(minX, midX - 120);
+        maxX = Math.max(maxX, midX + 120);
+        minY = Math.min(minY, midY - 40);
+        maxY = Math.max(maxY, midY + 40);
+      }
+      if (Number.isFinite(minX) && Number.isFinite(maxX)) {
+        const vbX = minX - pad;
+        const vbY = minY - pad;
+        const vbW = Math.max(maxX - minX + 2 * pad, 320);
+        const vbH = Math.max(maxY - minY + 2 * pad, 200);
+        svgRoot
+          .attr("width", containerWidth)
+          .attr("height", containerHeight)
+          .attr("viewBox", `${vbX} ${vbY} ${vbW} ${vbH}`)
+          .attr("preserveAspectRatio", "xMidYMid meet");
+        if (zoomHandler) {
+          svgRoot.call(zoomHandler.transform, d3.zoomIdentity);
+        }
+      }
+    } else if (!svgRoot.empty()) {
+      svgRoot
+        .attr("width", containerWidth)
+        .attr("height", containerHeight)
+        .attr("viewBox", `0 0 ${containerWidth} ${Math.max(maxHeight, containerHeight)}`)
+        .attr("preserveAspectRatio", "xMidYMid meet");
+    }
+
     setTimeout(() => {
       updateVisibleNodesFromDOM()
     }, 600);
   }
 
+  $effect(() => {
+    const tree = relationShipTree;
+    if (!tree?.id) return;
+    if (!svg) return;
+
+    untrack(() => {
+      if (previousRelationshipRootId !== null && previousRelationshipRootId !== tree.id) {
+        expandedNodes = new Set();
+        // Reuse of (id, direction, depth) keys across roots was pinning nodes to old coordinates;
+        // link paths/labels use those x/y, so metrics floated in empty space after refocus.
+        nodePositions.clear();
+        lastExpandedNode = null;
+      }
+      previousRelationshipRootId = tree.id;
+      renderVisualization();
+    });
+  });
 
   function getVisibleNodeCount(): number {
     return appState.botState.visibleIds.length;
@@ -1562,22 +1706,21 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
   }
 
   .workflow-container {
-    font-family: Arial, sans-serif;
+    font-family: inherit;
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
     width: 100%;
-    height: calc(100vh - 128px); /* Subtract header height - adjust as needed */
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
     position: relative;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
   }
 
   #tree-container {
     width: 100%;
     height: 100%;
+    min-height: 0;
     position: relative;
     overflow: hidden;
   }

@@ -147,7 +147,9 @@ export class BotState {
   }
 
   set selectedBotId(id: string) {
+    if (this.#selectedBotId === id) return;
     this.#selectedBotId = id;
+    this.buildRelationShipTree();
   }
 
   set visibleIds(ids: string[]) {

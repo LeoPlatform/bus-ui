@@ -72,6 +72,7 @@ export class AppState {
 
     navigateToRelationshipView(id: string) {
         if (browser) {
+            this.botState.selectedBotId = id;
             void goto(`/workflows/${id}`);
         }
     }

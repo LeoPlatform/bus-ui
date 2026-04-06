@@ -12,7 +12,6 @@
   import QueueSchemaTab from "./queue-schema-tab.svelte";
   import QueueSettingsTab from "./queue-settings-tab.svelte";
   import SystemSettingsTab from "./system-settings-tab.svelte";
-  import TimePicker from "../time-picker/time-picker.svelte";
   import { Skeleton } from "$lib/client/components/ui/skeleton/index";
 
     const appState = getContext<AppState>("appState");
@@ -156,15 +155,12 @@
     {:else}
     <div class="flex-1 mt-4 flex flex-col min-h-0">
         <Tabs.Root value={tabs[0].label} class="w-full flex-1 flex flex-col min-h-0">
-            <div class="flex flex-row justify-between items-center mb-4">
+            <div class="mb-4 flex flex-row items-center">
                 <Tabs.List>
                     {#each tabs as tab}
                         <Tabs.Trigger value={tab.label}>{tab.label}</Tabs.Trigger>
                     {/each}
                 </Tabs.List>
-                <div class="flex items-center">
-                    <TimePicker />
-                </div>
             </div>
             
             <Tabs.Content value={DashboardTabType.Dashboard} class="flex-1 flex flex-col min-h-0">

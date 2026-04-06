@@ -110,12 +110,12 @@ export function createNodeLabel(
     .attr("dy", "0.35em")
     .attr("y", nodeWidth / 2 + 15)
     .style("text-anchor", "middle")
-    .style("fill", "#333")
-    .style("font-weight", d.data.depth === 0 ? "bold" : "normal")
+    .style("fill", "var(--color-foreground)")
+    .style("font-weight", d.data.depth === 0 ? "bold" : "600")
     .style("font-size", () => {
-      if (d.depth === 0) return "14px";
-      if (d.depth === 1) return "12px";
-      return "10px";
+      if (d.depth === 0) return "15px";
+      if (d.depth === 1) return "13px";
+      return "12px";
     })
     .text(d.data.name || d.data.id); // Set initial text
 
