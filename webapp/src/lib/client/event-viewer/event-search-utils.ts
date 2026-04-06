@@ -2,19 +2,6 @@
 
 const EID_TRIM_RE = /^z\/\d{4}(\/\d{2}){4}\/\d{13}-\d{1,8}$/;
 
-export const TIME_FRAMES = ['30s', '1m', '5m', '1hr', '6hr', '1d', '1w'] as const;
-export type TimeFrame = (typeof TIME_FRAMES)[number];
-
-const DURATION_MS: Record<TimeFrame, number> = {
-    '30s': 30_000,
-    '1m': 60_000,
-    '5m': 5 * 60_000,
-    '1hr': 60 * 60_000,
-    '6hr': 6 * 60 * 60_000,
-    '1d': 24 * 60 * 60_000,
-    '1w': 7 * 24 * 60 * 60_000,
-};
-
 export function buildZTokenFromUtcMs(ms: number): string {
     const d = new Date(ms);
     const p = (n: number) => String(n).padStart(2, '0');
@@ -26,24 +13,15 @@ export function buildZTokenFromUtcMs(ms: number): string {
     return `z/${y}/${mo}/${day}/${h}/${min}/${ms}`;
 }
 
-/** First search token from explicit `z/...` timestamp or rolling window. */
-export function initialResumptionToken(timeFrame: TimeFrame | '', timestamp: string): string {
-    if (timestamp) {
-        let t = timestamp;
-        if (EID_TRIM_RE.test(t)) {
-            if (t.slice(-1) === '0') {
-                t = t.slice(0, -1);
-            } else {
-                const last = t.slice(-1);
-                const n = parseInt(last, 10);
-                t = Number.isNaN(n) ? t : t.slice(0, -1) + String(n - 1);
-            }
-        }
-        return normalizeIsoZToken(t);
+/** Trim trailing sub-event suffix so we start just before the exact EID (legacy behavior). */
+export function trimEidToken(token: string): string {
+    if (!EID_TRIM_RE.test(token)) return token;
+    if (token.slice(-1) === '0') {
+        return token.slice(0, -1);
     }
-    if (!timeFrame) return '';
-    const startMs = Date.now() - DURATION_MS[timeFrame as TimeFrame];
-    return buildZTokenFromUtcMs(startMs);
+    const last = token.slice(-1);
+    const n = parseInt(last, 10);
+    return Number.isNaN(n) ? token : token.slice(0, -1) + String(n - 1);
 }
 
 /** Legacy allowed ISO-style `z/2024-01-02T...` and normalized to slash form. */

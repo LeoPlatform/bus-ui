@@ -34,29 +34,49 @@ function toStatsId(id: string, defaultType: 'bot' | 'queue' | 'system' = 'bot'):
 
 
 //TODO: will eventually need to do the parallel scan
+const CRON_SCAN_SEGMENTS = 4;
+
+// Only fetch the fields the client actually reads — reduces 13MB → ~2-3MB for 8000+ bots.
+// 'name' and 'status' are DynamoDB reserved words so they need expression attribute names.
+const BOT_PROJECTION = 'id, #n, lambdaName, tags, archived, #h, checkpoints, paused, errorCount, #s, isAlarmed, alarms, rogue, alarmed, latest_write';
+const BOT_PROJECTION_NAMES: Record<string, string> = {
+    '#n': 'name',
+    '#h': 'health',
+    '#s': 'status',
+};
+
 export async function getRelationShips(creds: AwsCreds): Promise<BotSettings[]> {
     const client = createDynamoClient(creds);
-    const docClient = DynamoDBDocumentClient.from(client);
-
-    console.log("getRelationShips: using table", getLeoCronTable());
+    const table = getLeoCronTable();
+    console.log("getRelationShips: using table", table);
 
     try {
-        let response: ScanCommandOutput | null = null;
-        do {
-            const command = new ScanCommand({
-                TableName: getLeoCronTable(),
-                ExclusiveStartKey: response?.LastEvaluatedKey
-            });
-            const response2: ScanCommandOutput = await docClient.send(command);
-            if(!response) {
-                response = response2
-            } else {
-                response.LastEvaluatedKey = response2.LastEvaluatedKey;
-                response.Items = (response.Items?? []).concat(response2.Items ?? [])
+        const items = await parallelScan<BotSettings>(client, {
+            tableName: table,
+            projectionExpression: BOT_PROJECTION,
+            expressionAttributeNames: BOT_PROJECTION_NAMES,
+        }, CRON_SCAN_SEGMENTS);
+        console.log("getRelationShips: fetched", items.length, "items");
+
+        // Strip checkpoint values — the client only needs the queue ID keys
+        // to build the relationship tree, not the full checkpoint objects.
+        // This can cut the payload by 50%+ on large buses.
+        for (const bot of items) {
+            if (bot.checkpoints) {
+                for (const type of ['read', 'write'] as const) {
+                    const cp = bot.checkpoints[type];
+                    if (cp && typeof cp === 'object') {
+                        const slim: Record<string, boolean> = {};
+                        for (const key of Object.keys(cp)) {
+                            slim[key] = true;
+                        }
+                        (bot.checkpoints as any)[type] = slim;
+                    }
+                }
             }
-        } while(response.LastEvaluatedKey != null);
-        console.log("getRelationShips: fetched", response.Items?.length, "items");
-        return (response.Items as BotSettings[]) ?? [];
+        }
+
+        return items;
     } catch (err) {
         console.error('Failed retrieving bot information from dynamo ', err);
         return [];
@@ -65,31 +85,38 @@ export async function getRelationShips(creds: AwsCreds): Promise<BotSettings[]> 
 
 async function scanTableAllItems(
     docClient: DynamoDBDocumentClient,
-    tableName: string
+    tableName: string,
+    projectionExpression?: string,
+    expressionAttributeNames?: Record<string, string>,
 ): Promise<Record<string, unknown>[]> {
     if (!tableName) return [];
     const items: Record<string, unknown>[] = [];
     let lek: Record<string, NativeAttributeValue> | undefined;
     do {
-        const out = await docClient.send(
-            new ScanCommand({
-                TableName: tableName,
-                ExclusiveStartKey: lek,
-            })
-        );
+        const input: any = {
+            TableName: tableName,
+            ExclusiveStartKey: lek,
+        };
+        if (projectionExpression) input.ProjectionExpression = projectionExpression;
+        if (expressionAttributeNames) input.ExpressionAttributeNames = expressionAttributeNames;
+        const out = await docClient.send(new ScanCommand(input));
         items.push(...((out.Items ?? []) as Record<string, unknown>[]));
         lek = out.LastEvaluatedKey;
     } while (lek);
     return items;
 }
 
-/** Full Leo event table scan for catalog (queues). */
+/** Full Leo event table scan for catalog (queues). Only fetch fields the client reads. */
 export async function scanLeoEventQueues(creds: AwsCreds): Promise<QueueSettings[]> {
     const client = createDynamoClient(creds);
     const docClient = DynamoDBDocumentClient.from(client);
     const table = LEO_EVENT_TABLE();
     try {
-        const rows = await scanTableAllItems(docClient, table);
+        const rows = await scanTableAllItems(
+            docClient, table,
+            'event, #n, archived, #o',
+            { '#n': 'name', '#o': 'other' },
+        );
         return rows as QueueSettings[];
     } catch (err) {
         console.error("scanLeoEventQueues failed", err);
@@ -97,13 +124,17 @@ export async function scanLeoEventQueues(creds: AwsCreds): Promise<QueueSettings
     }
 }
 
-/** Full Leo system table scan for catalog (systems). */
+/** Full Leo system table scan for catalog (systems). Only fetch fields the client reads. */
 export async function scanLeoSystems(creds: AwsCreds): Promise<SystemSettings[]> {
     const client = createDynamoClient(creds);
     const docClient = DynamoDBDocumentClient.from(client);
     const table = LEO_SYSTEM_TABLE();
     try {
-        const rows = await scanTableAllItems(docClient, table);
+        const rows = await scanTableAllItems(
+            docClient, table,
+            'id, #l, archived',
+            { '#l': 'label' },
+        );
         return rows as SystemSettings[];
     } catch (err) {
         console.error("scanLeoSystems failed", err);
@@ -316,13 +347,9 @@ export async function getQueueDashboardStats(creds: AwsCreds, params: DashboardS
         ExpressionAttributeValues: marshall({ ":id": statsId, ":start": formattedStartTime, ":end": formattedEndTime }),
     });
 
-    // Run stats query and cron scan in parallel
-    const [statsItems, allBots] = await Promise.all([
-        parallelQuery(client, [statsQuery], (res) =>
-            res.Items?.map(item => unmarshall(item) as StatsDynamoRecord) ?? []
-        ).then(results => results.flat()),
-        getRelationShips(creds),
-    ]);
+    const statsItems = await parallelQuery(client, [statsQuery], (res) =>
+        res.Items?.map(item => unmarshall(item) as StatsDynamoRecord) ?? []
+    ).then(results => results.flat());
 
     // Build result
     const result = {
@@ -430,25 +457,10 @@ export async function getQueueDashboardStats(creds: AwsCreds, params: DashboardS
         }
     }
 
-    // Add bots from cron table that checkpoint against this queue but had no stats in this window
-    const rawId = params.id.replace(/^(queue|system):/, "");
-    for (const bot of allBots) {
-        if (bot.archived) continue;
-        const checkpoints = bot.checkpoints || {};
-        for (const type of ["read", "write"] as const) {
-            const cp = checkpoints[type as CheckpointType] || {};
-            const match = cp[rawId] || cp[statsId];
-            if (match && !(bot.id in result.bots[type])) {
-                const entry = makeBotEntry(bot.id, type);
-                if (match.ended_timestamp) {
-                    entry[`last_${type}`] = match.ended_timestamp;
-                    entry[`last_${type}_lag`] = params.timestamp - match.ended_timestamp;
-                }
-                if (match.checkpoint) entry.checkpoint = match.checkpoint;
-                result.bots[type][bot.id] = entry;
-            }
-        }
-    }
+    // Note: previously this did a full cron table scan (getRelationShips) to find
+    // bots with checkpoints against this queue but zero stats in the time window.
+    // On large buses (8000+ bots) that scan took 5+ seconds per request. Removed —
+    // the queue dashboard now only shows bots that had actual activity in the window.
 
     return result;
 }
@@ -464,60 +476,59 @@ export async function getSettings(creds: AwsCreds, id: string): Promise<Dashboar
 }
 
 
+const PARALLEL_LIMIT = 25;
+
 export async function parallelQuery<T>(client: DynamoDBClient, queries: QueryCommand[], mergeFn: (res: QueryOutput) => T): Promise<T[]> {
     if (queries.length < 1) {
         return [];
     }
 
-    let requests = [];
+    const results: T[] = [];
 
-    for (const query of queries) {
-        requests.push(client.send(query));
+    // Process in batches to avoid socket exhaustion on large buses
+    for (let i = 0; i < queries.length; i += PARALLEL_LIMIT) {
+        const batch = queries.slice(i, i + PARALLEL_LIMIT);
+        const batchResults = await Promise.all(batch.map(q => client.send(q)));
+        results.push(...batchResults.map(mergeFn));
     }
 
-    const results = await Promise.all(requests);
-    // console.log("results", results);
-
-    return results.map(mergeFn);
-
+    return results;
 }
 
 export interface ScanOpts {
     tableName: string,
     returnConsumedCapacity?: ReturnConsumedCapacity;
+    projectionExpression?: string;
+    expressionAttributeNames?: Record<string, string>;
 }
 
 export async function parallelScan<T>(client: DynamoDBClient, opts: ScanOpts, segments: number) {
     const docClient = DynamoDBDocumentClient.from(client);
-    const input: ScanCommandInput = {
-        TableName: opts.tableName,
-        ReturnConsumedCapacity: opts.returnConsumedCapacity,
-    };
 
-    let requests = [];
-
+    const requests = [];
     for (let i = 0; i < segments; i++) {
-        input.TotalSegments = segments;
-        input.Segment = i;
-        requests.push(scan(docClient,input));
+        // Each segment gets its own input object to avoid shared-mutation bugs
+        const input: ScanCommandInput = {
+            TableName: opts.tableName,
+            ReturnConsumedCapacity: opts.returnConsumedCapacity,
+            TotalSegments: segments,
+            Segment: i,
+        };
+        if (opts.projectionExpression) {
+            input.ProjectionExpression = opts.projectionExpression;
+        }
+        if (opts.expressionAttributeNames) {
+            input.ExpressionAttributeNames = opts.expressionAttributeNames;
+        }
+        requests.push(scan(docClient, input));
     }
 
-    return Promise.all(requests).then(data => {
-        let response = data.reduce((all, one) => {
-            all.Items = all.Items.concat(one.Items!);
-            all.ScannedCount += one.ScannedCount!;
-            all.Count += one.Count!;
-            return all;
-        }, {
-            Items: [] as Record<string, NativeAttributeValue>[],
-            ScannedCount: 0,
-            Count: 0
-        });
-        return response.Items as T[];
-    });
-
-
-    
+    const data = await Promise.all(requests);
+    const items: Record<string, NativeAttributeValue>[] = [];
+    for (const d of data) {
+        if (d.Items) items.push(...d.Items);
+    }
+    return items as T[];
 }
 
 async function getBotState(creds: AwsCreds, id: string): Promise<BotSettings> {

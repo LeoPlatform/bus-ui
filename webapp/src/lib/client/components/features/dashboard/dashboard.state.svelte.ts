@@ -49,10 +49,11 @@ export class DashboardState {
     }
 
     set id(id: string) {
+        if (this.#id === id) return;
         this.#id = id;
-        // Clear stale data when ID changes
-        this.#settings = undefined;
-        this.#stats = undefined;
+        // Don't clear settings/stats here — clearing triggers the skeleton which
+        // unmounts and remounts tab components, causing doubled API calls.
+        // The fetch in dashboard.svelte replaces data atomically.
         this.#loading = true;
     }
 

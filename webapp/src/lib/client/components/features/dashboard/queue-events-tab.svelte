@@ -6,8 +6,6 @@
     import * as Table from "$lib/client/components/ui/table/index";
     import { Switch } from "$lib/client/components/ui/switch/index";
     import * as Dialog from "$lib/client/components/ui/dialog/index";
-    import CopyButton from "$lib/client/components/copy-button.svelte";
-    import { diffJson } from "diff";
     import Ajv from "ajv";
     import addFormats from "ajv-formats";
     import X from "@lucide/svelte/icons/x";
@@ -16,15 +14,15 @@
     import CircleCheck from "@lucide/svelte/icons/circle-check";
     import CircleAlert from "@lucide/svelte/icons/circle-alert";
     import Loader2 from "@lucide/svelte/icons/loader-2";
+    import Copy from "@lucide/svelte/icons/copy";
+    import Check from "@lucide/svelte/icons/check";
+    import { CodeView, DiffCodeView } from "$ui/code-view";
     import {
-        TIME_FRAMES,
-        type TimeFrame,
         buildZTokenFromUtcMs,
-        initialResumptionToken,
+        trimEidToken,
         filterSearchPathSegment,
         normalizeIsoZToken,
         calendarFormat,
-        linkifyS3Segments,
     } from "$lib/client/event-viewer/event-search-utils";
 
     type StreamEvent = {
@@ -47,8 +45,6 @@
     let settings = $derived(compState.settings as { latest_write?: number; max_eid?: string } | undefined);
 
     let searchText = $state("");
-    let timeFrame = $state<TimeFrame | "">("5m");
-    let timestampOverride = $state("");
 
     let events = $state<StreamEvent[]>([]);
     let eventIndex = $state(0);
@@ -67,36 +63,13 @@
     let validateTitle = $state("");
     let validateBody = $state("");
     let validateTone = $state<"info" | "error">("info");
-
-    let customDateTime = $state("");
+    let copied = $state(false);
 
     let queueSchema: Record<string, unknown> | null = null;
     let payloadValidate = $state<ReturnType<Ajv["compile"]> | null>(null);
 
     let abortCtrl: AbortController | null = null;
     let chainRunning = false;
-
-    function staleLastWriteToken(lastWriteMs: number): string {
-        const d = new Date(lastWriteMs);
-        const p = (n: number) => String(n).padStart(2, "0");
-        const prefix = `z/${d.getUTCFullYear()}/${p(d.getUTCMonth() + 1)}/${p(d.getUTCDate())}/${p(d.getUTCHours())}/${p(d.getUTCMinutes())}/`;
-        return prefix + Date.now();
-    }
-
-    function deriveInitialFrame(lastWrite: number | undefined): { timeFrame: TimeFrame | ""; timestamp: string } {
-        if (!lastWrite) {
-            return { timeFrame: "5m", timestamp: "" };
-        }
-        const age = Date.now() - lastWrite;
-        if (age > 7 * 60 * 60 * 1000) {
-            return { timeFrame: "", timestamp: staleLastWriteToken(lastWrite) };
-        }
-        if (age > 24 * 60 * 60 * 1000) return { timeFrame: "1w", timestamp: "" };
-        if (age > 6 * 60 * 60 * 1000) return { timeFrame: "1d", timestamp: "" };
-        if (age > 60 * 60 * 1000) return { timeFrame: "6hr", timestamp: "" };
-        if (age > 5 * 60 * 1000) return { timeFrame: "1hr", timestamp: "" };
-        return { timeFrame: "5m", timestamp: "" };
-    }
 
     function ensurePayloadValidator() {
         if (!queueSchema || payloadValidate) return;
@@ -130,6 +103,7 @@
         }
     }
 
+    // Fetch schema whenever queue changes
     $effect(() => {
         const q = queueId;
         if (!q) return;
@@ -183,7 +157,8 @@
     }
 
     /**
-     * Paginate until 30 hits, 6 attempts, or no token — matches legacy PayloadSearch.
+     * Paginate until 40 hits, 6 attempts, or no resumption token.
+     * Matches legacy PayloadSearch behavior (recursive fetch with attempt limit).
      */
     async function runPayloadSearchChain(
         startToken: string,
@@ -255,7 +230,7 @@
                     isSearching = false;
                     break;
                 }
-                if (returnedInBatch >= 30) {
+                if (returnedInBatch >= 40) {
                     resumptionToken = nextTok;
                     isSearching = false;
                     break;
@@ -291,15 +266,30 @@
         chainRunning = false;
     }
 
-    function startPayloadSearch() {
+    const DEFAULT_LOOKBACK_MS = 5 * 60_000; // 5 minutes
+
+    /**
+     * Build the start token.
+     * - Live mode (endTime is undefined / "Now"): rolling 5-minute window back from now
+     * - Historical mode (user navigated to a specific range): use the time picker's startTime
+     * Matches legacy PayloadSearch behavior.
+     */
+    function tokenFromTimePicker(): string {
+        const picker = appState.timePickerState;
+        if (picker.endTime == null) {
+            // Live / "Now" — default to 5 minutes back
+            return buildZTokenFromUtcMs(Date.now() - DEFAULT_LOOKBACK_MS);
+        }
+        // Historical — use the bucket start
+        return buildZTokenFromUtcMs(picker.startTime);
+    }
+
+    /** User-initiated search (Enter key in search bar). */
+    function startPayloadSearch(overrideToken?: string) {
         cancelSearch();
         abortCtrl = new AbortController();
-        const signal = abortCtrl.signal;
-        const first = initialResumptionToken(
-            (timestampOverride ? "" : (timeFrame as TimeFrame)) as TimeFrame | "",
-            timestampOverride,
-        );
-        void runPayloadSearchChain(first, true, signal);
+        const token = overrideToken ?? tokenFromTimePicker();
+        void runPayloadSearchChain(token, true, abortCtrl.signal);
     }
 
     function resumeSearch() {
@@ -309,48 +299,9 @@
         void runPayloadSearchChain(resumptionToken, false, abortCtrl.signal);
     }
 
-    function continueSearch() {
-        if (resumptionToken && !isSearching) {
-            resumeSearch();
-        }
-    }
-
-    // Auto-scroll-continue removed: adding events to the DOM triggers scroll
-    // events that re-fire the handler, causing an infinite fetch loop on active
-    // queues.  Users click the "Continue" button instead.
-
-    function selectTimeFrame(tf: TimeFrame) {
-        timestampOverride = "";
-        timeFrame = tf;
-        startPayloadSearch();
-    }
-
-    function applyCustomDateTime() {
-        if (!customDateTime) return;
-        const ms = new Date(customDateTime).getTime();
-        if (Number.isNaN(ms)) return;
-        timestampOverride = buildZTokenFromUtcMs(ms);
-        timeFrame = "";
-        startPayloadSearch();
-    }
-
     function clearSearch() {
         searchText = "";
-        timestampOverride = "";
-        customDateTime = "";
         cancelSearch();
-        const derived = deriveInitialFrame(settings?.latest_write);
-        timeFrame = derived.timeFrame;
-        timestampOverride = derived.timestamp;
-        startPayloadSearch();
-    }
-
-    function findMostRecent() {
-        const lw = settings?.latest_write;
-        if (!lw) return;
-        const ms = lw - 5 * 60 * 1000;
-        timestampOverride = buildZTokenFromUtcMs(ms);
-        timeFrame = "";
         startPayloadSearch();
     }
 
@@ -360,11 +311,12 @@
         const raw = searchText.trim();
         const m = raw.match(/(z\/.*?)(?:$|\s)/);
         if (m) {
-            const tok = m[1].replace(/\s/g, "");
-            timestampOverride = tok;
-            timeFrame = "";
+            // User pasted a z-token — use it as the start position
+            const tok = trimEidToken(normalizeIsoZToken(m[1].replace(/\s/g, "")));
+            startPayloadSearch(tok);
+        } else {
+            startPayloadSearch();
         }
-        startPayloadSearch();
     }
 
     function onTableKeydown(e: KeyboardEvent) {
@@ -432,27 +384,31 @@
         return parts.join(" ");
     });
 
-    /** Only re-bootstrap when the queue changes; do not restart on stats/settings refresh. */
+    /**
+     * Re-fetch events when the queue ID or time picker changes.
+     * Tracks startTime + endTime so we re-run on bucket navigation and live/historical toggle.
+     * searchText is read inside runPayloadSearchChain but via untrack so it
+     * doesn't cause this effect to re-fire on every keystroke.
+     */
     $effect(() => {
         const id = queueId;
+        const pickerStart = appState.timePickerState.startTime;
+        const pickerEnd = appState.timePickerState.endTime;
         if (!id) return;
 
         cancelSearch();
         abortCtrl = new AbortController();
         const signal = abortCtrl.signal;
 
-        const lw = untrack(() => settings?.latest_write);
-        const derived = deriveInitialFrame(lw);
-        timeFrame = derived.timeFrame;
-        timestampOverride = derived.timestamp;
-        searchText = "";
-        eventIndex = 0;
+        // Live mode: 5 min back from now. Historical: bucket start.
+        const token = pickerEnd == null
+            ? buildZTokenFromUtcMs(Date.now() - DEFAULT_LOOKBACK_MS)
+            : buildZTokenFromUtcMs(pickerStart);
 
-        const first = initialResumptionToken(
-            (timestampOverride ? "" : (timeFrame as TimeFrame)) as TimeFrame | "",
-            timestampOverride,
-        );
-        void runPayloadSearchChain(first, true, signal);
+        untrack(() => {
+            eventIndex = 0;
+            void runPayloadSearchChain(token, true, signal);
+        });
 
         return () => cancelSearch();
     });
@@ -461,61 +417,39 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="flex flex-col gap-4 min-h-[min(70vh,800px)]" onkeydown={onTableKeydown} tabindex="-1" role="region">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-1 flex-col gap-2 min-w-0">
-            <div class="relative flex items-center gap-2">
-                <Input
-                    class="flex-1 font-mono text-sm"
-                    placeholder="Search (payload filter); paste z/… token + Enter"
-                    bind:value={searchText}
-                    onkeydown={onSearchKeydown}
-                    autocomplete="off"
-                />
-                {#if searchText}
-                    <Button variant="ghost" size="icon" class="shrink-0" onclick={() => clearSearch()} aria-label="Clear search">
-                        <X class="h-4 w-4" />
-                    </Button>
-                {/if}
-            </div>
-            <div class="flex flex-wrap items-center gap-2 text-sm">
-                <span class="text-muted-foreground whitespace-nowrap">Custom start (local):</span>
-                <input
-                    type="datetime-local"
-                    class="border-input bg-background rounded-md border px-2 py-1 text-sm"
-                    bind:value={customDateTime}
-                />
-                <Button variant="outline" size="sm" onclick={() => applyCustomDateTime()}>Apply</Button>
-            </div>
-        </div>
-        <div class="flex flex-wrap gap-1.5 shrink-0">
-            {#each TIME_FRAMES as tf}
-                <Button
-                    variant={timeFrame === tf && !timestampOverride ? "default" : "outline"}
-                    size="sm"
-                    class="text-xs"
-                    onclick={() => selectTimeFrame(tf)}
-                >
-                    {tf}
-                </Button>
-            {/each}
-        </div>
+<div class="flex flex-col gap-4 flex-1 min-h-0" onkeydown={onTableKeydown} tabindex="-1" role="region">
+    <div class="flex items-center gap-2 shrink-0">
+        <Input
+            class="flex-1 font-mono text-sm"
+            placeholder="Search (payload filter); paste z/… token + Enter"
+            bind:value={searchText}
+            onkeydown={onSearchKeydown}
+            autocomplete="off"
+        />
+        {#if searchText}
+            <Button variant="ghost" size="icon" class="shrink-0" onclick={() => clearSearch()} aria-label="Clear search">
+                <X class="h-4 w-4" />
+            </Button>
+        {/if}
     </div>
 
     {#if searchConfigured === false}
-        <p class="text-sm text-amber-700 dark:text-amber-400 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+        <p class="shrink-0 text-sm text-amber-700 dark:text-amber-400 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
             Event search is not configured. The server is missing required Leo Bus environment variables
             (<code class="font-mono">LEO_EVENT_TABLE</code>, <code class="font-mono">LEO_CRON_TABLE</code>, <code class="font-mono">LEO_S3</code>).
         </p>
     {/if}
 
     {#if searchError}
-        <p class="text-sm text-destructive">{searchError}</p>
+        <div class="shrink-0 flex items-center gap-3 text-sm text-destructive">
+            <p class="flex-1">{searchError}</p>
+            <Button variant="outline" size="sm" onclick={() => startPayloadSearch()}>Retry</Button>
+        </div>
     {/if}
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6 flex-1 min-h-0">
-        <div class="flex min-h-[320px] flex-col rounded-md border min-w-0">
-            <div class="max-h-[min(55vh,560px)] overflow-auto">
+        <div class="flex flex-col rounded-md border min-w-0 min-h-0">
+            <div class="flex-1 overflow-auto">
                 <Table.Root class="text-sm">
                     <Table.Header class="sticky top-0 z-10 bg-background shadow-sm">
                         <Table.Row>
@@ -600,10 +534,6 @@
                                     <Button variant="secondary" size="sm" onclick={() => resumeSearch()}>Continue</Button>
                                 {:else if events.length}
                                     <div>No more events found</div>
-                                {:else if settings?.latest_write}
-                                    <Button variant="secondary" size="sm" onclick={() => findMostRecent()}>
-                                        Find most recent events
-                                    </Button>
                                 {:else}
                                     <div>No events found</div>
                                 {/if}
@@ -614,51 +544,40 @@
             </div>
         </div>
 
-        <div class="flex min-h-[320px] min-w-0 flex-col rounded-md border">
-            <div class="border-b px-3 py-2 text-sm font-medium">Payload</div>
-            <div class="flex flex-1 flex-col gap-2 overflow-auto p-3 min-h-0">
+        <div class="flex min-w-0 flex-col rounded-md border min-h-0">
+            <div class="flex items-center justify-between border-b px-3 py-2">
+                <span class="text-sm font-medium">Payload</span>
+                {#if selected}
+                    <button
+                        type="button"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        title="Copy to clipboard"
+                        onclick={() => {
+                            navigator.clipboard.writeText(payloadPretty);
+                            copied = true;
+                            setTimeout(() => { copied = false; }, 2000);
+                        }}
+                    >
+                        {#if copied}
+                            <Check class="h-3.5 w-3.5 text-green-500" />
+                        {:else}
+                            <Copy class="h-3.5 w-3.5" />
+                        {/if}
+                    </button>
+                {/if}
+            </div>
+            <div class="flex-1 overflow-auto p-3 min-h-0">
                 {#if selected}
                     {#if oldNewPair}
-                        <div class="flex items-center gap-2 text-sm">
+                        <div class="flex items-center gap-2 text-sm mb-2">
                             <Switch bind:checked={showOldNewDiff} id="old-new-diff" />
                             <label for="old-new-diff" class="cursor-pointer">Old / new diff</label>
                         </div>
                     {/if}
                     {#if showOldNewDiff && oldNewPair}
-                        <div class="font-mono text-xs whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3">
-                            {#each diffJson(oldNewPair.old, oldNewPair.new) as part}
-                                <span
-                                    class={part.added
-                                        ? "text-green-600 dark:text-green-400"
-                                        : part.removed
-                                          ? "text-red-600 dark:text-red-400"
-                                          : "text-muted-foreground"}
-                                >
-                                    {part.value}
-                                </span>
-                            {/each}
-                        </div>
-                        <span class="inline-flex w-fit">
-                            <CopyButton truncate={false}>
-                                {diffJson(oldNewPair.old, oldNewPair.new)
-                                    .map((p: { value: string }) => p.value)
-                                    .join("")}
-                            </CopyButton>
-                        </span>
+                        <DiffCodeView oldObj={oldNewPair.old} newObj={oldNewPair.new} />
                     {:else}
-                        <div class="flex justify-end">
-                            <span class="inline-flex w-fit">
-                                <CopyButton truncate={false}>{payloadPretty}</CopyButton>
-                            </span>
-                        </div>
-                        <pre
-                            class="font-mono text-xs whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3 flex-1 overflow-auto"
-                        >{#each linkifyS3Segments(payloadPretty) as seg}{#if seg.type === "link"}<a
-                                    href={seg.href}
-                                    class="text-primary underline"
-                                    target="_blank"
-                                    rel="noreferrer">{seg.label}</a
-                                >{:else}{seg.value}{/if}{/each}</pre>
+                        <CodeView code={payloadPretty} lang="json" />
                     {/if}
                 {:else}
                     <p class="text-sm text-muted-foreground">Select an event row.</p>

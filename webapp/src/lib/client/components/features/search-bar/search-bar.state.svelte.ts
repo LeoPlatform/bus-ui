@@ -23,6 +23,8 @@ export class SearchBarState {
 
 	#debounceTimer: undefined | ReturnType<typeof setTimeout> = undefined;
 	#debounceDelay: number = 300;
+	#resourcesFetchedAt: number = 0;
+	#staleTime: number = 30_000;
 
     constructor(fetch: GlobalFetch, maxResults?: number) {
         this.#fetch = fetch;
@@ -124,11 +126,31 @@ export class SearchBarState {
 		this.#selectedIndex = -1;
 	}
 
-	async getSearchResources() {
+	/**
+	 * Populate search index from already-loaded catalog data instead of making
+	 * a separate API call that does three more full DynamoDB table scans.
+	 * Fuse.js indexing is deferred so it doesn't block the initial render.
+	 */
+	populateFromCatalog(items: SearchItem[]) {
+		this.#items = items;
+		this.#resourcesFetchedAt = Date.now();
+		// Defer Fuse index build — on 8000+ items this takes ~100-200ms
+		// and would block the first paint if done synchronously.
+		setTimeout(() => {
+			this.fuse = new Fuse(this.#items, this.fuseOptions);
+		}, 0);
+	}
+
+	async getSearchResources(force = false) {
+		if (!force && this.#resourcesFetchedAt > 0 && Date.now() - this.#resourcesFetchedAt < this.#staleTime) {
+			return;
+		}
+
 		const resources = await this.#fetch('/api/resources');
 		const data = (await resources.json()) as ResourcesApiResponse;
 		this.#items = data.items;
 		this.fuse = new Fuse(this.#items, this.fuseOptions);
+		this.#resourcesFetchedAt = Date.now();
 	}
 
 	setDebounceDelay(delay: number) {

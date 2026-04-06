@@ -26,8 +26,10 @@
   import { getContext } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
   import { cn } from "$lib/utils.js";
+  import { Skeleton } from "$lib/client/components/ui/skeleton";
 
   let appState = getContext<AppState>('appState');
+  let loading = $derived(appState.botState.loading);
 
   let data: CatalogRow[] = $derived(
     appState.botState.catalogRows.filter((row) => !row.archived),
@@ -147,7 +149,7 @@
   }
 
   const table = createSvelteTable<CatalogRow>({
-    data,
+    get data() { return data; },
     columns,
     state: {
       get pagination() {
@@ -199,6 +201,25 @@
   });
 </script>
 
+{#if loading}
+<div class="w-full min-w-0 space-y-4 py-4">
+  <div class="flex justify-end">
+    <Skeleton class="h-10 w-72" />
+  </div>
+  <div class="rounded-md border overflow-hidden">
+    {#each Array(8) as _}
+      <div class="flex items-center gap-4 border-b px-4 py-3">
+        <Skeleton class="h-5 w-5 rounded-full shrink-0" />
+        <Skeleton class="h-4 flex-1" />
+        <Skeleton class="h-4 w-16" />
+        <Skeleton class="h-4 w-16" />
+        <Skeleton class="h-4 w-16" />
+        <Skeleton class="h-4 w-32" />
+      </div>
+    {/each}
+  </div>
+</div>
+{:else}
 <div class="w-full min-w-0">
   <div class="flex flex-wrap items-center justify-end gap-2 py-4">
     <Input 
@@ -295,3 +316,4 @@
     </Table.Root>
   </div>
 </div>
+{/if}

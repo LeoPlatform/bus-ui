@@ -56,6 +56,7 @@ function catalogRowFromSystem(s: SystemSettings): CatalogRow {
 
 export class BotState {
   #fetch: GlobalFetch;
+  #loading = $state(true);
   #botSettings = $state<BotSettings[]>([]);
   #queueRows = $state<QueueSettings[]>([]);
   #systemRows = $state<SystemSettings[]>([]);
@@ -65,6 +66,7 @@ export class BotState {
   #fetchedStats: Map<string, number>;
   #selectedBotId = $state<string | null>(null);
   #staleTime: number;
+  #settingsFetchedAt: number = 0;
   #refreshOnTime = $derived.by(() => {
     if(!this.#timePickerState?.endTime) {
       //Real time mode
@@ -83,8 +85,14 @@ export class BotState {
   });
   #timePickerState: TimePickerState | null = null;
 
-  /** Home table: bots + queues + systems (does not drive relationship tree). */
-  catalogRows = $derived.by((): CatalogRow[] => {
+  /** Home table: bots + queues + systems. Built once when data loads, not on every reactive update. */
+  #catalogRows = $state<CatalogRow[]>([]);
+
+  get catalogRows() {
+    return this.#catalogRows;
+  }
+
+  private rebuildCatalog() {
     const rows: CatalogRow[] = [];
     for (const b of this.#botSettings) {
       rows.push({
@@ -105,8 +113,8 @@ export class BotState {
     for (const s of this.#systemRows) {
       rows.push(catalogRowFromSystem(s));
     }
-    return rows;
-  });
+    this.#catalogRows = rows;
+  }
 
   constructor(fetch: GlobalFetch, staleTime: number = 1000 * 30) {
     this.#fetch = fetch;
@@ -120,6 +128,10 @@ export class BotState {
 
   get stats() {
     return this.#stats;
+  }
+
+  get loading() {
+    return this.#loading;
   }
 
   get botSettings() {
@@ -222,14 +234,19 @@ export class BotState {
     return data.dashStats;
   }
 
-  async fetchBotSettings() {
+  async fetchBotSettings(force = false) {
+    // Skip if data is still fresh (same staleness window as stats)
+    if (!force && this.#settingsFetchedAt > 0 && Date.now() - this.#settingsFetchedAt < this.#staleTime) {
+      return;
+    }
+
     try {
       const res = await this.#fetch("/api/workflow/relationships");
       if (!res.ok) {
         console.error('Failed to fetch bot settings:', res.status, res.statusText);
         return;
       }
-      
+
       const data = (await res.json()) as BotSettingsApiResponse;
 
       if (!data || !data.botData || !Array.isArray(data.botData)) {
@@ -240,8 +257,12 @@ export class BotState {
       this.#queueRows = Array.isArray(data.queueData) ? data.queueData : [];
       this.#systemRows = Array.isArray(data.systemData) ? data.systemData : [];
       this.mergeBotSettingsIntoState(data.botData);
+      this.rebuildCatalog();
+      this.#settingsFetchedAt = Date.now();
     } catch (error) {
       console.error('Error fetching bot settings:', error);
+    } finally {
+      this.#loading = false;
     }
   }
 
@@ -433,23 +454,18 @@ export class BotState {
   }
 
   private evaluateBotStatuses() {
-    this.#botSettings.forEach(bot => {
-      // Find the stats for this bot
-      const botStats = this.#stats.find(s => s.id === bot.id);
-      
-      // Calculate the bot's status based on its stats
+    // Build a stats lookup map to avoid O(n²) find() per bot
+    const statsMap = new Map(this.#stats.map(s => [s.id, s]));
+
+    for (const bot of this.#botSettings) {
+      const botStats = statsMap.get(bot.id);
       const statusEvaluation = evaluateBotStatus(bot, botStats, bot.health);
-      
-      // Update the bot object with calculated values
       bot.status = statusEvaluation.status;
       bot.isAlarmed = statusEvaluation.isAlarmed;
       bot.alarms = statusEvaluation.alarms;
       bot.rogue = statusEvaluation.rogue;
-      bot.alarmed = statusEvaluation.isAlarmed; // Keep for compatibility
-    });
-
-    // Trigger reactivity by reassigning the array
-    this.#botSettings = [...this.#botSettings];
+      bot.alarmed = statusEvaluation.isAlarmed;
+    }
   }
   
 }

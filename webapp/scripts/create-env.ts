@@ -185,6 +185,9 @@ async function main(): Promise<void> {
             argv.configLocation ?? existing["AUTH_CONFIG_SOURCE"] ?? "./providers.config.json",
         AUTH_SECRET: authSecret,
         DEBUG_AUTH: false,
+
+        // Performance timing (set to 1 to enable server-side [perf] logs)
+        PERF_TIMING: existing["PERF_TIMING"] ?? "0",
     };
 
     const lines = Object.entries(envProps).map(([key, val]) => `${key}=${val}`);

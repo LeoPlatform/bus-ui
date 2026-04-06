@@ -3,6 +3,7 @@ import type { GetSettingsRequest } from '$lib/types';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSettings, saveBotSettings, saveQueueSettings, saveSystemSettings } from '$lib/server/services/dynamoService';
+import { perf } from '$lib/server/perf';
 
 export const POST: RequestHandler = async ({locals, request}) => {
     const session = await getSession(locals);
@@ -13,7 +14,10 @@ export const POST: RequestHandler = async ({locals, request}) => {
 
     const requestBody: GetSettingsRequest = await request.json();
 
-    return json({settings: await getSettings(session.aws_credentials!, requestBody.id)});
+    const settings = await perf.time(`POST /api/dashboard/settings ${requestBody.id}`, () =>
+        getSettings(session.aws_credentials!, requestBody.id)
+    );
+    return json({settings});
 };
 
 export const PUT: RequestHandler = async ({locals, request}) => {

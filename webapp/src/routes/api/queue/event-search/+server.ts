@@ -2,6 +2,7 @@ import { getSession } from '$lib/server/utils';
 import { json } from '@sveltejs/kit';
 import { createLeoStreams, getRStreamsEnv } from '$lib/server/rstreams';
 import type { RequestHandler } from './$types';
+import { perf } from '$lib/server/perf';
 
 /**
  * Native event search using leo-sdk's `fromLeo` stream reader.
@@ -27,6 +28,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     if (!serverId) {
         return json({ error: 'serverId is required' }, { status: 400 });
     }
+
+    const endPerf = perf.start(`GET /api/queue/event-search ${serverId}`);
 
     const startToken = url.searchParams.get('token') ?? '';
     const searchText = url.searchParams.get('search') ?? '';
@@ -98,19 +101,25 @@ export const GET: RequestHandler = async ({ locals, url }) => {
         const readable = streams.fromLeo('event-search', serverId, {
             start: startToken || undefined,
             fast_s3_read: true,
-            // Stop after 10 seconds to match legacy Lambda timeout behavior
             runTime: { milliseconds: 10_000 },
         });
 
-        await new Promise<void>((resolve, reject) => {
+        await new Promise<void>((resolve) => {
             let exiting = false;
             let size = 0;
-            let matchTimeout: ReturnType<typeof setTimeout> | null = null;
+            let settled = false;
+
+            function settle() {
+                if (settled) return;
+                settled = true;
+                resolve();
+            }
 
             // Hard timeout — always stop after 10s
             const fullTimeout = setTimeout(() => {
                 exiting = true;
-                readable.destroy();
+                try { readable.destroy(); } catch { /* ignore */ }
+                settle();
             }, 10_000);
 
             readable.on('data', (obj: any) => {
@@ -137,50 +146,31 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
                     size += obj.size || Buffer.byteLength(JSON.stringify(obj));
 
-                    // After first match, give 1s for more nearby matches then stop
-                    if (!matchTimeout) {
-                        matchTimeout = setTimeout(() => {
-                            exiting = true;
-                            readable.destroy();
-                        }, 1_000);
-                    }
-
-                    // Stop if we hit the requested count or 4MB
-                    if (response.results.length >= requestedCount || size >= 4 * 1024 * 1024) {
+                    // Stop if we hit the requested count or 16MB
+                    if (response.results.length >= requestedCount || size >= 16 * 1024 * 1024) {
                         exiting = true;
-                        readable.destroy();
+                        clearTimeout(fullTimeout);
+                        try { readable.destroy(); } catch { /* ignore */ }
+                        settle();
                     }
                 }
             });
 
-            readable.on('end', () => {
-                clearTimeout(fullTimeout);
-                if (matchTimeout) clearTimeout(matchTimeout);
-                resolve();
-            });
-
-            readable.on('close', () => {
-                clearTimeout(fullTimeout);
-                if (matchTimeout) clearTimeout(matchTimeout);
-                resolve();
-            });
-
-            readable.on('error', (err: any) => {
-                clearTimeout(fullTimeout);
-                if (matchTimeout) clearTimeout(matchTimeout);
-                reject(err);
-            });
+            readable.on('end', () => { clearTimeout(fullTimeout); settle(); });
+            readable.on('close', () => { clearTimeout(fullTimeout); settle(); });
+            readable.on('error', () => { clearTimeout(fullTimeout); settle(); });
         });
     } catch (e: any) {
         // If we collected some results before the error, return them
-        if (response.results.length > 0) {
-            return json(response);
+        if (response.results.length === 0) {
+            endPerf();
+            return json(
+                { error: e?.message ?? 'Event search failed', configured: true },
+                { status: 500 },
+            );
         }
-        return json(
-            { error: e?.message ?? 'Event search failed', configured: true },
-            { status: 500 },
-        );
     }
 
+    endPerf();
     return json(response);
 };

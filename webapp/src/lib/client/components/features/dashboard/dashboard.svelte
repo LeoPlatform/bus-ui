@@ -25,7 +25,16 @@
     let {id}: DashboardProps = $props();
 
     let settings = $derived(compState.settings);
-    let name = $derived(settings?.name);
+    // Prefer settings.name, then fall back to the catalog name from the already-loaded
+    // bot/queue/system data (avoids showing the raw ID while settings load or when
+    // the settings response doesn't include a name field).
+    let name = $derived.by(() => {
+        if (settings?.name) return settings.name;
+        if (settings?.lambdaName) return settings.lambdaName;
+        if (settings?.label) return settings.label;
+        const catalog = appState.botState.catalogRows.find((r) => r.id === id);
+        return catalog?.name;
+    });
 
     let dashType = $derived(compState.dashType);
 
@@ -69,6 +78,13 @@
     });
 
     let tabs = $derived(getTabs(dashType));
+    let activeTab = $state("Dashboard");
+
+    // Reset to first tab when navigating to a different node
+    $effect(() => {
+        const _ = id;
+        activeTab = tabs[0]?.label ?? "Dashboard";
+    });
 
     function getTabs(dashType: NodeType): DashboardTab[] {
        switch(dashType) {
@@ -135,7 +151,7 @@
         <DashHeader name={name || id} id={id} type={dashType} currentCheckpoint={currentCheckpoint} lambdaName={lambdaName} lambdaRegion={lambdaRegion} tags={tags} />
     </div>
     
-    {#if !compState.settings || !compState.stats}
+    {#if !compState.settings && !compState.stats}
         <!-- Skeleton loading state -->
         <div class="flex-1 mt-4 space-y-4">
             <div class="flex gap-2">
@@ -154,7 +170,7 @@
         </div>
     {:else}
     <div class="flex-1 mt-4 flex flex-col min-h-0">
-        <Tabs.Root value={tabs[0].label} class="w-full flex-1 flex flex-col min-h-0">
+        <Tabs.Root bind:value={activeTab} class="w-full flex-1 flex flex-col min-h-0">
             <div class="mb-4 flex flex-row items-center">
                 <Tabs.List>
                     {#each tabs as tab}
@@ -195,8 +211,8 @@
                 </div>
             </Tabs.Content>
             
-            <Tabs.Content value={DashboardTabType.Events}>
-                <div class="mt-4">
+            <Tabs.Content value={DashboardTabType.Events} class="flex-1 flex flex-col min-h-0">
+                <div class="mt-4 flex-1 flex flex-col min-h-0">
                     {#if dashType === NodeType.Queue}
                         <QueueEventsTab id={id} />
                     {:else}
