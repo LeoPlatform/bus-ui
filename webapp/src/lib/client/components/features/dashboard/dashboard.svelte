@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getContext } from "svelte";
+    import { getContext, untrack } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
   import { NodeType } from "$lib/types";
   import { type DashboardTab, DashboardTabType, parseDashboardTags } from "./types";
@@ -136,12 +136,21 @@
         compState.dashType = dashTypeVal;
         compState.id = id;
 
-        // Fetch settings and stats whenever the id changes
+        // Fetch settings and dashboard stats whenever the id changes
         Promise.all([
             compState.getSettings(),
             compState.getDashStats()
         ]).catch((error) => {
             console.error('Failed to load dashboard data:', error);
+        });
+
+        // Also fetch bot-level stats for alarm evaluation (source lag, write lag, errors).
+        // Use untrack to avoid reactive loops — visibleIds mutation shouldn't re-trigger this effect.
+        untrack(() => {
+            if (dashTypeVal === NodeType.Bot) {
+                appState.botState.visibleIds = [id];
+                appState.botState.fetchBotStats().catch(() => {});
+            }
         });
     });
 

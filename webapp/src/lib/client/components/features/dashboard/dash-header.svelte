@@ -11,6 +11,7 @@
   import CheckpointActionBar from "./checkpoint-action-bar.svelte";
   import { getContext } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 
     type DashHeaderProps = {
         name: string;
@@ -26,6 +27,11 @@
     let {name, id, type, currentCheckpoint, lambdaName, lambdaRegion = 'us-east-1', tags, isPaused}: DashHeaderProps = $props();
 
     const appState = getContext<AppState>("appState");
+
+    // Look up alarm status from BotState (populated by fetchBotStats)
+    let botEntry = $derived(appState.botState.botSettings.find((b) => b.id === id));
+    let isAlarmed = $derived(botEntry?.isAlarmed ?? false);
+    let alarms = $derived(botEntry?.alarms);
     
     let awsUrl = $derived.by(() => {
         if (lambdaName && lambdaRegion) {
@@ -78,6 +84,25 @@
             <div class="text-2xl font-bold text-foreground">
                 {name}
             </div>
+            {#if isAlarmed && alarms}
+                <Tooltip.Provider>
+                    <Tooltip.Root>
+                        <Tooltip.Trigger>
+                            <div class="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/15 px-3 py-1">
+                                <TriangleAlert class="size-4 text-amber-500 shrink-0" />
+                                <div class="flex flex-col text-xs leading-tight">
+                                    {#each Object.values(alarms) as alarm}
+                                        <span class="text-amber-400 font-medium">{alarm.msg}</span>
+                                    {/each}
+                                </div>
+                            </div>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content class="max-w-xs">
+                            <span class="text-xs">Click a queue in the tables below for details</span>
+                        </Tooltip.Content>
+                    </Tooltip.Root>
+                </Tooltip.Provider>
+            {/if}
             <Tooltip.Provider >
                 <Tooltip.Root>
                     <Tooltip.Trigger>

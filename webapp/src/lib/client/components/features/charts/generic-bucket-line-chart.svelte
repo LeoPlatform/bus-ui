@@ -285,8 +285,23 @@
 
     chart.data.labels = data.map((d: DashboardStatsValue) => d.time);
     chart.data.datasets[0].data = chartJsData;
-    chart.data.datasets[1].data = chartJsData.filter((p) => p.x >= start && p.x <= end);
-    chart.data.datasets[2].data = chartJsData.filter((p) => p.x >= lastBucket && p.x < start);
+
+    // Each bucket dataset includes the boundary point from the adjacent bucket
+    // so the filled area reaches the transition — no visual gaps.
+    // Previous bucket extends back to include last point before lastBucket.
+    // Current bucket extends back to include last point before start.
+    // No double-overlap: previous stops strictly before start.
+    const sorted = [...chartJsData].sort((a, b) => a.x - b.x);
+
+    const lastBeforeCurrent = sorted.filter((p) => p.x < start).pop();
+    const currentPoints = sorted.filter((p) => p.x >= start && p.x <= end);
+    if (lastBeforeCurrent) currentPoints.unshift(lastBeforeCurrent);
+    chart.data.datasets[1].data = currentPoints;
+
+    const lastBeforePrev = sorted.filter((p) => p.x < lastBucket).pop();
+    const prevPoints = sorted.filter((p) => p.x >= lastBucket && p.x < start);
+    if (lastBeforePrev) prevPoints.unshift(lastBeforePrev);
+    chart.data.datasets[2].data = prevPoints;
 
     const nowMs = Date.now();
     const xScale = chart.options.scales!.x as { min?: number; max?: number };

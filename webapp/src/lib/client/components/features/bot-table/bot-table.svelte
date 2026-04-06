@@ -23,13 +23,32 @@
   import Input from "$lib/client/components/ui/input/input.svelte";
   import * as DropdownMenu from "$lib/client/components/ui/dropdown-menu";
   import type { CatalogRow } from "$lib/types";
-  import { getContext } from "svelte";
+  import { getContext, untrack } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
   import { cn } from "$lib/utils.js";
   import { Skeleton } from "$lib/client/components/ui/skeleton";
 
   let appState = getContext<AppState>('appState');
   let loading = $derived(appState.botState.loading);
+
+  // Fetch stats only for bots visible on the current page (not all 8000+).
+  // Re-fetches when pagination or sorting changes the visible rows.
+  $effect(() => {
+    const rows = table.getRowModel().rows;
+    if (!rows.length) return;
+
+    const botIds = rows
+      .map((r) => r.original)
+      .filter((r) => r.kind === "bot")
+      .map((r) => r.id);
+
+    if (botIds.length === 0) return;
+
+    untrack(() => {
+      appState.botState.visibleIds = botIds;
+      appState.botState.fetchBotStats().catch(() => {});
+    });
+  });
 
   let data: CatalogRow[] = $derived(
     appState.botState.catalogRows.filter((row) => !row.archived),

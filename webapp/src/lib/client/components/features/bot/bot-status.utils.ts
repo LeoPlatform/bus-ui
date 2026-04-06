@@ -18,7 +18,7 @@ export function evaluateBotStatus(
   let isAlarmed = false;
   let alarms: BotAlarms = {};
   let rogue = false;
-  
+
   // If no stats available, return default values
   if (!stats) {
     return { status, isAlarmed, alarms, rogue, errorCount: 0, errorRate: 0 };
@@ -28,7 +28,7 @@ export function evaluateBotStatus(
   const errorCount = calculateErrorCount(stats);
   const executions = calculateExecutions(stats);
   const errorRate = executions > 0 ? errorCount / executions : 0;
-  
+
   // Calculate lag values from raw stats
   const writeLag = calculateWriteLag(stats);
   const sourceLag = calculateSourceLag(stats);

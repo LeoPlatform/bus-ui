@@ -454,8 +454,14 @@ export class BotState {
   }
 
   private evaluateBotStatuses() {
-    // Build a stats lookup map to avoid O(n²) find() per bot
-    const statsMap = new Map(this.#stats.map(s => [s.id, s]));
+    // Build a stats lookup map to avoid O(n²) find() per bot.
+    // Stats IDs have a "bot:" prefix from the stats table, but bot.id from
+    // the cron table does not. Index both forms so the lookup always works.
+    const statsMap = new Map<string, MergedStatsRecord>();
+    for (const s of this.#stats) {
+      statsMap.set(s.id, s);
+      statsMap.set(s.id.replace(/^bot:/, ''), s);
+    }
 
     for (const bot of this.#botSettings) {
       const botStats = statsMap.get(bot.id);
