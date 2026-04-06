@@ -112,7 +112,7 @@
                 <CardTitle>Events Written</CardTitle>
             </CardHeader>
             <CardContent>
-                <div class="h-32 w-full">
+                <div class="h-56 w-full">
                     {#if data?.writes}
                         <GenericBucketLineChart
                             data={data.writes}
@@ -135,7 +135,7 @@
                 <CardTitle>Events Read</CardTitle>
             </CardHeader>
             <CardContent>
-                <div class="h-32 w-full">
+                <div class="h-56 w-full">
                     {#if data?.reads}
                         <GenericBucketLineChart
                             data={data.reads}
@@ -158,7 +158,7 @@
                 <CardTitle>Read Lag</CardTitle>
             </CardHeader>
             <CardContent>
-                <div class="h-32 w-full">
+                <div class="h-56 w-full">
                     {#if data?.read_lag}
                         <GenericBucketLineChart
                             data={data.read_lag}

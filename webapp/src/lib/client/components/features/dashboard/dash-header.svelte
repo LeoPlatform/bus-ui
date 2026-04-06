@@ -9,6 +9,8 @@
   import { Badge } from "../../ui/badge";
   import Tag from "@lucide/svelte/icons/tag";
   import CheckpointActionBar from "./checkpoint-action-bar.svelte";
+  import { getContext } from "svelte";
+  import type { AppState } from "$lib/client/appstate.svelte";
 
     type DashHeaderProps = {
         name: string;
@@ -22,6 +24,8 @@
     }
 
     let {name, id, type, currentCheckpoint, lambdaName, lambdaRegion = 'us-east-1', tags, isPaused}: DashHeaderProps = $props();
+
+    const appState = getContext<AppState>("appState");
     
     let awsUrl = $derived.by(() => {
         if (lambdaName && lambdaRegion) {
@@ -78,7 +82,7 @@
                 <Tooltip.Root>
                     <Tooltip.Trigger>
                         
-                        <Button variant="ghost" size="icon" class="h-8 w-8">
+                        <Button variant="ghost" size="icon" class="h-8 w-8" onclick={() => appState.navigateToRelationshipView(id)}>
                             <ListTree class="size-5" />
                         </Button>
                         

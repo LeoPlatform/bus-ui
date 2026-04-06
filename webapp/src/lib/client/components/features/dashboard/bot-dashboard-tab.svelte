@@ -48,7 +48,7 @@
                 <CardTitle>Execution Count</CardTitle>
             </CardHeader>
             <CardContent>
-                <div class="h-32 w-full">
+                <div class="h-56 w-full">
                     {#if data?.executions}
                         <GenericBucketLineChart
                             data={data.executions}
@@ -71,7 +71,7 @@
                 <CardTitle>Error Count</CardTitle>
             </CardHeader>
             <CardContent>
-                <div class="h-32 w-full">
+                <div class="h-56 w-full">
                     {#if data?.errors}
                         <GenericBucketLineChart
                             data={data.errors}
@@ -94,7 +94,7 @@
                 <CardTitle>Execution Time</CardTitle>
             </CardHeader>
             <CardContent>
-                <div class="h-32 w-full">
+                <div class="h-56 w-full">
                     {#if data?.duration}
                         <GenericBucketLineChart
                             data={data.duration}
