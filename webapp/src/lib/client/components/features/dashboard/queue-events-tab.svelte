@@ -45,7 +45,20 @@
 
     let settings = $derived(compState.settings as { latest_write?: number; max_eid?: string } | undefined);
 
+    const TIME_FRAMES = ['30s', '1m', '5m', '1hr', '6hr', '1d', '1w'] as const;
+    type TimeFrame = (typeof TIME_FRAMES)[number];
+    const DURATION_MS: Record<TimeFrame, number> = {
+        '30s': 30_000,
+        '1m': 60_000,
+        '5m': 5 * 60_000,
+        '1hr': 60 * 60_000,
+        '6hr': 6 * 60 * 60_000,
+        '1d': 24 * 60 * 60_000,
+        '1w': 7 * 24 * 60 * 60_000,
+    };
+
     let searchText = $state("");
+    let activeTimeFrame = $state<TimeFrame>("5m");
 
     let events = $state<StreamEvent[]>([]);
     let eventIndex = $state(0);
@@ -286,30 +299,21 @@
         chainRunning = false;
     }
 
-    const DEFAULT_LOOKBACK_MS = 5 * 60_000; // 5 minutes
-
-    /**
-     * Build the start token.
-     * - Live mode (endTime is undefined / "Now"): rolling 5-minute window back from now
-     * - Historical mode (user navigated to a specific range): use the time picker's startTime
-     * Matches legacy PayloadSearch behavior.
-     */
-    function tokenFromTimePicker(): string {
-        const picker = appState.timePickerState;
-        if (picker.endTime == null) {
-            // Live / "Now" — default to 5 minutes back
-            return buildZTokenFromUtcMs(Date.now() - DEFAULT_LOOKBACK_MS);
-        }
-        // Historical — use the bucket start
-        return buildZTokenFromUtcMs(picker.startTime);
+    function tokenFromTimeFrame(): string {
+        return buildZTokenFromUtcMs(Date.now() - DURATION_MS[activeTimeFrame]);
     }
 
     /** User-initiated search (Enter key in search bar). */
     function startPayloadSearch(overrideToken?: string) {
         cancelSearch();
         abortCtrl = new AbortController();
-        const token = overrideToken ?? tokenFromTimePicker();
+        const token = overrideToken ?? tokenFromTimeFrame();
         void runPayloadSearchChain(token, true, abortCtrl.signal);
+    }
+
+    function selectTimeFrame(tf: TimeFrame) {
+        activeTimeFrame = tf;
+        startPayloadSearch();
     }
 
     function resumeSearch() {
@@ -412,8 +416,6 @@
      */
     $effect(() => {
         const id = queueId;
-        const pickerStart = appState.timePickerState.startTime;
-        const pickerEnd = appState.timePickerState.endTime;
         if (!id) return;
 
         cancelSearch();
@@ -425,12 +427,8 @@
         if (initialEid && !initialEidConsumed) {
             token = trimEidToken(normalizeIsoZToken(initialEid));
             initialEidConsumed = true;
-        } else if (pickerEnd == null) {
-            // Live mode: 5 min back from now
-            token = buildZTokenFromUtcMs(Date.now() - DEFAULT_LOOKBACK_MS);
         } else {
-            // Historical: bucket start
-            token = buildZTokenFromUtcMs(pickerStart);
+            token = tokenFromTimeFrame();
         }
 
         untrack(() => {
@@ -449,7 +447,7 @@
     <div class="flex items-center gap-2 shrink-0">
         <Input
             class="flex-1 font-mono text-sm"
-            placeholder="Search (payload filter); paste z/… token + Enter"
+            placeholder="Search: text, z/… token, or $.field = &quot;value&quot;"
             bind:value={searchText}
             onkeydown={onSearchKeydown}
             autocomplete="off"
@@ -459,6 +457,18 @@
                 <X class="h-4 w-4" />
             </Button>
         {/if}
+        <div class="flex gap-1 shrink-0">
+            {#each TIME_FRAMES as tf}
+                <Button
+                    variant={activeTimeFrame === tf ? "default" : "outline"}
+                    size="sm"
+                    class="text-xs px-2"
+                    onclick={() => selectTimeFrame(tf)}
+                >
+                    {tf}
+                </Button>
+            {/each}
+        </div>
     </div>
 
     {#if searchConfigured === false}

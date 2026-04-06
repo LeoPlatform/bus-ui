@@ -42,4 +42,9 @@ async function time<T>(label: string, fn: () => Promise<T>): Promise<T> {
     }
 }
 
-export const perf = { start, time };
+function log(label: string, ...args: unknown[]): void {
+    if (!isEnabled()) return;
+    console.log(`[perf] ${label}`, ...args);
+}
+
+export const perf = { start, time, log };

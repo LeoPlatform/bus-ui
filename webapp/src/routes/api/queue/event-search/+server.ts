@@ -59,14 +59,64 @@ export const GET: RequestHandler = async ({ locals, url }) => {
         );
     }
 
-    // Build the payload filter (regex, same as legacy searchQueue Lambda)
-    let payloadFilter: RegExp | null = null;
-    if (searchText) {
+    perf.log('event-search', `raw search: ${JSON.stringify(searchText)}`);
+
+    // Parse the search string into text filter + optional script filter.
+    // Script search is triggered by $ or $$ variables (e.g. $.new.sku = "ABC").
+    // Format: [text filter] [$ or $$ expression]
+    // Both must match for an event to be included (same as legacy searchQueue Lambda).
+    let textSearch = searchText;
+    let scriptFilter: ((payload: any, event: any, agg: any) => boolean) | null = null;
+
+    const scriptMatch = searchText.match(/[(!]*\${1,3}\./);
+    if (scriptMatch) {
+        const scriptExpr = searchText.substring(scriptMatch.index!);
+        textSearch = searchText.substring(0, scriptMatch.index!).trim();
+
+        // Normalize equality operators (same rules as legacy Lambda):
+        // = → ==, but preserve =>, <=, >=, !=, +=, -=, :=
+        // Normalize equality: convert standalone = to == for convenience,
+        // but preserve compound operators (<=, >=, !=, +=, -=, =>, ===).
+        // Skip normalization entirely when $$$ (aggregation) is used,
+        // since aggregation expressions need real assignments.
+        const normalized = scriptExpr.includes('$$$')
+            ? scriptExpr
+            : scriptExpr.replace(/(?<![<>!=+\-:])=(?!=|>)/g, '==');
+
         try {
-            payloadFilter = new RegExp(searchText, 'i');
-        } catch {
-            return json({ error: `Invalid search regex: ${searchText}` }, { status: 400 });
+            scriptFilter = new Function('$', '$$', '$$$',
+                `try { return ${normalized}; } catch(e) { return false; }`
+            ) as (payload: any, event: any, agg: any) => boolean;
+        } catch (e: any) {
+            return json({ error: `Invalid filter expression: ${e?.message}` }, { status: 400 });
         }
+
+        // Optimization: if there's no explicit text search and the script uses $
+        // (payload) with string literals, use the longest literal as a text pre-filter.
+        // This dramatically speeds up script search on high-volume queues by narrowing
+        // with a fast regex before evaluating the script on each event.
+        // Skip when using $$ (full event) since the text filter only searches the payload.
+        if (!textSearch && !scriptExpr.includes('$$')) {
+            const strLiterals = scriptExpr.match(/["']([^"']+)["']/g);
+            if (strLiterals && strLiterals.length > 0) {
+                const candidates = strLiterals.map(s => s.slice(1, -1)).sort((a, b) => b.length - a.length);
+                textSearch = candidates[0];
+            }
+        }
+    }
+
+    // Build the text filter (regex, same as legacy searchQueue Lambda)
+    let payloadFilter: RegExp | null = null;
+    if (textSearch) {
+        try {
+            payloadFilter = new RegExp(textSearch, 'i');
+        } catch {
+            return json({ error: `Invalid search regex: ${textSearch}` }, { status: 400 });
+        }
+    }
+
+    if (scriptFilter || payloadFilter) {
+        perf.log('event-search', `textFilter: ${payloadFilter}, scriptFilter: ${!!scriptFilter}`);
     }
 
     // Parse aggregation state from caller (pass-through)
@@ -129,9 +179,14 @@ export const GET: RequestHandler = async ({ locals, url }) => {
                 response.last_time = obj.timestamp ?? null;
                 response.count++;
 
-                // Apply payload filter (same logic as legacy Lambda)
-                const matches =
-                    payloadFilter === null || payloadFilter.test(JSON.stringify(obj.payload ?? obj));
+                // Apply both filters — text (regex on stringified event) AND script ($ expression).
+                // Both must pass for the event to be included (same as legacy Lambda).
+                // Text filter matches against the full event (same as legacy Lambda)
+                const textMatches =
+                    payloadFilter === null || payloadFilter.test(JSON.stringify(obj));
+                const scriptMatches =
+                    scriptFilter === null || scriptFilter(obj.payload, obj, response.agg);
+                const matches = textMatches && scriptMatches;
 
                 if (matches) {
                     response.results.push({
