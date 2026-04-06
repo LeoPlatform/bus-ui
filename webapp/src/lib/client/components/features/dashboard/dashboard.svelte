@@ -20,9 +20,11 @@
 
     type DashboardProps = {
         id: string;
+        initialTab?: string;
+        initialEid?: string;
     }
 
-    let {id}: DashboardProps = $props();
+    let {id, initialTab, initialEid}: DashboardProps = $props();
 
     let settings = $derived(compState.settings);
     // Prefer settings.name, then fall back to the catalog name from the already-loaded
@@ -80,10 +82,22 @@
     let tabs = $derived(getTabs(dashType));
     let activeTab = $state("Dashboard");
 
-    // Reset to first tab when navigating to a different node
+    // Reset to first tab when navigating to a different node.
+    // If an initialTab query param was provided (e.g. ?tab=events), use it on first load.
+    let initialTabConsumed = false;
     $effect(() => {
+        // Track both id and tabs so this re-runs after dashType updates
         const _ = id;
-        activeTab = tabs[0]?.label ?? "Dashboard";
+        const currentTabs = tabs;
+        if (!initialTabConsumed && initialTab && currentTabs.length > 0) {
+            const match = currentTabs.find((t) => t.label.toLowerCase() === initialTab.toLowerCase());
+            if (match) {
+                activeTab = match.label;
+                initialTabConsumed = true;
+                return;
+            }
+        }
+        activeTab = currentTabs[0]?.label ?? "Dashboard";
     });
 
     function getTabs(dashType: NodeType): DashboardTab[] {
@@ -214,7 +228,7 @@
             <Tabs.Content value={DashboardTabType.Events} class="flex-1 flex flex-col min-h-0">
                 <div class="mt-4 flex-1 flex flex-col min-h-0">
                     {#if dashType === NodeType.Queue}
-                        <QueueEventsTab id={id} />
+                        <QueueEventsTab id={id} {initialEid} />
                     {:else}
                         <div class="p-4 border rounded-md">
                             <h2 class="text-xl font-semibold mb-4">Events</h2>

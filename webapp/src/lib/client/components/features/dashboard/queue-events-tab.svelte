@@ -16,6 +16,7 @@
     import Loader2 from "@lucide/svelte/icons/loader-2";
     import Copy from "@lucide/svelte/icons/copy";
     import Check from "@lucide/svelte/icons/check";
+    import Share2 from "@lucide/svelte/icons/share-2";
     import { CodeView, DiffCodeView } from "$ui/code-view";
     import {
         buildZTokenFromUtcMs,
@@ -37,7 +38,7 @@
         validation_errors?: string[];
     };
 
-    let { id: queueId }: { id: string } = $props();
+    let { id: queueId, initialEid }: { id: string; initialEid?: string } = $props();
 
     const appState = getContext<AppState>("appState");
     const compState = appState.dashboardState;
@@ -64,12 +65,31 @@
     let validateBody = $state("");
     let validateTone = $state<"info" | "error">("info");
     let copied = $state(false);
+    let copiedEid = $state<string | null>(null);
+    let sharedEid = $state<string | null>(null);
+
+    function copyEid(eid: string) {
+        navigator.clipboard.writeText(eid);
+        copiedEid = eid;
+        setTimeout(() => { copiedEid = null; }, 2000);
+    }
+
+    function shareEvent(eid: string) {
+        const url = new URL(window.location.href);
+        url.search = "";
+        url.searchParams.set("tab", "events");
+        url.searchParams.set("eid", eid);
+        navigator.clipboard.writeText(url.toString());
+        sharedEid = eid;
+        setTimeout(() => { sharedEid = null; }, 2000);
+    }
 
     let queueSchema: Record<string, unknown> | null = null;
     let payloadValidate = $state<ReturnType<Ajv["compile"]> | null>(null);
 
     let abortCtrl: AbortController | null = null;
     let chainRunning = false;
+    let initialEidConsumed = false;
 
     function ensurePayloadValidator() {
         if (!queueSchema || payloadValidate) return;
@@ -400,10 +420,18 @@
         abortCtrl = new AbortController();
         const signal = abortCtrl.signal;
 
-        // Live mode: 5 min back from now. Historical: bucket start.
-        const token = pickerEnd == null
-            ? buildZTokenFromUtcMs(Date.now() - DEFAULT_LOOKBACK_MS)
-            : buildZTokenFromUtcMs(pickerStart);
+        // If an initialEid was provided via URL (?eid=z/...), use it on first load
+        let token: string;
+        if (initialEid && !initialEidConsumed) {
+            token = trimEidToken(normalizeIsoZToken(initialEid));
+            initialEidConsumed = true;
+        } else if (pickerEnd == null) {
+            // Live mode: 5 min back from now
+            token = buildZTokenFromUtcMs(Date.now() - DEFAULT_LOOKBACK_MS);
+        } else {
+            // Historical: bucket start
+            token = buildZTokenFromUtcMs(pickerStart);
+        }
 
         untrack(() => {
             eventIndex = 0;
@@ -456,7 +484,7 @@
                             <Table.Head class="w-[36%] font-mono text-xs">Event Id</Table.Head>
                             <Table.Head class="text-xs">Event Created</Table.Head>
                             <Table.Head class="text-xs">Source Time</Table.Head>
-                            <Table.Head class="w-24 text-right text-xs"> </Table.Head>
+                            <Table.Head class="w-36 text-right text-xs"> </Table.Head>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
@@ -465,15 +493,41 @@
                                 class="cursor-pointer {eventIndex === index ? 'bg-muted/80' : ''}"
                                 onclick={() => (eventIndex = index)}
                             >
-                                <Table.Cell class="font-mono text-xs align-top">{detail.eid ?? "Unspecified"}</Table.Cell>
-                                <Table.Cell class="text-xs align-top whitespace-nowrap">
+                                <Table.Cell class="font-mono text-sm align-middle">{detail.eid ?? "Unspecified"}</Table.Cell>
+                                <Table.Cell class="text-sm align-middle whitespace-nowrap">
                                     {calendarFormat(detail.timestamp)}
                                 </Table.Cell>
-                                <Table.Cell class="text-xs align-top whitespace-nowrap">
+                                <Table.Cell class="text-sm align-middle whitespace-nowrap">
                                     {calendarFormat(detail.event_source_timestamp)}
                                 </Table.Cell>
-                                <Table.Cell class="text-right align-top">
+                                <Table.Cell class="text-right align-middle">
                                     <div class="flex justify-end gap-1">
+                                        {#if detail.eid}
+                                            <button
+                                                type="button"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                                                title="Copy event ID"
+                                                onclick={(e) => { e.stopPropagation(); copyEid(detail.eid!); }}
+                                            >
+                                                {#if copiedEid === detail.eid}
+                                                    <Check class="h-4 w-4 text-green-500" />
+                                                {:else}
+                                                    <Copy class="h-4 w-4" />
+                                                {/if}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                                                title="Copy share link"
+                                                onclick={(e) => { e.stopPropagation(); shareEvent(detail.eid!); }}
+                                            >
+                                                {#if sharedEid === detail.eid}
+                                                    <Check class="h-4 w-4 text-green-500" />
+                                                {:else}
+                                                    <Share2 class="h-4 w-4" />
+                                                {/if}
+                                            </button>
+                                        {/if}
                                         <button
                                             type="button"
                                             class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
