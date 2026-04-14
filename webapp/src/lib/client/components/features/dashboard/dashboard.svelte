@@ -171,7 +171,7 @@
 <div class="flex flex-col h-full p-4 lg:p-6">
     <!-- Header Section -->
     <div class="flex flex-row justify-between items-center w-full"> 
-        <DashHeader name={name || id} id={id} type={dashType} currentCheckpoint={currentCheckpoint} lambdaName={lambdaName} lambdaRegion={lambdaRegion} tags={tags} />
+        <DashHeader name={name || id} id={id} type={dashType} currentCheckpoint={currentCheckpoint} lambdaName={lambdaName} lambdaRegion={lambdaRegion} tags={tags} isPaused={compState.isPaused} />
     </div>
     
     {#if !compState.settings && !compState.stats}

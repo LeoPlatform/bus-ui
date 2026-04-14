@@ -6,11 +6,14 @@
     import SparklineChart from "../charts/sparkline-chart.svelte";
     import GenericBucketLineChart from "../charts/generic-bucket-line-chart.svelte";
     import Input from "$lib/client/components/ui/input/input.svelte";
+    import { Button } from "$lib/client/components/ui/button/index";
     import { humanize, getNodeTypeLink } from "$lib/utils";
     import { NodeType, type DashboardStatsQueueReadWrite, type StatsRange } from "$lib/types";
     import ArrowUpDown from "@lucide/svelte/icons/arrow-up-down";
     import ArrowUp from "@lucide/svelte/icons/arrow-up";
     import ArrowDown from "@lucide/svelte/icons/arrow-down";
+    import ChevronLeft from "@lucide/svelte/icons/chevron-left";
+    import ChevronRight from "@lucide/svelte/icons/chevron-right";
 
     const appState = getContext<AppState>("appState");
     const compState = appState.dashboardState;
@@ -27,6 +30,11 @@
     let writeSortDir = $state<SortDir>("desc");
     let readSortCol = $state<string | null>(null);
     let readSortDir = $state<SortDir>("desc");
+
+    // Pagination state
+    const PAGE_SIZE = 10;
+    let writePage = $state(0);
+    let readPage = $state(0);
 
     function toggleSort(current: string | null, currentDir: SortDir, col: string): { col: string | null; dir: SortDir } {
         if (current === col) {
@@ -77,8 +85,18 @@
             : allReadBots
     );
 
-    let writeBots = $derived(sortBots(filteredWriteBots, writeSortCol, writeSortDir));
-    let readBots = $derived(sortBots(filteredReadBots, readSortCol, readSortDir));
+    let sortedWriteBots = $derived(sortBots(filteredWriteBots, writeSortCol, writeSortDir));
+    let sortedReadBots = $derived(sortBots(filteredReadBots, readSortCol, readSortDir));
+
+    // Paginated slices — only these rows render sparklines
+    let writeBots = $derived(sortedWriteBots.slice(writePage * PAGE_SIZE, (writePage + 1) * PAGE_SIZE));
+    let readBots = $derived(sortedReadBots.slice(readPage * PAGE_SIZE, (readPage + 1) * PAGE_SIZE));
+    let writeTotalPages = $derived(Math.ceil(sortedWriteBots.length / PAGE_SIZE));
+    let readTotalPages = $derived(Math.ceil(sortedReadBots.length / PAGE_SIZE));
+
+    // Reset page when search changes
+    $effect(() => { void writeSearch; writePage = 0; });
+    $effect(() => { void readSearch; readPage = 0; });
 
     const botIcon = getNodeTypeLink(NodeType.Bot);
 
@@ -101,6 +119,20 @@
         {/if}
     {:else}
         <ArrowUpDown class="size-3.5 ml-1 inline opacity-30" />
+    {/if}
+{/snippet}
+
+{#snippet pager(page: number, totalPages: number, onPrev: () => void, onNext: () => void)}
+    {#if totalPages > 1}
+        <div class="flex items-center justify-end gap-1 pt-2">
+            <span class="text-xs text-muted-foreground">{page + 1} / {totalPages}</span>
+            <Button variant="outline" size="sm" class="h-7 w-7 p-0" onclick={onPrev} disabled={page === 0}>
+                <ChevronLeft class="size-4" />
+            </Button>
+            <Button variant="outline" size="sm" class="h-7 w-7 p-0" onclick={onNext} disabled={page >= totalPages - 1}>
+                <ChevronRight class="size-4" />
+            </Button>
+        </div>
     {/if}
 {/snippet}
 
@@ -191,7 +223,7 @@
                         </CardDescription>
                     </div>
                 </div>
-                {#if allWriteBots.length > 3}
+                {#if allWriteBots.length > PAGE_SIZE}
                     <Input
                         placeholder="Search producers..."
                         class="h-8 text-sm max-w-xs"
@@ -213,7 +245,7 @@
                                         Bot {@render sortIcon("name", writeSortCol, writeSortDir)}
                                     </button>
                                 </Table.Head>
-                                <Table.Head class="w-[140px]"></Table.Head>
+                                <Table.Head class="w-[220px]"></Table.Head>
                                 <Table.Head class="text-right">
                                     <button class="inline-flex items-center hover:text-foreground ml-auto" onclick={() => { const s = toggleSort(writeSortCol, writeSortDir, "events"); writeSortCol = s.col; writeSortDir = s.dir; }}>
                                         Events Written {@render sortIcon("events", writeSortCol, writeSortDir)}
@@ -231,7 +263,7 @@
                                         </a>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <div class="h-8 w-full">
+                                        <div class="h-12 w-full">
                                             <SparklineChart data={bot.values || []} color="var(--chart-2)" label="Writes" />
                                         </div>
                                     </Table.Cell>
@@ -242,6 +274,7 @@
                             {/each}
                         </Table.Body>
                     </Table.Root>
+                    {@render pager(writePage, writeTotalPages, () => writePage--, () => writePage++)}
                 {/if}
             </CardContent>
         </Card>
@@ -257,7 +290,7 @@
                         </CardDescription>
                     </div>
                 </div>
-                {#if allReadBots.length > 3}
+                {#if allReadBots.length > PAGE_SIZE}
                     <Input
                         placeholder="Search consumers..."
                         class="h-8 text-sm max-w-xs"
@@ -279,7 +312,7 @@
                                         Bot {@render sortIcon("name", readSortCol, readSortDir)}
                                     </button>
                                 </Table.Head>
-                                <Table.Head class="w-[140px]"></Table.Head>
+                                <Table.Head class="w-[220px]"></Table.Head>
                                 <Table.Head class="text-right">
                                     <button class="inline-flex items-center hover:text-foreground ml-auto" onclick={() => { const s = toggleSort(readSortCol, readSortDir, "events"); readSortCol = s.col; readSortDir = s.dir; }}>
                                         Events Read {@render sortIcon("events", readSortCol, readSortDir)}
@@ -312,8 +345,8 @@
                                         </a>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <div class="h-8 w-full">
-                                            <SparklineChart data={bot.values || []} label="Reads" />
+                                        <div class="h-12 w-full">
+                                            <SparklineChart data={bot.values || []} label="Reads" lastRead={bot.last_read_event_timestamp} />
                                         </div>
                                     </Table.Cell>
                                     <Table.Cell class="text-right tabular-nums">
@@ -326,6 +359,7 @@
                             {/each}
                         </Table.Body>
                     </Table.Root>
+                    {@render pager(readPage, readTotalPages, () => readPage--, () => readPage++)}
                 {/if}
             </CardContent>
         </Card>

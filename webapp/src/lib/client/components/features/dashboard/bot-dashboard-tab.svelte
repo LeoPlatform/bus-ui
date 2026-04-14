@@ -248,7 +248,7 @@
                                         Queue {@render sortIcon('name', readSortCol, readSortDir)}
                                     </button>
                                 </Table.Head>
-                                <Table.Head class="w-[180px]" aria-hidden="true"></Table.Head>
+                                <Table.Head class="w-[220px]" aria-hidden="true"></Table.Head>
                                 <Table.Head class="text-right">
                                     <button class="inline-flex items-center hover:text-foreground" onclick={() => { const s = toggleSort(readSortCol, readSortDir, 'events'); readSortCol = s.col; readSortDir = s.dir; }}>
                                         Events Read {@render sortIcon('events', readSortCol, readSortDir)}
@@ -282,8 +282,8 @@
                                         </a>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <div class="h-8 w-full">
-                                            <SparklineChart data={queue.values || []} label="Reads" />
+                                        <div class="h-12 w-full">
+                                            <SparklineChart data={queue.values || []} label="Reads" lastRead={queue.last_read_event_timestamp} />
                                         </div>
                                     </Table.Cell>
                                     <Table.Cell class="text-right">
@@ -329,7 +329,7 @@
                                         Queue {@render sortIcon('name', writeSortCol, writeSortDir)}
                                     </button>
                                 </Table.Head>
-                                <Table.Head class="w-[180px]" aria-hidden="true"></Table.Head>
+                                <Table.Head class="w-[220px]" aria-hidden="true"></Table.Head>
                                 <Table.Head class="text-right">
                                     <button class="inline-flex items-center hover:text-foreground" onclick={() => { const s = toggleSort(writeSortCol, writeSortDir, 'events'); writeSortCol = s.col; writeSortDir = s.dir; }}>
                                         Events Written {@render sortIcon('events', writeSortCol, writeSortDir)}
@@ -353,7 +353,7 @@
                                         </a>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <div class="h-8 w-full">
+                                        <div class="h-12 w-full">
                                             <SparklineChart data={queue.values || []} color="var(--chart-2)" label="Writes" />
                                         </div>
                                     </Table.Cell>

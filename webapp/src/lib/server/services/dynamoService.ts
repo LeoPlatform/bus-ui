@@ -654,6 +654,74 @@ export async function saveSystemSettings(creds: AwsCreds, id: string, updates: R
     }));
 }
 
+/**
+ * Save cron operations: force run, change checkpoint, or both.
+ * Mirrors old_ui's POST /cron/save endpoint behavior.
+ */
+export async function saveCron(
+    creds: AwsCreds,
+    params: {
+        id: string;
+        executeNow?: boolean;
+        executeNowClear?: boolean;
+        checkpoint?: Record<string, string>;
+    }
+): Promise<void> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const botId = params.id.replace(/^bot:/, "");
+
+    // Fetch existing item to merge checkpoint data
+    const existing = await docClient.send(new GetCommand({
+        TableName: LEO_CRON_TABLE(),
+        Key: { id: botId }
+    }));
+
+    if (!existing.Item) {
+        throw new Error(`Bot ${botId} not found in the cron table`);
+    }
+
+    const current = existing.Item;
+    const updated: Record<string, any> = { ...current };
+
+    // Force run: set trigger to now, ignorePaused, reset errorCount
+    if (params.executeNow) {
+        updated.trigger = Date.now();
+        updated.ignorePaused = true;
+        updated.errorCount = 0;
+        updated.scheduledTrigger = null;
+    }
+
+    // Force run really: also clear instances and invokeTime
+    if (params.executeNowClear) {
+        if (updated.instances && updated.instances['0']) {
+            delete updated.instances['0'];
+        }
+        delete updated.invokeTime;
+    }
+
+    // Change checkpoint: merge new checkpoint values into existing read checkpoints
+    if (params.checkpoint) {
+        if (!updated.checkpoints) {
+            updated.checkpoints = { read: {}, write: {} };
+        }
+        if (!updated.checkpoints.read) {
+            updated.checkpoints.read = {};
+        }
+        for (const [queueId, checkpointValue] of Object.entries(params.checkpoint)) {
+            updated.checkpoints.read[queueId] = {
+                ...(current.checkpoints?.read?.[queueId] ?? {}),
+                checkpoint: checkpointValue,
+            };
+        }
+    }
+
+    await docClient.send(new PutCommand({
+        TableName: LEO_CRON_TABLE(),
+        Item: updated,
+    }));
+}
+
 async function scan(client: DynamoDBDocumentClient, input: ScanCommandInput): Promise<ScanCommandOutput> {
      try {
         let response: ScanCommandOutput | null = null;

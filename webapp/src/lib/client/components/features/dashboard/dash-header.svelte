@@ -78,12 +78,24 @@
 
 
 <div class="flex flex-row overflow-hidden w-full items-start">
-    <img src={getNodeTypeLink(type)} alt={type} class="w-16 h-16 object-contain mr-4" />
+    <div class="relative shrink-0 mr-4">
+        <img src={getNodeTypeLink(type)} alt={type} class="w-16 h-16 object-contain" class:opacity-40={isPaused} class:grayscale={isPaused} />
+        {#if isPaused}
+            <div class="absolute inset-0 flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-400 drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+            </div>
+        {/if}
+    </div>
     <div class="flex flex-col no-wrap overflow-hidden gap-1">
         <div class="flex flex-row gap-2 items-center">
             <div class="text-2xl font-bold text-foreground">
                 {name}
             </div>
+            {#if isPaused}
+                <Badge variant="outline" class="border-amber-500/50 bg-amber-500/15 text-amber-400 text-xs font-semibold uppercase tracking-wider">
+                    Paused
+                </Badge>
+            {/if}
             {#if isAlarmed && alarms}
                 <Tooltip.Provider>
                     <Tooltip.Root>

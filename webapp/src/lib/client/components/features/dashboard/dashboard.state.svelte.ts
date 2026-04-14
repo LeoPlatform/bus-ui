@@ -175,17 +175,72 @@ export class DashboardState {
         await this.saveSettings({ paused: newPaused });
     }
 
-    async changeCheckpoint() {
-        // TODO: Implement checkpoint changing
-        // Fetch the settings again after changing the checkpoint
+    async changeCheckpoint(checkpoint: Record<string, string>) {
+        if (!this.#id) throw new Error('No ID set');
+
+        const res = await this.#fetch('/api/cron/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: this.#id, checkpoint }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to change checkpoint: ${res.status} ${text}`);
+        }
+
+        await this.getSettings();
     }
 
     async forceRun() {
-        // TODO: Implement force run
+        if (!this.#id) throw new Error('No ID set');
+
+        const res = await this.#fetch('/api/cron/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: this.#id, executeNow: true }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to force run: ${res.status} ${text}`);
+        }
+
+        await this.getSettings();
     }
 
     async forceRunReally() {
-        // TODO: Implement force run really
+        if (!this.#id) throw new Error('No ID set');
+
+        const res = await this.#fetch('/api/cron/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: this.#id, executeNow: true, executeNowClear: true }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to force run (really): ${res.status} ${text}`);
+        }
+
+        await this.getSettings();
+    }
+
+    async changeCheckpointAndForceRun(checkpoint: Record<string, string>) {
+        if (!this.#id) throw new Error('No ID set');
+
+        const res = await this.#fetch('/api/cron/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: this.#id, checkpoint, executeNow: true }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to change checkpoint and force run: ${res.status} ${text}`);
+        }
+
+        await this.getSettings();
     }
 
     /** Pass `forId` when the UI route id may update before `this.id` syncs (e.g. queue schema tab). */

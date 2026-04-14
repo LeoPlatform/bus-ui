@@ -1,6 +1,6 @@
 <script lang="ts">
   import * as Chart from "$lib/client/components/ui/chart/index";
-  import { AreaChart } from "layerchart";
+  import { AnnotationLine, AreaChart } from "layerchart";
   import { scaleTime, scaleLinear } from "d3-scale";
   import { onMount } from "svelte";
 
@@ -8,9 +8,11 @@
     chartData: { time: Date; value: number }[];
     color: string;
     label: string;
+    /** When set, draws a red "read cutoff" vertical line at this timestamp instead of the "now" line. */
+    lastRead?: number;
   }
 
-  let { chartData, color, label }: Props = $props();
+  let { chartData, color, label, lastRead }: Props = $props();
 
   let now = $state(new Date());
 
@@ -19,6 +21,22 @@
       now = new Date();
     }, 30_000);
     return () => clearInterval(id);
+  });
+
+  /** The timestamp to draw the vertical line at. Uses lastRead (snapped to nearest data point) or now. */
+  const lineDate = $derived.by(() => {
+    if (lastRead && lastRead > 0 && chartData.length > 0) {
+      // Snap to the data point at or just before lastRead
+      let cutoffTime = chartData[0].time.getTime();
+      for (const d of chartData) {
+        const t = d.time.getTime();
+        if (t <= lastRead) {
+          cutoffTime = t;
+        }
+      }
+      return new Date(cutoffTime);
+    }
+    return now;
   });
 
   const xDomain = $derived.by(() => {
@@ -30,18 +48,10 @@
       if (t < minMs) minMs = t;
       if (t > maxMs) maxMs = t;
     }
-    maxMs = Math.max(maxMs, now.getTime());
+    // Extend domain to include the line position
+    maxMs = Math.max(maxMs, lineDate.getTime());
     return [new Date(minMs), new Date(maxMs)] as [Date, Date];
   });
-
-  const annotations = $derived([
-    {
-      type: "line" as const,
-      x: now,
-      layer: "above" as const,
-      class: "stroke-red-500",
-    },
-  ]);
 
   const config = $derived({
     value: { label, color },
@@ -60,12 +70,19 @@
     axis={false}
     grid={false}
     rule={false}
-    annotations={annotations}
     series={[{ key: "value", color }]}
     props={{
-      area: { opacity: 0.15 },
+      area: { opacity: 0.3 },
     }}
   >
+    {#snippet aboveMarks()}
+      <AnnotationLine
+        x={lineDate}
+        props={{
+          line: { style: "stroke: #ef4444; stroke-width: 1.4;" },
+        }}
+      />
+    {/snippet}
     {#snippet tooltip()}
       <Chart.Tooltip hideLabel hideIndicator />
     {/snippet}
