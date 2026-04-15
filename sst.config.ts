@@ -34,18 +34,6 @@
  * See webapp/DEPLOYMENT.md for full docs and CDK migration path.
  */
 
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from "@aws-sdk/client-secrets-manager";
-import {
-  SSMClient,
-  GetParameterCommand,
-  PutParameterCommand,
-  ParameterNotFound,
-} from "@aws-sdk/client-ssm";
-import { randomBytes } from "node:crypto";
-
 // ---------------------------------------------------------------
 // Stage parsing
 // ---------------------------------------------------------------
@@ -120,6 +108,9 @@ async function fetchBusSecret(
   env: string,
   bus: string,
 ): Promise<BusSecret> {
+  const { SecretsManagerClient, GetSecretValueCommand } = await import(
+    "@aws-sdk/client-secrets-manager"
+  );
   const client = new SecretsManagerClient({ region });
   const name = secretName(env, bus);
   console.log(`Fetching Bus config from secret: ${name}`);
@@ -136,6 +127,9 @@ async function fetchLeoAuthTableName(
   region: string,
   env: string,
 ): Promise<string> {
+  const { SSMClient, GetParameterCommand } = await import(
+    "@aws-sdk/client-ssm"
+  );
   const client = new SSMClient({ region });
   const paramName = `/mcd/${env}/rstreams/main_bus/leo_auth_user_table_name`;
   try {
@@ -162,6 +156,10 @@ async function fetchOrCreateAuthSecret(
   region: string,
   stage: string,
 ): Promise<string> {
+  const { SSMClient, GetParameterCommand, PutParameterCommand } = await import(
+    "@aws-sdk/client-ssm"
+  );
+  const { randomBytes } = await import("node:crypto");
   const client = new SSMClient({ region });
   const paramName = `/botmon/${stage}/auth-secret`;
 
@@ -269,6 +267,17 @@ export default $config({
           args.billingMode = "PROVISIONED";
           args.readCapacity = 20;
           args.writeCapacity = 20;
+          // GSI also needs provisioned throughput when billing mode is PROVISIONED
+          if (args.globalSecondaryIndexes) {
+            args.globalSecondaryIndexes = $resolve(args.globalSecondaryIndexes).apply(
+              (indexes: any[]) =>
+                indexes.map((idx: any) => ({
+                  ...idx,
+                  readCapacity: 20,
+                  writeCapacity: 20,
+                })),
+            );
+          }
         },
       },
     });
@@ -485,8 +494,8 @@ export default $config({
       // DSCO auth — fetched from SSM
       LEO_AUTH_USER_TABLE_NAME: leoAuthTableName,
 
-      // AWS
-      AWS_REGION: busConfig.Region || region,
+      // AWS_REGION is set automatically by Lambda — do not set it explicitly.
+      // The app reads it from process.env.AWS_REGION which Lambda provides.
 
       // SNS
       HEALTH_CHECK_SNS_TOPIC_ARN: healthCheckSns.arn,
