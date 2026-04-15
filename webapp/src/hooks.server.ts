@@ -85,7 +85,7 @@ export async function handle({ event, resolve }) {
             // ------------------------------------------------------------------
             if (pathname === `${base}/force-reauth`) {
                 clearAllAuthCookies(e);
-                const returnUrl = e.url.searchParams.get('return_url') || '/';
+                const returnUrl = e.url.searchParams.get('return_url') || `${base}/`;
                 console.log('[Hooks] Force re-auth: clearing cookies and redirecting to', returnUrl);
                 return redirect(302, returnUrl);
             }
