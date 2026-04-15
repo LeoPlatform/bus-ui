@@ -7,6 +7,7 @@ node_modules
 .wrangler
 .svelte-kit
 .sst
+sst-env.d.ts
 /build
 
 # OS
