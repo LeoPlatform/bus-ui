@@ -32,33 +32,30 @@ Each deployment stage (alpha, staging, prod) gets its own isolated CloudFormatio
 cd webapp && npm install && cd ..
 
 # 2. Deploy (everything is auto-discovered — no manual env setup needed)
-npx sst deploy --stage alpha
+npx sst deploy --stage test-cup
 
 # The command outputs the CloudFront URL when complete
 ```
 
 ## Deployment Commands
 
+The stage name follows the `{env}-{bus}` convention, matching the `create-env` npm scripts.
+
 | Command | Description |
 |---------|-------------|
-| `npx sst deploy --stage alpha` | Deploy to alpha (bus=cup by default) |
-| `BUS=chub npx sst deploy --stage staging` | Deploy for a specific bus |
-| `npx sst deploy --stage prod` | Deploy to production |
-| `npx sst dev` | Start local dev with live Lambda (hot reload) |
-| `npx sst remove --stage alpha` | Tear down the alpha stack completely |
+| `npx sst deploy --stage test-cup` | Deploy to test environment, cup bus |
+| `npx sst deploy --stage test-chub` | Deploy to test environment, chub bus |
+| `npx sst deploy --stage staging-cup` | Deploy to staging |
+| `npx sst deploy --stage prod-cup` | Deploy to production |
+| `npx sst dev --stage test-cup` | Local dev with live Lambda (hot reload) |
+| `npx sst remove --stage test-cup` | Tear down the stack completely |
+
+Valid environments: `test`, `staging`, `prod`
+Valid buses: `cup`, `chub`, `stream`
 
 ## How Resource Discovery Works
 
-Most environment variables are resolved **automatically at deploy time** — you don't need to set them manually.
-
-**Stage → environment mapping:**
-The SST stage name maps to the AWS environment used for Secrets Manager and SSM lookups:
-- `alpha`, `dev`, `test` → `test`
-- `staging` → `staging`
-- `prod` → `prod`
-
-**Bus selection:**
-Set `BUS=cup|chub|stream` (defaults to `cup`). This selects which Leo Bus to connect to.
+Most environment variables are resolved **automatically at deploy time** — you don't need to set them manually. The `{env}-{bus}` stage name tells SST which Secrets Manager secret and SSM parameters to fetch.
 
 **Auto-discovered resources:**
 
@@ -72,8 +69,8 @@ Set `BUS=cup|chub|stream` (defaults to `cup`). This selects which Leo Bus to con
 | `LEO_SYSTEM_TABLE` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
 | `LEO_S3` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
 | `LEO_AUTH_USER_TABLE_NAME` | SSM: `/mcd/{env}/rstreams/main_bus/leo_auth_user_table_name` |
-| `AUTH_SECRET` | SSM SecureString `/botmon/{stage}/auth-secret` (auto-generated on first deploy) |
-| `STAGE` | Derived from SST stage name |
+| `AUTH_SECRET` | SSM SecureString `/botmon/{env}-{bus}/auth-secret` (auto-generated on first deploy) |
+| `STAGE` | Parsed from stage name (the `{env}` portion) |
 | `AWS_REGION` | From Bus secret or defaults to `us-east-1` |
 
 **Optional overrides** (via `.env.<stage>` or shell environment):

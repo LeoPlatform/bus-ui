@@ -4,29 +4,30 @@
  * SST v3 deployment configuration for the Botmon SvelteKit webapp.
  *
  * Deploys as: Lambda (SSR) + CloudFront (CDN) + S3 (static assets).
- * Each stage gets its own CloudFormation stack (e.g., "alpha", "staging", "prod").
+ *
+ * Stage naming convention: {env}-{bus}
+ *   Matches the create-env npm scripts (e.g., create-env-test-cup).
+ *   Valid envs: test, staging, prod
+ *   Valid buses: cup, chub, stream
  *
  * Resources CREATED by this stack (mirrors old_ui/cloudformation/):
- *   - LeoStats DynamoDB table with auto-scaling (dynamodb.js)
- *   - Auto-scaling IAM role + targets + policies (dynamodb.js, roles.js)
- *   - Health check SNS topic (sns.js)
- *   - LeoBotmonRole — Lambda execution role with leosdk + LeoStats access (roles.js)
- *   - LeoBotmonSnsRole — Lambda role with leosdk + leoauth + SNS access (roles.js)
- *   - SvelteKit Lambda + CloudFront + S3 (new — replaces old ShowPages Lambda + API Gateway)
+ *   - LeoStats DynamoDB table with auto-scaling
+ *   - Auto-scaling IAM role + targets + policies
+ *   - Health check SNS topic
+ *   - LeoBotmonRole, LeoBotmonSnsRole IAM roles
+ *   - SvelteKit Lambda + CloudFront + S3
  *
- * External resource discovery:
- *   Leo Bus table names (LeoCron, LeoEvent, etc.) are fetched automatically from
- *   AWS Secrets Manager using the same naming convention as create-env.ts:
- *     Secret: rstreams-{Stage}{Bus}Bus  (e.g., rstreams-TestBus, rstreams-ProdChubBus)
- *   LEO_AUTH table name is fetched from SSM Parameter Store.
- *
- * AUTH_SECRET is auto-generated on first deploy and stored in SSM as a SecureString.
+ * External resource discovery (automatic):
+ *   - Leo Bus tables: Secrets Manager (rstreams-{Env}{Bus}Bus)
+ *   - LEO_AUTH table: SSM Parameter Store
+ *   - AUTH_SECRET: SSM SecureString (auto-generated on first deploy)
  *
  * Usage:
- *   npx sst deploy --stage alpha                  # defaults to bus=cup
- *   BUS=chub npx sst deploy --stage staging       # deploy for chub bus
- *   npx sst dev                                   # local dev with live Lambda
- *   npx sst remove --stage alpha                  # tear down stack
+ *   npx sst deploy --stage test-cup        # test environment, cup bus
+ *   npx sst deploy --stage staging-chub    # staging environment, chub bus
+ *   npx sst deploy --stage prod-stream     # production, stream bus
+ *   npx sst dev --stage test-cup           # local dev with live Lambda
+ *   npx sst remove --stage test-cup        # tear down stack
  *
  * No manual setup needed — just deploy.
  *
@@ -44,6 +45,39 @@ import {
   ParameterNotFound,
 } from "@aws-sdk/client-ssm";
 import { randomBytes } from "node:crypto";
+
+// ---------------------------------------------------------------
+// Stage parsing
+// ---------------------------------------------------------------
+
+const VALID_ENVS = ["test", "staging", "prod"] as const;
+const VALID_BUSES = ["cup", "chub", "stream"] as const;
+
+type Env = (typeof VALID_ENVS)[number];
+type Bus = (typeof VALID_BUSES)[number];
+
+function parseStage(stage: string): { env: Env; bus: Bus } {
+  const parts = stage.split("-");
+  if (parts.length !== 2) {
+    throw new Error(
+      `Invalid stage "${stage}". Expected format: {env}-{bus} (e.g., test-cup, staging-chub, prod-stream).\n` +
+        `  Valid envs: ${VALID_ENVS.join(", ")}\n` +
+        `  Valid buses: ${VALID_BUSES.join(", ")}`,
+    );
+  }
+  const [env, bus] = parts;
+  if (!VALID_ENVS.includes(env as Env)) {
+    throw new Error(
+      `Invalid environment "${env}" in stage "${stage}". Valid envs: ${VALID_ENVS.join(", ")}`,
+    );
+  }
+  if (!VALID_BUSES.includes(bus as Bus)) {
+    throw new Error(
+      `Invalid bus "${bus}" in stage "${stage}". Valid buses: ${VALID_BUSES.join(", ")}`,
+    );
+  }
+  return { env: env as Env, bus: bus as Bus };
+}
 
 // ---------------------------------------------------------------
 // Resource discovery helpers (same logic as webapp/scripts/create-env.ts)
@@ -70,24 +104,24 @@ function busSuffix(bus: string): string {
 }
 
 /**
- * Map (stage, bus) to the Secrets Manager secret name.
- * Convention: rstreams-{Stage}{Bus}Bus
+ * Map (env, bus) to the Secrets Manager secret name.
+ * Convention: rstreams-{Env}{Bus}Bus
  * Examples:
  *   (test, cup)    → rstreams-TestBus
  *   (prod, chub)   → rstreams-ProdChubBus
  *   (test, stream) → rstreams-TestStreamBus
  */
-function secretName(stage: string, bus: string): string {
-  return `rstreams-${capitalize(stage)}${busSuffix(bus)}Bus`;
+function secretName(env: string, bus: string): string {
+  return `rstreams-${capitalize(env)}${busSuffix(bus)}Bus`;
 }
 
 async function fetchBusSecret(
   region: string,
-  stage: string,
+  env: string,
   bus: string,
 ): Promise<BusSecret> {
   const client = new SecretsManagerClient({ region });
-  const name = secretName(stage, bus);
+  const name = secretName(env, bus);
   console.log(`Fetching Bus config from secret: ${name}`);
   const result = await client.send(
     new GetSecretValueCommand({ SecretId: name }),
@@ -100,10 +134,10 @@ async function fetchBusSecret(
 
 async function fetchLeoAuthTableName(
   region: string,
-  stage: string,
+  env: string,
 ): Promise<string> {
   const client = new SSMClient({ region });
-  const paramName = `/mcd/${stage}/rstreams/main_bus/leo_auth_user_table_name`;
+  const paramName = `/mcd/${env}/rstreams/main_bus/leo_auth_user_table_name`;
   try {
     console.log(`Fetching LEO_AUTH_USER_TABLE_NAME from SSM: ${paramName}`);
     const result = await client.send(
@@ -167,47 +201,31 @@ export default $config({
   app(input) {
     return {
       name: "botmon",
-      removal: input?.stage === "prod" ? "retain" : "remove",
-      protect: ["prod"].includes(input?.stage ?? ""),
+      removal: input?.stage?.startsWith("prod") ? "retain" : "remove",
+      protect: input?.stage?.startsWith("prod") ?? false,
       home: "aws",
       providers: {
         aws: {
           region: "us-east-1",
           // Use a specific profile per stage if needed:
-          // profile: input?.stage === "prod" ? "prod" : "default",
+          // profile: input?.stage?.startsWith("prod") ? "prod" : "default",
         },
       },
     };
   },
   async run() {
     // ---------------------------------------------------------------
-    // Resolve stage and bus from environment
+    // Parse stage into env + bus
     //
-    // SST stage maps to the AWS environment (test, staging, prod).
-    // BUS selects which Leo Bus to connect to (cup, chub, stream).
-    // The stage→env mapping normalizes SST stage names to the env
-    // names used in Secrets Manager and SSM.
+    // Stage format: {env}-{bus}  (e.g., test-cup, staging-chub, prod-stream)
+    // Matches the create-env npm scripts in package.json.
     // ---------------------------------------------------------------
 
     const stage = $app.stage;
-    const bus = process.env.BUS ?? "cup";
-
-    // Map SST stage name to the environment name used in AWS resources.
-    // "alpha", "dev", "test" all point to the "test" environment.
-    // Add mappings here as new stages are created.
-    const stageToEnv: Record<string, string> = {
-      alpha: "test",
-      dev: "test",
-      test: "test",
-      staging: "staging",
-      prod: "prod",
-    };
-    const env = stageToEnv[stage] ?? stage;
+    const { env, bus } = parseStage(stage);
     const region = "us-east-1";
 
-    console.log(
-      `Deploying stage=${stage} (env=${env}, bus=${bus}, region=${region})`,
-    );
+    console.log(`Deploying stage=${stage} (env=${env}, bus=${bus}, region=${region})`);
 
     // ---------------------------------------------------------------
     // Fetch external resource names from Secrets Manager + SSM
