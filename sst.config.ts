@@ -627,6 +627,11 @@ export default $config({
             `arn:aws:s3:::${busConfig.LeoS3}/*`,
           ],
         },
+        // Cognito Identity — needed for DSCO auth credential minting
+        {
+          actions: ["cognito-identity:GetCredentialsForIdentity"],
+          resources: ["*"],
+        },
       ],
       server: {
         memory: "1024 MB",
