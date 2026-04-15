@@ -588,6 +588,46 @@ export default $config({
       path: "webapp/",
       link: [leoStats],
       environment,
+      permissions: [
+        // Grant access to all external Leo Bus DynamoDB tables and S3
+        {
+          actions: [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+            "dynamodb:Scan",
+            "dynamodb:BatchGetItem",
+            "dynamodb:BatchWriteItem",
+          ],
+          resources: [
+            // External tables from leosdk stack
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoCron}`,
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoCron}/*`,
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoEvent}`,
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoEvent}/*`,
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoStream}`,
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoStream}/*`,
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoSystem}`,
+            `arn:aws:dynamodb:*:*:table/${busConfig.LeoSystem}/*`,
+            // LEO_AUTH table (DSCO auth user lookup)
+            ...(leoAuthTableName
+              ? [
+                  `arn:aws:dynamodb:*:*:table/${leoAuthTableName}`,
+                  `arn:aws:dynamodb:*:*:table/${leoAuthTableName}/*`,
+                ]
+              : []),
+          ],
+        },
+        {
+          actions: ["s3:GetObject", "s3:ListBucket"],
+          resources: [
+            `arn:aws:s3:::${busConfig.LeoS3}`,
+            `arn:aws:s3:::${busConfig.LeoS3}/*`,
+          ],
+        },
+      ],
       server: {
         memory: "1024 MB",
         architecture: "arm64",
