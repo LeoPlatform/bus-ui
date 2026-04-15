@@ -14,19 +14,106 @@
  *   - LeoBotmonSnsRole — Lambda role with leosdk + leoauth + SNS access (roles.js)
  *   - SvelteKit Lambda + CloudFront + S3 (new — replaces old ShowPages Lambda + API Gateway)
  *
- * Resources REFERENCED from external stacks (leosdk):
- *   - LeoCron, LeoEvent, LeoStream, LeoSystem DynamoDB tables
- *   - LeoS3 bucket
- *   - LeoAuth / LeoAuthUser tables (DSCO auth)
- *   These are passed via environment variables.
+ * External resource discovery:
+ *   Leo Bus table names (LeoCron, LeoEvent, etc.) are fetched automatically from
+ *   AWS Secrets Manager using the same naming convention as create-env.ts:
+ *     Secret: rstreams-{Stage}{Bus}Bus  (e.g., rstreams-TestBus, rstreams-ProdChubBus)
+ *   LEO_AUTH table name is fetched from SSM Parameter Store.
  *
  * Usage:
- *   npx sst deploy --stage alpha
- *   npx sst dev
- *   npx sst remove --stage alpha
+ *   npx sst deploy --stage alpha                  # defaults to bus=cup
+ *   BUS=chub npx sst deploy --stage staging       # deploy for chub bus
+ *   npx sst dev                                   # local dev with live Lambda
+ *   npx sst remove --stage alpha                  # tear down stack
+ *
+ * One-time setup per stage:
+ *   npx sst secret set AuthSecret <value> --stage alpha
  *
  * See webapp/DEPLOYMENT.md for full docs and CDK migration path.
  */
+
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from "@aws-sdk/client-secrets-manager";
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+
+// ---------------------------------------------------------------
+// Resource discovery helpers (same logic as webapp/scripts/create-env.ts)
+// ---------------------------------------------------------------
+
+interface BusSecret {
+  LeoStream: string;
+  LeoCron: string;
+  LeoSettings: string;
+  LeoEvent: string;
+  LeoSystem: string;
+  LeoS3: string;
+  LeoKinesisStream: string;
+  LeoFirehoseStream: string;
+  Region: string;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function busSuffix(bus: string): string {
+  return bus === "cup" ? "" : capitalize(bus);
+}
+
+/**
+ * Map (stage, bus) to the Secrets Manager secret name.
+ * Convention: rstreams-{Stage}{Bus}Bus
+ * Examples:
+ *   (test, cup)    → rstreams-TestBus
+ *   (prod, chub)   → rstreams-ProdChubBus
+ *   (test, stream) → rstreams-TestStreamBus
+ */
+function secretName(stage: string, bus: string): string {
+  return `rstreams-${capitalize(stage)}${busSuffix(bus)}Bus`;
+}
+
+async function fetchBusSecret(
+  region: string,
+  stage: string,
+  bus: string,
+): Promise<BusSecret> {
+  const client = new SecretsManagerClient({ region });
+  const name = secretName(stage, bus);
+  console.log(`Fetching Bus config from secret: ${name}`);
+  const result = await client.send(
+    new GetSecretValueCommand({ SecretId: name }),
+  );
+  if (!result.SecretString) {
+    throw new Error(`Secret ${name} has no string value`);
+  }
+  return JSON.parse(result.SecretString) as BusSecret;
+}
+
+async function fetchLeoAuthTableName(
+  region: string,
+  stage: string,
+): Promise<string> {
+  const client = new SSMClient({ region });
+  const paramName = `/mcd/${stage}/rstreams/main_bus/leo_auth_user_table_name`;
+  try {
+    console.log(`Fetching LEO_AUTH_USER_TABLE_NAME from SSM: ${paramName}`);
+    const result = await client.send(
+      new GetParameterCommand({ Name: paramName }),
+    );
+    return result.Parameter?.Value ?? "";
+  } catch (e: any) {
+    console.warn(
+      `⚠ Could not fetch LEO_AUTH_USER_TABLE_NAME from SSM: ${e.message}`,
+    );
+    return "";
+  }
+}
+
+// ---------------------------------------------------------------
+// SST config
+// ---------------------------------------------------------------
 
 export default $config({
   app(input) {
@@ -45,6 +132,55 @@ export default $config({
     };
   },
   async run() {
+    // ---------------------------------------------------------------
+    // Resolve stage and bus from environment
+    //
+    // SST stage maps to the AWS environment (test, staging, prod).
+    // BUS selects which Leo Bus to connect to (cup, chub, stream).
+    // The stage→env mapping normalizes SST stage names to the env
+    // names used in Secrets Manager and SSM.
+    // ---------------------------------------------------------------
+
+    const stage = $app.stage;
+    const bus = process.env.BUS ?? "cup";
+
+    // Map SST stage name to the environment name used in AWS resources.
+    // "alpha", "dev", "test" all point to the "test" environment.
+    // Add mappings here as new stages are created.
+    const stageToEnv: Record<string, string> = {
+      alpha: "test",
+      dev: "test",
+      test: "test",
+      staging: "staging",
+      prod: "prod",
+    };
+    const env = stageToEnv[stage] ?? stage;
+    const region = "us-east-1";
+
+    console.log(
+      `Deploying stage=${stage} (env=${env}, bus=${bus}, region=${region})`,
+    );
+
+    // ---------------------------------------------------------------
+    // Fetch external resource names from Secrets Manager + SSM
+    // ---------------------------------------------------------------
+
+    const busConfig = await fetchBusSecret(region, env, bus);
+    const leoAuthTableName = await fetchLeoAuthTableName(region, env);
+
+    console.log(`  LeoCron: ${busConfig.LeoCron}`);
+    console.log(`  LeoEvent: ${busConfig.LeoEvent}`);
+    console.log(`  LeoStream: ${busConfig.LeoStream}`);
+    console.log(`  LeoSystem: ${busConfig.LeoSystem}`);
+    console.log(`  LeoS3: ${busConfig.LeoS3}`);
+    console.log(`  LEO_AUTH_USER_TABLE_NAME: ${leoAuthTableName || "(not found)"}`);
+
+    // ---------------------------------------------------------------
+    // Auth secret (stored in SSM via `npx sst secret set`)
+    // ---------------------------------------------------------------
+
+    const authSecret = new sst.Secret("AuthSecret");
+
     // ---------------------------------------------------------------
     // LeoStats DynamoDB table (old_ui/cloudformation/dynamodb.js)
     // ---------------------------------------------------------------
@@ -180,14 +316,6 @@ export default $config({
 
     // ---------------------------------------------------------------
     // IAM roles (old_ui/cloudformation/roles.js)
-    //
-    // LeoBotmonRole: Lambda execution + leosdk policy + LeoStats write
-    // LeoBotmonSnsRole: Lambda execution + leosdk + leoauth policy + SNS
-    //
-    // Note: The old stack imports leosdk-Policy and leoauth-Policy via
-    // Fn::ImportValue. Here we define the permissions inline since SST
-    // manages the Lambda role separately. These roles are available for
-    // any additional Lambdas that need the same access pattern.
     // ---------------------------------------------------------------
 
     const leoBotmonRole = new aws.iam.Role("LeoBotmonRole", {
@@ -274,30 +402,30 @@ export default $config({
     // ---------------------------------------------------------------
 
     const environment: Record<string, string> = {
-      // Auth
-      AUTH_SECRET: process.env.AUTH_SECRET ?? "",
-      AUTH_CONFIG_SOURCE: process.env.AUTH_CONFIG_SOURCE ?? "",
-      LOCAL: process.env.LOCAL ?? "false",
-      STAGE: process.env.STAGE ?? $app.stage,
+      // Auth (secret stored in SSM via `npx sst secret set AuthSecret <value>`)
+      AUTH_SECRET: authSecret.value,
+      AUTH_CONFIG_SOURCE: process.env.AUTH_CONFIG_SOURCE ?? "./providers.config.json",
+      LOCAL: "false",
+      STAGE: env,
       DEBUG_AUTH: process.env.DEBUG_AUTH ?? "false",
 
-      // Owned resource — LeoStats table name injected from the resource
+      // Owned resource — table name from the resource we created
       LEO_STATS_TABLE: leoStats.name,
 
-      // External tables from leosdk stack (env vars)
-      LEO_CRON_TABLE: process.env.LEO_CRON_TABLE ?? "",
-      LEO_EVENT_TABLE: process.env.LEO_EVENT_TABLE ?? "",
-      LEO_STREAM_TABLE: process.env.LEO_STREAM_TABLE ?? "",
-      LEO_SYSTEM_TABLE: process.env.LEO_SYSTEM_TABLE ?? "",
-      LEO_S3: process.env.LEO_S3 ?? "",
+      // External tables — fetched from Secrets Manager
+      LEO_CRON_TABLE: busConfig.LeoCron,
+      LEO_EVENT_TABLE: busConfig.LeoEvent,
+      LEO_STREAM_TABLE: busConfig.LeoStream,
+      LEO_SYSTEM_TABLE: busConfig.LeoSystem,
+      LEO_S3: busConfig.LeoS3,
 
-      // DSCO auth (only needed for DSCO deployments)
-      LEO_AUTH_USER_TABLE_NAME: process.env.LEO_AUTH_USER_TABLE_NAME ?? "",
+      // DSCO auth — fetched from SSM
+      LEO_AUTH_USER_TABLE_NAME: leoAuthTableName,
 
-      // AWS region for DynamoDB/Cognito SDK calls
-      AWS_REGION: process.env.AWS_REGION ?? "us-east-1",
+      // AWS
+      AWS_REGION: busConfig.Region || region,
 
-      // SNS topic ARN for health checks
+      // SNS
       HEALTH_CHECK_SNS_TOPIC_ARN: healthCheckSns.arn,
 
       // Performance timing (0 = off, 1 = on)
@@ -314,8 +442,8 @@ export default $config({
       environment,
       // Uncomment when a custom domain is ready:
       // domain: {
-      //   name: `botmon-${$app.stage}.your-domain.com`,
-      //   redirects: [`www.botmon-${$app.stage}.your-domain.com`],
+      //   name: `botmon-${stage}.your-domain.com`,
+      //   redirects: [`www.botmon-${stage}.your-domain.com`],
       // },
       server: {
         memory: "1024 MB",
@@ -326,6 +454,9 @@ export default $config({
 
     return {
       url: site.url,
+      stage,
+      env,
+      bus,
       leoStatsTable: leoStats.name,
       healthCheckSnsTopic: healthCheckSns.arn,
       leoBotmonRoleArn: leoBotmonRole.arn,

@@ -31,10 +31,10 @@ Each deployment stage (alpha, staging, prod) gets its own isolated CloudFormatio
 # 1. Install dependencies
 cd webapp && npm install && cd ..
 
-# 2. Generate environment config for a specific bus
-cd webapp && npm run create-env-test-cup && cd ..
+# 2. One-time: set the auth secret for this stage
+npx sst secret set AuthSecret "$(npx --yes auth secret --raw)" --stage alpha
 
-# 3. Deploy to the "alpha" stage
+# 3. Deploy (Leo Bus table names are fetched automatically from Secrets Manager)
 npx sst deploy --stage alpha
 
 # The command outputs the CloudFront URL when complete
@@ -42,58 +42,51 @@ npx sst deploy --stage alpha
 
 ## Deployment Commands
 
+| Command | Description |
+|---------|-------------|
+| `npx sst deploy --stage alpha` | Deploy to alpha (bus=cup by default) |
+| `BUS=chub npx sst deploy --stage staging` | Deploy for a specific bus |
+| `npx sst deploy --stage prod` | Deploy to production |
+| `npx sst dev` | Start local dev with live Lambda (hot reload) |
+| `npx sst remove --stage alpha` | Tear down the alpha stack completely |
+| `npx sst secret set AuthSecret <value> --stage alpha` | Set auth secret (one-time per stage) |
 
-| Command                          | Description                                    |
-| -------------------------------- | ---------------------------------------------- |
-| `npx sst deploy --stage alpha`   | Deploy to alpha (creates or updates the stack) |
-| `npx sst deploy --stage staging` | Deploy to staging                              |
-| `npx sst deploy --stage prod`    | Deploy to production                           |
-| `npx sst dev`                    | Start local dev with live Lambda (hot reload)  |
-| `npx sst remove --stage alpha`   | Tear down the alpha stack completely           |
+## How Resource Discovery Works
 
+Most environment variables are resolved **automatically at deploy time** — you don't need to set them manually.
 
-## Environment Variables
+**Stage → environment mapping:**
+The SST stage name maps to the AWS environment used for Secrets Manager and SSM lookups:
+- `alpha`, `dev`, `test` → `test`
+- `staging` → `staging`
+- `prod` → `prod`
 
-The Lambda function needs these environment variables. They can be set via:
+**Bus selection:**
+Set `BUS=cup|chub|stream` (defaults to `cup`). This selects which Leo Bus to connect to.
 
-- `.env` / `.env.<stage>` files in the repo root (SST loads these automatically)
-- Shell environment (for CI/CD)
-- The `create-env.ts` script (generates `.env.local` for local dev)
+**Auto-discovered resources:**
 
-**Automatically set by SST** (from owned resources — no env var needed):
+| Variable | Source |
+|----------|--------|
+| `LEO_STATS_TABLE` | Created by this stack (`sst.aws.Dynamo`) |
+| `HEALTH_CHECK_SNS_TOPIC_ARN` | Created by this stack (`sst.aws.SnsTopic`) |
+| `LEO_CRON_TABLE` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
+| `LEO_EVENT_TABLE` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
+| `LEO_STREAM_TABLE` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
+| `LEO_SYSTEM_TABLE` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
+| `LEO_S3` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
+| `LEO_AUTH_USER_TABLE_NAME` | SSM: `/mcd/{env}/rstreams/main_bus/leo_auth_user_table_name` |
+| `AUTH_SECRET` | SST Secret (SSM, set via `npx sst secret set`) |
+| `STAGE` | Derived from SST stage name |
+| `AWS_REGION` | From Bus secret or defaults to `us-east-1` |
 
+**Optional overrides** (via `.env.<stage>` or shell environment):
 
-| Variable                     | Source                              |
-| ---------------------------- | ----------------------------------- |
-| `LEO_STATS_TABLE`            | Created by SST (`sst.aws.Dynamo`)   |
-| `HEALTH_CHECK_SNS_TOPIC_ARN` | Created by SST (`sst.aws.SnsTopic`) |
-
-
-**External tables** (from `leosdk` stack — must be provided):
-
-
-| Variable           | Required | Description                                  |
-| ------------------ | -------- | -------------------------------------------- |
-| `LEO_CRON_TABLE`   | Yes      | DynamoDB table name (from leosdk stack)      |
-| `LEO_EVENT_TABLE`  | Yes      | DynamoDB table name (from leosdk stack)      |
-| `LEO_STREAM_TABLE` | Yes      | DynamoDB table name (from leosdk stack)      |
-| `LEO_SYSTEM_TABLE` | Yes      | DynamoDB table name (from leosdk stack)      |
-| `LEO_S3`           | Yes      | S3 bucket for Leo events (from leosdk stack) |
-
-
-**Auth and app config:**
-
-
-| Variable                   | Required  | Description                                                   |
-| -------------------------- | --------- | ------------------------------------------------------------- |
-| `AUTH_SECRET`              | Yes       | Cookie encryption key (generate with `npx auth secret --raw`) |
-| `AUTH_CONFIG_SOURCE`       | Yes       | Path or URL to auth providers config JSON                     |
-| `AWS_REGION`               | No        | Defaults to `us-east-1`                                       |
-| `LOCAL`                    | No        | `true` for local dev (mock auth). Defaults to `false`         |
-| `STAGE`                    | No        | `test`, `staging`, `prod`. Defaults to SST stage name         |
-| `LEO_AUTH_USER_TABLE_NAME` | DSCO only | LeoAuth DynamoDB table (fetched from SSM by create-env)       |
-| `DEBUG_AUTH`               | No        | `true` to enable verbose auth logging                         |
-| `PERF_TIMING`              | No        | `1` to enable server-side performance timing logs             |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH_CONFIG_SOURCE` | `./providers.config.json` | Path or URL to auth providers config JSON |
+| `DEBUG_AUTH` | `false` | Enable verbose auth logging |
+| `PERF_TIMING` | `0` | Enable server-side performance timing logs |
 
 
 ## Custom Domain
