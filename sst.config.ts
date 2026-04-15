@@ -638,6 +638,50 @@ export default $config({
         architecture: "arm64",
         timeout: "30 seconds",
       },
+      transform: {
+        cdn: (args) => {
+          // Add CORS headers to static asset responses so they can be loaded
+          // cross-origin from test-apps.dsco.io (assets are on CloudFront).
+          const corsPolicy = new aws.cloudfront.ResponseHeadersPolicy(
+            "BotmonCorsHeadersPolicy",
+            {
+              name: `botmon-${stage}-cors`,
+              corsConfig: {
+                accessControlAllowCredentials: false,
+                accessControlAllowHeaders: { items: ["*"] },
+                accessControlAllowMethods: { items: ["GET", "HEAD"] },
+                accessControlAllowOrigins: {
+                  items: [
+                    `https://${appsCustomDomain}`,
+                    "https://test-apps.dsco.io",
+                    "https://staging-apps.dsco.io",
+                    "https://apps.dsco.io",
+                    "http://localhost:5173",
+                  ],
+                },
+                originOverride: true,
+              },
+            },
+          );
+
+          // Apply CORS headers to all cache behaviors (static assets + default)
+          if (args.orderedCacheBehaviors) {
+            args.orderedCacheBehaviors = $resolve(args.orderedCacheBehaviors).apply(
+              (behaviors: any[]) =>
+                behaviors.map((b: any) => ({
+                  ...b,
+                  responseHeadersPolicyId: corsPolicy.id,
+                })),
+            );
+          }
+          args.defaultCacheBehavior = $resolve(args.defaultCacheBehavior).apply(
+            (b: any) => ({
+              ...b,
+              responseHeadersPolicyId: corsPolicy.id,
+            }),
+          );
+        },
+      },
     });
 
     // ---------------------------------------------------------------
