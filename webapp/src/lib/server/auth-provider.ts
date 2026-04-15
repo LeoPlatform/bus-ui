@@ -149,7 +149,35 @@ export default class DscoAuthProvider extends AuthProvider<DscoAuthData> {
     }
 
     // -----------------------------------------------------------------------
-    // getUserCognitoIdentity
+    // getAwsCredentials — use Lambda execution role credentials
+    //
+    // When deployed on Lambda, the execution role already has IAM permissions
+    // for all DynamoDB tables. We don't need per-user Cognito credentials
+    // (which expire quickly). The Lambda environment provides credentials
+    // via AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN.
+    // Returning undefined lets the AWS SDK use the default credential chain
+    // (Lambda role), but getSession() expects explicit credentials, so we
+    // return them from the environment.
+    // -----------------------------------------------------------------------
+
+    async getAwsCredentials(_user: AuthenticatedUser<DscoAuthData>) {
+        const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+        const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+        const sessionToken = process.env.AWS_SESSION_TOKEN;
+
+        if (accessKeyId && secretAccessKey) {
+            return {
+                accessKeyId,
+                secretAccessKey,
+                sessionToken: sessionToken || '',
+                expiration: new Date(Date.now() + 3600 * 1000), // Lambda creds auto-refresh
+            };
+        }
+        return undefined;
+    }
+
+    // -----------------------------------------------------------------------
+    // getUserCognitoIdentity — fallback for non-Lambda environments
     // -----------------------------------------------------------------------
 
     async getUserCognitoIdentity(
