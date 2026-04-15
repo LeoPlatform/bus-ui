@@ -191,6 +191,55 @@ async function fetchOrCreateAuthSecret(
   return secret;
 }
 
+/**
+ * Fetch the CloudFront URL for this stage from SSM.
+ * On the first deploy it won't exist — return empty string (assets use
+ * relative paths, which won't work behind API GW but that's OK for
+ * bootstrap). After deploy, storeCloudfrontUrl() saves it so the next
+ * deploy bakes the absolute CDN URL into the build.
+ */
+async function fetchCloudfrontUrl(
+  region: string,
+  stage: string,
+): Promise<string> {
+  const { SSMClient, GetParameterCommand } = await import(
+    "@aws-sdk/client-ssm"
+  );
+  const client = new SSMClient({ region });
+  const paramName = `/botmon/${stage}/cloudfront-url`;
+  try {
+    const result = await client.send(
+      new GetParameterCommand({ Name: paramName }),
+    );
+    const url = result.Parameter?.Value ?? "";
+    if (url) console.log(`CloudFront URL loaded from SSM: ${url}`);
+    return url;
+  } catch {
+    console.log(`CloudFront URL not yet stored in SSM (first deploy for ${stage})`);
+    return "";
+  }
+}
+
+async function storeCloudfrontUrl(
+  region: string,
+  stage: string,
+  url: string,
+): Promise<void> {
+  const { SSMClient, PutParameterCommand } = await import(
+    "@aws-sdk/client-ssm"
+  );
+  const client = new SSMClient({ region });
+  await client.send(
+    new PutParameterCommand({
+      Name: `/botmon/${stage}/cloudfront-url`,
+      Value: url,
+      Type: "String",
+      Overwrite: true,
+      Description: `Botmon CloudFront URL for stage ${stage}`,
+    }),
+  );
+}
+
 // ---------------------------------------------------------------
 // SST config
 // ---------------------------------------------------------------
@@ -229,10 +278,11 @@ export default $config({
     // Fetch external resource names from Secrets Manager + SSM
     // ---------------------------------------------------------------
 
-    const [busConfig, leoAuthTableName, authSecret] = await Promise.all([
+    const [busConfig, leoAuthTableName, authSecret, cloudfrontUrl] = await Promise.all([
       fetchBusSecret(region, env, bus),
       fetchLeoAuthTableName(region, env),
       fetchOrCreateAuthSecret(region, stage),
+      fetchCloudfrontUrl(region, stage),
     ]);
 
     console.log(`  LeoCron: ${busConfig.LeoCron}`);
@@ -523,6 +573,11 @@ export default $config({
       // The HTTP_PROXY integration restores the stripped prefix via
       // requestParameters, so SvelteKit receives the full path.
       SVELTE_BASE_PATH: `/${apiMappingKey}`,
+
+      // Assets URL — absolute CloudFront URL so static files (JS, CSS)
+      // load directly from CDN instead of through the API Gateway path.
+      // Empty on first deploy; stored in SSM after first deploy completes.
+      ...(cloudfrontUrl ? { SVELTE_ASSETS_URL: cloudfrontUrl } : {}),
     };
 
     // ---------------------------------------------------------------
@@ -588,6 +643,15 @@ export default $config({
       domainName: appsCustomDomain,
       stage: apiStage.id,
       apiMappingKey,
+    });
+
+    // Store the CloudFront URL in SSM so the next deploy can bake it
+    // into paths.assets at build time (solves first-deploy chicken-and-egg).
+    site.url.apply(async (url: string) => {
+      if (url && url !== cloudfrontUrl) {
+        console.log(`Storing CloudFront URL in SSM: ${url}`);
+        await storeCloudfrontUrl(region, stage, url);
+      }
     });
 
     return {

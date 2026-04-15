@@ -17,6 +17,10 @@ const config = {
 		// requestParameters, so SvelteKit receives the full path natively.
 		paths: {
 			base: process.env.SVELTE_BASE_PATH || '',
+			// Absolute CloudFront URL for static assets. When deployed behind
+			// API Gateway, assets can't be served through the path mapping.
+			// Set via SVELTE_ASSETS_URL; empty for local dev (relative paths).
+			assets: process.env.SVELTE_ASSETS_URL || '',
 		},
 		alias: {
 			$lib: path.resolve('./src/lib'),
