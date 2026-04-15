@@ -2,6 +2,7 @@
 	import * as Card from "$lib/client/components/ui/card";
 	import Button from "$lib/client/components/ui/button/button.svelte";
 	import { page } from '$app/state';
+	import { base } from '$app/paths';
 	import Construction from '@lucide/svelte/icons/construction';
 
 	interface Props {
@@ -35,7 +36,7 @@
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			window.location.href = '/';
+			window.location.href = `${base}/`;
 		}
 	}
 </script>

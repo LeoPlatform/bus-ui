@@ -1,5 +1,6 @@
 <script lang="ts">
     import { getContext } from "svelte";
+    import { base } from "$app/paths";
     import type { AppState } from "$lib/client/appstate.svelte";
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "$lib/client/components/ui/card/index";
     import * as Table from "$lib/client/components/ui/table/index";
@@ -257,7 +258,7 @@
                             {#each writeBots as [, bot]}
                                 <Table.Row>
                                     <Table.Cell>
-                                        <a href="/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
+                                        <a href="{base}/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
                                             <img src={botIcon} alt="" class="w-5 h-5 shrink-0" />
                                             <span class="truncate">{displayName(bot.label || bot.id)}</span>
                                         </a>
@@ -339,7 +340,7 @@
                             {#each readBots as [, bot]}
                                 <Table.Row>
                                     <Table.Cell>
-                                        <a href="/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
+                                        <a href="{base}/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
                                             <img src={botIcon} alt="" class="w-5 h-5 shrink-0" />
                                             <span class="truncate">{displayName(bot.label || bot.id)}</span>
                                         </a>

@@ -90,13 +90,13 @@ export class AppState {
     navigateToRelationshipView(id: string) {
         if (browser) {
             this.botState.selectedBotId = id;
-            void goto(`/workflows/${id}`);
+            void goto(`${base}/workflows/${id}`);
         }
     }
 
     navigateToDashboardView(id: string) {
         if (browser) {
-            void goto(`/dashboard/${id}`);
+            void goto(`${base}/dashboard/${id}`);
         }
     }
 }

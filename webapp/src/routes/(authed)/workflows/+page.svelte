@@ -1,5 +1,6 @@
 <script lang="ts">
     import { getContext } from "svelte";
+    import { base } from "$app/paths";
     import type { AppState } from "$lib/client/appstate.svelte";
     import { Button } from "$lib/client/components/ui/button/index";
     import {
@@ -51,7 +52,7 @@
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button href="/" variant="default">Go to home / catalog</Button>
+                <Button href="{base}/" variant="default">Go to home / catalog</Button>
             </CardContent>
         </Card>
 

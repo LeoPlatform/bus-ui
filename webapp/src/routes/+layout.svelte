@@ -2,22 +2,23 @@
 	import * as Icons from '$lib/client/components/icons';
   	import LeftNav from '$lib/client/components/left-nav.svelte';
   import TopHeader from '$lib/client/components/top-header.svelte';
+	import { base } from '$app/paths';
 	import '../app.pcss';
-	
+
 	//TODO remove this when we actually are ready
 	const routes = [
 		{
-			route: '/workflows',
+			route: `${base}/workflows`,
 			label: 'Workflows',
 			icon: Icons.GitBranch
 		},
 		{
-			route: '/saved_searches',
+			route: `${base}/saved_searches`,
 			label: 'Saved Searches',
 			icon: Icons.List
 		},
 		{
-			route: '/trace',
+			route: `${base}/trace`,
 			label: 'Trace',
 			icon: Icons.USB
 		}

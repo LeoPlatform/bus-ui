@@ -1,5 +1,6 @@
 <script lang="ts">
     import { getContext, onDestroy, untrack } from "svelte";
+    import { base } from "$app/paths";
     import type { AppState } from "$lib/client/appstate.svelte";
     import { Button } from "$lib/client/components/ui/button/index";
     import { Input } from "$lib/client/components/ui/input/index";
@@ -166,7 +167,7 @@
     });
 
     async function fetchSearchPage(token: string, pathSearch: string, agg: unknown, signal: AbortSignal) {
-        const u = new URL("/api/queue/event-search", window.location.origin);
+        const u = new URL(`${base}/api/queue/event-search`, window.location.origin);
         u.searchParams.set("serverId", queueId);
         u.searchParams.set("token", token);
         u.searchParams.set("search", pathSearch);
