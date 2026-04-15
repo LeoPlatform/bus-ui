@@ -83,11 +83,9 @@ export async function handle({ event, resolve }) {
             // ------------------------------------------------------------------
             if (pathname === '/force-reauth') {
                 clearAllAuthCookies(e);
-                const returnUrl = e.url.searchParams.get('return_url') || `${base}/`;
-                // Ensure the return URL includes the base path
-                const prefixedReturnUrl = returnUrl.startsWith(base) ? returnUrl : `${base}${returnUrl}`;
-                console.log('[Hooks] Force re-auth: clearing cookies and redirecting to', prefixedReturnUrl);
-                return redirect(302, prefixedReturnUrl);
+                const returnUrl = e.url.searchParams.get('return_url') || '/';
+                console.log('[Hooks] Force re-auth: clearing cookies and redirecting to', returnUrl);
+                return redirect(302, returnUrl);
             }
 
             // ------------------------------------------------------------------
@@ -138,9 +136,8 @@ export async function handle({ event, resolve }) {
                                 return redirect(302, `${base}/signin`);
                             }
                             url.searchParams.set('auth_retry', '1');
-                            const retryPath = `${base}${url.pathname}${url.search}`;
-                            console.log('[Hooks] Retrying auth:', retryPath);
-                            return redirect(302, retryPath);
+                            console.log('[Hooks] Retrying auth:', url.pathname + url.search);
+                            return redirect(302, url.pathname + url.search);
                         }
                         // For non-retry cases (security violations, migration), fall through
                         // to authenticate() which will restart the full auth flow
@@ -187,7 +184,7 @@ export async function handle({ event, resolve }) {
             if (e.url.searchParams.has('auth_retry')) {
                 const url = new URL(e.url);
                 url.searchParams.delete('auth_retry');
-                return redirect(302, `${base}${url.pathname}${url.search}`);
+                return redirect(302, url.pathname + url.search);
             }
 
             const res = await resolve(e);

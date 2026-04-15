@@ -520,8 +520,8 @@ export default $config({
       PERF_TIMING: process.env.PERF_TIMING ?? "0",
 
       // SvelteKit base path — used for generating URLs (links, navigation).
-      // API Gateway strips this prefix before forwarding to Lambda;
-      // the reroute hook in hooks.ts re-adds it for route matching.
+      // The HTTP_PROXY integration restores the stripped prefix via
+      // requestParameters, so SvelteKit receives the full path.
       SVELTE_BASE_PATH: `/${apiMappingKey}`,
     };
 
@@ -541,11 +541,13 @@ export default $config({
     });
 
     // ---------------------------------------------------------------
-    // HTTP API → Lambda integration → API mapping on dsco.io domain
+    // HTTP API → Lambda Function URL (HTTP_PROXY) → API mapping
     //
-    // Creates an API Gateway HTTP API that proxies all requests to our
-    // SvelteKit Lambda, then maps it as /botmonAlpha on the existing
-    // {env}-apps.dsco.io custom domain.
+    // API Gateway strips the mapping key prefix (/botmonAlpha) before
+    // forwarding. We use HTTP_PROXY integration to the Lambda Function
+    // URL with requestParameters to prepend the prefix back. This way
+    // SvelteKit receives the full path and paths.base works correctly
+    // for routes, assets, and redirects — no reroute hacks needed.
     // ---------------------------------------------------------------
 
     const httpApi = new aws.apigatewayv2.Api("BotmonHttpApi", {
@@ -553,35 +555,31 @@ export default $config({
       protocolType: "HTTP",
     });
 
-    const lambdaIntegration = new aws.apigatewayv2.Integration(
+    const httpProxyIntegration = new aws.apigatewayv2.Integration(
       "BotmonHttpApiIntegration",
       {
         apiId: httpApi.id,
-        integrationType: "AWS_PROXY",
-        integrationUri: site.nodes.server.arn,
-        integrationMethod: "POST",
-        payloadFormatVersion: "2.0",
+        integrationType: "HTTP_PROXY",
+        integrationMethod: "ANY",
+        integrationUri: site.nodes.server.url,
+        payloadFormatVersion: "1.0",
+        requestParameters: {
+          // Restore the stripped mapping key prefix before proxying
+          "overwrite:path": `/${apiMappingKey}$request.path`,
+        },
       },
     );
 
     const defaultRoute = new aws.apigatewayv2.Route("BotmonHttpApiRoute", {
       apiId: httpApi.id,
       routeKey: "$default",
-      target: $interpolate`integrations/${lambdaIntegration.id}`,
+      target: $interpolate`integrations/${httpProxyIntegration.id}`,
     });
 
     const apiStage = new aws.apigatewayv2.Stage("BotmonHttpApiStage", {
       apiId: httpApi.id,
       name: "$default",
       autoDeploy: true,
-    });
-
-    // Allow API Gateway to invoke our Lambda
-    new aws.lambda.Permission("BotmonHttpApiLambdaPermission", {
-      action: "lambda:InvokeFunction",
-      function: site.nodes.server.arn,
-      principal: "apigateway.amazonaws.com",
-      sourceArn: $interpolate`${httpApi.executionArn}/*/*`,
     });
 
     // Map /botmonAlpha on the existing DSCO custom domain to our HTTP API

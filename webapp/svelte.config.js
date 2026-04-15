@@ -13,6 +13,8 @@ const config = {
 		// Base path for deployment behind API Gateway custom domain mappings.
 		// e.g., test-apps.dsco.io/botmonAlpha → paths.base = '/botmonAlpha'
 		// Set via SVELTE_BASE_PATH env var; empty for local dev.
+		// The HTTP_PROXY integration restores the stripped prefix via
+		// requestParameters, so SvelteKit receives the full path natively.
 		paths: {
 			base: process.env.SVELTE_BASE_PATH || '',
 		},
