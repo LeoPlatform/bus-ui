@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-auto';
+import adapter from 'svelte-kit-sst';
 import { sveltePreprocess } from 'svelte-preprocess';
 import path from 'path';
 

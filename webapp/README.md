@@ -68,7 +68,7 @@ The definition for what args can be passed in can be found by running `tsx scrip
 What this script eventually does is creates a `.env.local` file that SvelteKit then uses to load up the environment variables that the application uses. 
 
 
-# Running the project
+# Running Locally
 
 Make sure you are in the `webapp/` directory. From there you need to:
 
@@ -76,10 +76,20 @@ Make sure you are in the `webapp/` directory. From there you need to:
     > [!NOTE]
     > I use `aws-azure-login` personally, but there are other tools that will work for you. 
     > Essentially what we need is the `~/.aws/credentials` file
-2. ensure that you have valid `leo.config.json` and `providers.config.json` files created and placed in the correct locations
-3. Then run `npm run create-env-{env}-{bus}`
+2. ensure that you have valid `providers.config.json` file created and placed at `webapp/providers.config.json`
+3. Then run `npm run create-env-{env}-{bus}` (e.g. `npm run create-env-test-cup`)
 4. Then run `npm run dev`
 
-> ![NOTE] Browser
+> [!NOTE]
 > This project was developed using Chrome as the main supported browser. 
 > Other browsers **should** work, but your mileage may vary.
+
+# Deployment
+
+The webapp deploys to AWS as Lambda + CloudFront + S3 via [SST v3](https://sst.dev/). See **[DEPLOYMENT.md](DEPLOYMENT.md)** for:
+
+- Deploy commands (`npx sst deploy --stage alpha`)
+- Environment variable reference
+- Custom domain setup
+- CI/CD configuration
+- **CDK migration path** (how to switch from SST to CDK if needed)
