@@ -20,14 +20,15 @@
  *     Secret: rstreams-{Stage}{Bus}Bus  (e.g., rstreams-TestBus, rstreams-ProdChubBus)
  *   LEO_AUTH table name is fetched from SSM Parameter Store.
  *
+ * AUTH_SECRET is auto-generated on first deploy and stored in SSM as a SecureString.
+ *
  * Usage:
  *   npx sst deploy --stage alpha                  # defaults to bus=cup
  *   BUS=chub npx sst deploy --stage staging       # deploy for chub bus
  *   npx sst dev                                   # local dev with live Lambda
  *   npx sst remove --stage alpha                  # tear down stack
  *
- * One-time setup per stage:
- *   npx sst secret set AuthSecret <value> --stage alpha
+ * No manual setup needed — just deploy.
  *
  * See webapp/DEPLOYMENT.md for full docs and CDK migration path.
  */
@@ -36,7 +37,13 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from "@aws-sdk/client-secrets-manager";
-import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+import {
+  SSMClient,
+  GetParameterCommand,
+  PutParameterCommand,
+  ParameterNotFound,
+} from "@aws-sdk/client-ssm";
+import { randomBytes } from "node:crypto";
 
 // ---------------------------------------------------------------
 // Resource discovery helpers (same logic as webapp/scripts/create-env.ts)
@@ -111,6 +118,47 @@ async function fetchLeoAuthTableName(
   }
 }
 
+/**
+ * Fetch or create the AUTH_SECRET for cookie encryption.
+ * Stored in SSM Parameter Store as a SecureString at /botmon/{stage}/auth-secret.
+ * On first deploy, a random 32-byte hex secret is generated and stored.
+ * Subsequent deploys reuse the stored value so cookies remain valid.
+ */
+async function fetchOrCreateAuthSecret(
+  region: string,
+  stage: string,
+): Promise<string> {
+  const client = new SSMClient({ region });
+  const paramName = `/botmon/${stage}/auth-secret`;
+
+  try {
+    const result = await client.send(
+      new GetParameterCommand({ Name: paramName, WithDecryption: true }),
+    );
+    if (result.Parameter?.Value) {
+      console.log(`AUTH_SECRET loaded from SSM: ${paramName}`);
+      return result.Parameter.Value;
+    }
+  } catch (e: any) {
+    if (e.name !== "ParameterNotFound") {
+      console.warn(`⚠ Error reading AUTH_SECRET from SSM: ${e.message}`);
+    }
+  }
+
+  // First deploy for this stage — generate and store a new secret
+  const secret = randomBytes(32).toString("hex");
+  console.log(`AUTH_SECRET not found — generating and storing in SSM: ${paramName}`);
+  await client.send(
+    new PutParameterCommand({
+      Name: paramName,
+      Value: secret,
+      Type: "SecureString",
+      Description: `Botmon AUTH_SECRET for stage ${stage} (auto-generated)`,
+    }),
+  );
+  return secret;
+}
+
 // ---------------------------------------------------------------
 // SST config
 // ---------------------------------------------------------------
@@ -165,8 +213,11 @@ export default $config({
     // Fetch external resource names from Secrets Manager + SSM
     // ---------------------------------------------------------------
 
-    const busConfig = await fetchBusSecret(region, env, bus);
-    const leoAuthTableName = await fetchLeoAuthTableName(region, env);
+    const [busConfig, leoAuthTableName, authSecret] = await Promise.all([
+      fetchBusSecret(region, env, bus),
+      fetchLeoAuthTableName(region, env),
+      fetchOrCreateAuthSecret(region, stage),
+    ]);
 
     console.log(`  LeoCron: ${busConfig.LeoCron}`);
     console.log(`  LeoEvent: ${busConfig.LeoEvent}`);
@@ -174,12 +225,6 @@ export default $config({
     console.log(`  LeoSystem: ${busConfig.LeoSystem}`);
     console.log(`  LeoS3: ${busConfig.LeoS3}`);
     console.log(`  LEO_AUTH_USER_TABLE_NAME: ${leoAuthTableName || "(not found)"}`);
-
-    // ---------------------------------------------------------------
-    // Auth secret (stored in SSM via `npx sst secret set`)
-    // ---------------------------------------------------------------
-
-    const authSecret = new sst.Secret("AuthSecret");
 
     // ---------------------------------------------------------------
     // LeoStats DynamoDB table (old_ui/cloudformation/dynamodb.js)
@@ -402,8 +447,8 @@ export default $config({
     // ---------------------------------------------------------------
 
     const environment: Record<string, string> = {
-      // Auth (secret stored in SSM via `npx sst secret set AuthSecret <value>`)
-      AUTH_SECRET: authSecret.value,
+      // Auth (auto-generated on first deploy, stored in SSM as SecureString)
+      AUTH_SECRET: authSecret,
       AUTH_CONFIG_SOURCE: process.env.AUTH_CONFIG_SOURCE ?? "./providers.config.json",
       LOCAL: "false",
       STAGE: env,

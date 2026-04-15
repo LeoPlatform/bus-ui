@@ -31,10 +31,7 @@ Each deployment stage (alpha, staging, prod) gets its own isolated CloudFormatio
 # 1. Install dependencies
 cd webapp && npm install && cd ..
 
-# 2. One-time: set the auth secret for this stage
-npx sst secret set AuthSecret "$(npx --yes auth secret --raw)" --stage alpha
-
-# 3. Deploy (Leo Bus table names are fetched automatically from Secrets Manager)
+# 2. Deploy (everything is auto-discovered — no manual env setup needed)
 npx sst deploy --stage alpha
 
 # The command outputs the CloudFront URL when complete
@@ -49,7 +46,6 @@ npx sst deploy --stage alpha
 | `npx sst deploy --stage prod` | Deploy to production |
 | `npx sst dev` | Start local dev with live Lambda (hot reload) |
 | `npx sst remove --stage alpha` | Tear down the alpha stack completely |
-| `npx sst secret set AuthSecret <value> --stage alpha` | Set auth secret (one-time per stage) |
 
 ## How Resource Discovery Works
 
@@ -76,7 +72,7 @@ Set `BUS=cup|chub|stream` (defaults to `cup`). This selects which Leo Bus to con
 | `LEO_SYSTEM_TABLE` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
 | `LEO_S3` | Secrets Manager: `rstreams-{Env}{Bus}Bus` |
 | `LEO_AUTH_USER_TABLE_NAME` | SSM: `/mcd/{env}/rstreams/main_bus/leo_auth_user_table_name` |
-| `AUTH_SECRET` | SST Secret (SSM, set via `npx sst secret set`) |
+| `AUTH_SECRET` | SSM SecureString `/botmon/{stage}/auth-secret` (auto-generated on first deploy) |
 | `STAGE` | Derived from SST stage name |
 | `AWS_REGION` | From Bus secret or defaults to `us-east-1` |
 
