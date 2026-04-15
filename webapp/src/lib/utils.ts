@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { base } from "$app/paths";
+import { assets, base } from "$app/paths";
 import { NodeType } from "./types";
 import type { SearchItem } from "./client/components/features/search-bar/types";
 
@@ -41,16 +41,17 @@ export function humanize(milliseconds: number, showMilliseconds: boolean = false
 }
 
 export function getNodeTypeLink(nodeType: NodeType): string {
+    const prefix = assets || base;
     switch (nodeType) {
 		case NodeType.Bot:
-			return `${base}/bot.png`;
+			return `${prefix}/bot.png`;
 		case NodeType.Queue:
-			return `${base}/queue.png`;
+			return `${prefix}/queue.png`;
 		case NodeType.System:
-			return `${base}/system.png`;
+			return `${prefix}/system.png`;
 		default:
 			console.warn('Unknown node type:', nodeType);
-			return `${base}/bot.png`; // fallback to bot icon
+			return `${prefix}/bot.png`; // fallback to bot icon
     }
 }
 

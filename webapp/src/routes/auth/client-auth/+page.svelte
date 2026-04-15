@@ -17,6 +17,7 @@
 
     import { onMount } from 'svelte';
     import { dev } from '$app/environment';
+    import { base } from '$app/paths';
 
     let statusMessages = $state<string[]>([]);
     let authStarted = false;
@@ -48,7 +49,7 @@
         if (customData) {
             doClientAuth();
         } else {
-            document.location.href = '/signin';
+            document.location.href = `${base}/signin`;
         }
     });
 
@@ -192,7 +193,7 @@
                 if (parsed?.redirectUrl) return parsed.redirectUrl as string;
             } catch { /* fall through */ }
         }
-        return '/';
+        return `${base}/`;
     }
 
     function deleteDasCookie() {

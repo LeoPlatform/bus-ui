@@ -2,7 +2,7 @@
   import type { AppState } from "$lib/client/appstate.svelte";
   import type { DashboardStats, RelationshipTree, TreeNode } from "$lib/types";
   import { humanize } from "$lib/utils";
-  import { base } from "$app/paths";
+  import { assets, base } from "$app/paths";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
@@ -102,13 +102,14 @@
     paused: boolean | undefined,
     botStatus: string | undefined,
   ): string {
-    if (paused) return `${base}/bot.png`;
+    const prefix = assets || base;
+    if (paused) return `${prefix}/bot.png`;
     const s = botStatus || "running";
-    if (s === "rogue") return `${base}/bot-rogue.png`;
-    if (s === "danger") return `${base}/bot-danger.png`;
-    if (s === "blocked") return `${base}/bot-blocked.png`;
-    if (s === "archived") return `${base}/bot-archived.png`;
-    return `${base}/bot.png`;
+    if (s === "rogue") return `${prefix}/bot-rogue.png`;
+    if (s === "danger") return `${prefix}/bot-danger.png`;
+    if (s === "blocked") return `${prefix}/bot-blocked.png`;
+    if (s === "archived") return `${prefix}/bot-archived.png`;
+    return `${prefix}/bot.png`;
   }
 
   const PAUSED_BOT_IMAGE_OPACITY = "0.5";
@@ -925,7 +926,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         element
           .append("image")
           .attr("class", "node-image")
-          .attr("xlink:href", `${base}/queue.png`)
+          .attr("xlink:href", `${assets || base}/queue.png`)
           .attr("x", -nodeWidth! / 2)
           .attr("y", -nodeWidth! / 2)
           .attr("height", nodeWidth!)
@@ -947,7 +948,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         element
           .append("image")
           .attr("class", "node-image")
-          .attr("xlink:href", `${base}/system.png`)
+          .attr("xlink:href", `${assets || base}/system.png`)
           .attr("x", -nodeWidth! / 2)
           .attr("y", -nodeWidth! / 2)
           .attr("height", nodeWidth!)
