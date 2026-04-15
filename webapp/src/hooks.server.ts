@@ -45,12 +45,14 @@ async function getProvider(): Promise<AuthProvider> {
 // ---------------------------------------------------------------------------
 
 function isPublicPath(pathname: string): boolean {
+    // Strip base path prefix so route checks work regardless of deployment path
+    const path = base && pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
     return (
-        pathname === '/signin' ||
-        pathname === '/signout' ||
-        pathname === '/health' ||
-        pathname.startsWith('/auth/') ||
-        pathname.startsWith('/api/auth/')
+        path === '/signin' ||
+        path === '/signout' ||
+        path === '/health' ||
+        path.startsWith('/auth/') ||
+        path.startsWith('/api/auth/')
     );
 }
 
@@ -81,7 +83,7 @@ export async function handle({ event, resolve }) {
             // ------------------------------------------------------------------
             // Force re-auth route
             // ------------------------------------------------------------------
-            if (pathname === '/force-reauth') {
+            if (pathname === `${base}/force-reauth`) {
                 clearAllAuthCookies(e);
                 const returnUrl = e.url.searchParams.get('return_url') || '/';
                 console.log('[Hooks] Force re-auth: clearing cookies and redirecting to', returnUrl);
@@ -205,10 +207,11 @@ async function addToLocalsFromAuthProvider(
     user: AuthenticatedUser | undefined
 ): Promise<void> {
     if (!provider.addValueToLocalsForRoute) return;
-    // Strip trailing slash for consistent matching
-    const normalizedPath = pathname.endsWith('/') && pathname.length > 1
-        ? pathname.slice(0, -1)
-        : pathname;
+    // Strip base prefix and trailing slash for consistent matching
+    let normalizedPath = base && pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+    if (normalizedPath.endsWith('/') && normalizedPath.length > 1) {
+        normalizedPath = normalizedPath.slice(0, -1);
+    }
     const extra = await provider.addValueToLocalsForRoute(normalizedPath, event, user);
     if (extra) {
         console.log(`[Hooks] addValueToLocalsForRoute injected customData for ${normalizedPath}:`, Object.keys(extra));
