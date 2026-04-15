@@ -542,7 +542,7 @@ export default $config({
     const environment: Record<string, string> = {
       // Auth (auto-generated on first deploy, stored in SSM as SecureString)
       AUTH_SECRET: authSecret,
-      AUTH_CONFIG_SOURCE: process.env.AUTH_CONFIG_SOURCE ?? "./providers.config.json",
+      AUTH_CONFIG_SOURCE: process.env.AUTH_CONFIG_SOURCE ?? "env",
       LOCAL: "false",
       STAGE: env,
       DEBUG_AUTH: process.env.DEBUG_AUTH ?? "false",
@@ -637,6 +637,7 @@ export default $config({
         memory: "1024 MB",
         architecture: "arm64",
         timeout: "30 seconds",
+        install: ["leo-sdk"],
       },
       transform: {
         cdn: (args) => {
