@@ -519,7 +519,9 @@ export default $config({
       // Performance timing (0 = off, 1 = on)
       PERF_TIMING: process.env.PERF_TIMING ?? "0",
 
-      // SvelteKit base path (must match the API mapping key)
+      // SvelteKit base path — used for generating URLs (links, navigation).
+      // API Gateway strips this prefix before forwarding to Lambda;
+      // the reroute hook in hooks.ts re-adds it for route matching.
       SVELTE_BASE_PATH: `/${apiMappingKey}`,
     };
 

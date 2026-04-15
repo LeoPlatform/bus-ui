@@ -22,6 +22,7 @@ import { DynamoDBDocument } from '@aws-sdk/lib-dynamodb';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import type { RequestEvent } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
+import { base } from '$app/paths';
 import crypto from 'crypto';
 import https from 'https';
 import {
@@ -106,7 +107,7 @@ export default class DscoAuthProvider extends AuthProvider<DscoAuthData> {
                 }
             } catch (e) {
                 console.error('[DSCO Auth] Failed to parse did cookie:', e);
-                return { redirectTo: redirect(302, '/signin') };
+                return { redirectTo: redirect(302, `${base}/signin`) };
             }
 
             // Always remove the one-time-use cookies
@@ -115,13 +116,13 @@ export default class DscoAuthProvider extends AuthProvider<DscoAuthData> {
 
             if (!token || !identityId) {
                 console.error('[DSCO Auth] did cookie missing token or identityId');
-                return { redirectTo: redirect(302, '/signin') };
+                return { redirectTo: redirect(302, `${base}/signin`) };
             }
 
             const dscoUser = await this.getDscoUserFromIdentityId(identityId);
             if (!dscoUser) {
                 console.log('[DSCO Auth] User not found in LEO_AUTH table, identity:', identityId);
-                return { redirectTo: redirect(302, '/signin') };
+                return { redirectTo: redirect(302, `${base}/signin`) };
             }
 
             const authenticatedUser = this.createAuthenticatedUser(dscoUser, { token, identityId }, event);
@@ -144,7 +145,7 @@ export default class DscoAuthProvider extends AuthProvider<DscoAuthData> {
             console.log('[DSCO Auth] das cookie already present, retrying client-auth');
         }
 
-        return { redirectTo: redirect(302, '/auth/client-auth') };
+        return { redirectTo: redirect(302, `${base}/auth/client-auth`) };
     }
 
     // -----------------------------------------------------------------------
