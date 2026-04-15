@@ -1,6 +1,7 @@
 <script lang="ts">
   import { NodeType } from "$lib/types";
   import { getLogicalId, getNodeTypeLink } from "$lib/utils";
+  import { assets, base } from "$app/paths";
   import { Button } from "../../ui/button";
   import ListTree from '@lucide/svelte/icons/list-tree';
   import { Label } from "../../ui/label";
@@ -135,7 +136,7 @@
                 <Tooltip.Root>
                     <Tooltip.Trigger>
                         <a href={awsUrl} target="_blank" aria-label="View in AWS Lambda" class="flex items-center justify-center h-8 w-8 hover:bg-accent rounded-md">
-                            <img src={'/aws/lambda.png'} class="w-6 h-6 object-contain" alt="AWS Lambda" />
+                            <img src={`${assets || base}/aws/lambda.png`} class="w-6 h-6 object-contain" alt="AWS Lambda" />
                         </a>
                     </Tooltip.Trigger>
                     <Tooltip.Content>
