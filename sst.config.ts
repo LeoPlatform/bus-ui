@@ -123,6 +123,43 @@ async function fetchBusSecret(
   return JSON.parse(result.SecretString) as BusSecret;
 }
 
+/**
+ * Discover the existing LeoStats table from the old Botmon CloudFormation stack.
+ * Convention: {Env}{Bus}Botmon stack → LeoStats logical resource
+ * Examples:
+ *   (test, cup)    → TestBotmon → LeoStats
+ *   (prod, chub)   → ProdChubBotmon → LeoStats
+ */
+async function fetchLeoStatsTableName(
+  region: string,
+  env: string,
+  bus: string,
+): Promise<string> {
+  const { CloudFormationClient, DescribeStackResourceCommand } = await import(
+    "@aws-sdk/client-cloudformation"
+  );
+  const client = new CloudFormationClient({ region });
+  const stackName = `${capitalize(env)}${busSuffix(bus)}Botmon`;
+
+  try {
+    console.log(`Fetching LeoStats table from stack: ${stackName}`);
+    const result = await client.send(
+      new DescribeStackResourceCommand({
+        StackName: stackName,
+        LogicalResourceId: "LeoStats",
+      }),
+    );
+    const tableName = result.StackResourceDetail?.PhysicalResourceId ?? "";
+    if (tableName) {
+      console.log(`LeoStats table: ${tableName}`);
+    }
+    return tableName;
+  } catch (e: any) {
+    console.warn(`⚠ Could not fetch LeoStats table from stack ${stackName}: ${e.message}`);
+    return "";
+  }
+}
+
 async function fetchLeoAuthTableName(
   region: string,
   env: string,
@@ -278,8 +315,9 @@ export default $config({
     // Fetch external resource names from Secrets Manager + SSM
     // ---------------------------------------------------------------
 
-    const [busConfig, leoAuthTableName, authSecret, cloudfrontUrl] = await Promise.all([
+    const [busConfig, leoStatsTableName, leoAuthTableName, authSecret, cloudfrontUrl] = await Promise.all([
       fetchBusSecret(region, env, bus),
+      fetchLeoStatsTableName(region, env, bus),
       fetchLeoAuthTableName(region, env),
       fetchOrCreateAuthSecret(region, stage),
       fetchCloudfrontUrl(region, stage),
@@ -290,145 +328,31 @@ export default $config({
     console.log(`  LeoStream: ${busConfig.LeoStream}`);
     console.log(`  LeoSystem: ${busConfig.LeoSystem}`);
     console.log(`  LeoS3: ${busConfig.LeoS3}`);
+    console.log(`  LeoStats: ${leoStatsTableName || "(not found — will create new)"}`);
     console.log(`  LEO_AUTH_USER_TABLE_NAME: ${leoAuthTableName || "(not found)"}`);
 
     // ---------------------------------------------------------------
-    // LeoStats DynamoDB table (old_ui/cloudformation/dynamodb.js)
+    // LeoStats DynamoDB table
+    //
+    // Use the existing table from the old Botmon CloudFormation stack.
+    // It already has data, auto-scaling, and is actively written to by
+    // the Leo bus infrastructure. Creating a new table would be empty.
+    //
+    // Falls back to creating a new table only for fresh deployments
+    // where no old Botmon stack exists.
     // ---------------------------------------------------------------
 
-    const leoStats = new sst.aws.Dynamo("LeoStats", {
-      fields: {
-        id: "string",
-        bucket: "string",
-        period: "string",
-        time: "number",
-      },
-      primaryIndex: { hashKey: "id", rangeKey: "bucket" },
-      globalIndexes: {
-        "period-time-index": {
-          hashKey: "period",
-          rangeKey: "time",
-          projection: ["current"],
-        },
-      },
-      stream: "new-and-old-images",
-      transform: {
-        table: (args) => {
-          args.billingMode = "PROVISIONED";
-          args.readCapacity = 20;
-          args.writeCapacity = 20;
-          // GSI also needs provisioned throughput when billing mode is PROVISIONED
-          if (args.globalSecondaryIndexes) {
-            args.globalSecondaryIndexes = $resolve(args.globalSecondaryIndexes).apply(
-              (indexes: any[]) =>
-                indexes.map((idx: any) => ({
-                  ...idx,
-                  readCapacity: 20,
-                  writeCapacity: 20,
-                })),
-            );
-          }
-        },
-      },
-    });
+    if (!leoStatsTableName) {
+      throw new Error(
+        `Could not find existing LeoStats table for stage "${stage}". ` +
+        `Expected CloudFormation stack "${capitalize(env)}${busSuffix(bus)}Botmon" ` +
+        `with a "LeoStats" resource. The new botmon reads from the existing ` +
+        `LeoStats table — it does not create its own.`,
+      );
+    }
 
-    // ---------------------------------------------------------------
-    // Auto-scaling IAM role (old_ui/cloudformation/dynamodb.js + roles.js)
-    // ---------------------------------------------------------------
-
-    const autoScalingRole = new aws.iam.Role("AutoScalingRole", {
-      assumeRolePolicy: JSON.stringify({
-        Version: "2012-10-17",
-        Statement: [
-          {
-            Effect: "Allow",
-            Principal: {
-              Service: "application-autoscaling.amazonaws.com",
-            },
-            Action: "sts:AssumeRole",
-          },
-        ],
-      }),
-      inlinePolicies: [
-        {
-          name: "root",
-          policy: JSON.stringify({
-            Version: "2012-10-17",
-            Statement: [
-              {
-                Effect: "Allow",
-                Action: [
-                  "dynamodb:DescribeTable",
-                  "dynamodb:UpdateTable",
-                  "cloudwatch:PutMetricAlarm",
-                  "cloudwatch:DescribeAlarms",
-                  "cloudwatch:GetMetricStatistics",
-                  "cloudwatch:SetAlarmState",
-                  "cloudwatch:DeleteAlarms",
-                ],
-                Resource: "*",
-              },
-            ],
-          }),
-        },
-      ],
-    });
-
-    // ---------------------------------------------------------------
-    // LeoStats auto-scaling targets + policies
-    // Read: min 20, max 600, target 70% utilization
-    // Write: min 20, max 60, target 70% utilization
-    // ---------------------------------------------------------------
-
-    const readTarget = new aws.appautoscaling.Target(
-      "LeoStatsReadCapacityScalableTarget",
-      {
-        maxCapacity: 600,
-        minCapacity: 20,
-        resourceId: $interpolate`table/${leoStats.name}`,
-        roleArn: autoScalingRole.arn,
-        scalableDimension: "dynamodb:table:ReadCapacityUnits",
-        serviceNamespace: "dynamodb",
-      },
-    );
-
-    new aws.appautoscaling.Policy("LeoStatsReadAutoScalingPolicy", {
-      policyType: "TargetTrackingScaling",
-      resourceId: readTarget.resourceId,
-      scalableDimension: readTarget.scalableDimension,
-      serviceNamespace: readTarget.serviceNamespace,
-      targetTrackingScalingPolicyConfiguration: {
-        targetValue: 70,
-        predefinedMetricSpecification: {
-          predefinedMetricType: "DynamoDBReadCapacityUtilization",
-        },
-      },
-    });
-
-    const writeTarget = new aws.appautoscaling.Target(
-      "LeoStatsWriteCapacityScalableTarget",
-      {
-        maxCapacity: 60,
-        minCapacity: 20,
-        resourceId: $interpolate`table/${leoStats.name}`,
-        roleArn: autoScalingRole.arn,
-        scalableDimension: "dynamodb:table:WriteCapacityUnits",
-        serviceNamespace: "dynamodb",
-      },
-    );
-
-    new aws.appautoscaling.Policy("LeoStatsWriteAutoScalingPolicy", {
-      policyType: "TargetTrackingScaling",
-      resourceId: writeTarget.resourceId,
-      scalableDimension: writeTarget.scalableDimension,
-      serviceNamespace: writeTarget.serviceNamespace,
-      targetTrackingScalingPolicyConfiguration: {
-        targetValue: 70,
-        predefinedMetricSpecification: {
-          predefinedMetricType: "DynamoDBWriteCapacityUtilization",
-        },
-      },
-    });
+    const leoStatsTable = leoStatsTableName;
+    const leoStatsTableArn = `arn:aws:dynamodb:${region}:*:table/${leoStatsTable}`;
 
     // ---------------------------------------------------------------
     // Health check SNS topic (old_ui/cloudformation/sns.js)
@@ -459,22 +383,20 @@ export default $config({
       inlinePolicies: [
         {
           name: "Leo_micro_logging_to_analytics",
-          policy: $interpolate`${leoStats.arn}`.apply((arn) =>
-            JSON.stringify({
-              Version: "2012-10-17",
-              Statement: [
-                {
-                  Effect: "Allow",
-                  Action: [
-                    "dynamodb:BatchGetItem",
-                    "dynamodb:BatchWriteItem",
-                    "dynamodb:UpdateItem",
-                  ],
-                  Resource: [arn],
-                },
-              ],
-            }),
-          ),
+          policy: JSON.stringify({
+            Version: "2012-10-17",
+            Statement: [
+              {
+                Effect: "Allow",
+                Action: [
+                  "dynamodb:BatchGetItem",
+                  "dynamodb:BatchWriteItem",
+                  "dynamodb:UpdateItem",
+                ],
+                Resource: [leoStatsTableArn, `${leoStatsTableArn}/*`],
+              },
+            ],
+          }),
         },
       ],
     });
@@ -550,8 +472,8 @@ export default $config({
       STAGE: env,
       DEBUG_AUTH: process.env.DEBUG_AUTH ?? "false",
 
-      // Owned resource — table name from the resource we created
-      LEO_STATS_TABLE: leoStats.name,
+      // LeoStats — existing table from old Botmon CloudFormation stack
+      LEO_STATS_TABLE: leoStatsTable,
 
       // External tables — fetched from Secrets Manager
       LEO_CRON_TABLE: busConfig.LeoCron,
@@ -589,7 +511,7 @@ export default $config({
 
     const site = new sst.aws.SvelteKit("BotmonWeb", {
       path: "webapp/",
-      link: [leoStats],
+      // LeoStats permissions are granted via the permissions block below
       environment,
       permissions: [
         // Grant access to all external Leo Bus DynamoDB tables and S3
@@ -614,6 +536,9 @@ export default $config({
             `arn:aws:dynamodb:*:*:table/${busConfig.LeoStream}/*`,
             `arn:aws:dynamodb:*:*:table/${busConfig.LeoSystem}`,
             `arn:aws:dynamodb:*:*:table/${busConfig.LeoSystem}/*`,
+            // LeoStats table (existing, from old Botmon stack)
+            `arn:aws:dynamodb:*:*:table/${leoStatsTable}`,
+            `arn:aws:dynamodb:*:*:table/${leoStatsTable}/*`,
             // LEO_AUTH table (DSCO auth user lookup)
             ...(leoAuthTableName
               ? [
@@ -753,7 +678,7 @@ export default $config({
       stage,
       env,
       bus,
-      leoStatsTable: leoStats.name,
+      leoStatsTable: leoStatsTable,
       healthCheckSnsTopic: healthCheckSns.arn,
       leoBotmonRoleArn: leoBotmonRole.arn,
       leoBotmonSnsRoleArn: leoBotmonSnsRole.arn,
