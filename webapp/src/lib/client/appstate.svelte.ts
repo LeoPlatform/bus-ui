@@ -5,8 +5,25 @@ import { DashboardState } from "./components/features/dashboard/dashboard.state.
 import { SearchBarState } from "./components/features/search-bar/search-bar.state.svelte";
 import { TimePickerState } from "./components/features/time-picker/time-picker.state.svelte";
 import { browser } from "$app/environment";
+import { base } from "$app/paths";
 import { goto } from "$app/navigation";
 type GlobalFetch = typeof globalThis.fetch;
+
+/**
+ * Wrap fetch to prepend the base path to absolute URLs starting with '/'.
+ * SvelteKit's client-side fetch does not auto-prepend paths.base for
+ * absolute paths, so requests like fetch("/api/...") go to the wrong URL
+ * when deployed behind a path prefix (e.g., /botmonAlpha).
+ */
+function withBasePath(fetch: GlobalFetch): GlobalFetch {
+    if (!base) return fetch;
+    return (input, init?) => {
+        if (typeof input === 'string' && input.startsWith('/') && !input.startsWith(base)) {
+            input = `${base}${input}`;
+        }
+        return fetch(input, init);
+    };
+}
 
 export class AppState {
     #fetch: GlobalFetch;
@@ -19,7 +36,7 @@ export class AppState {
     #dashboardState: DashboardState | undefined;
 
     constructor(fetch: GlobalFetch, userData: UserData) {
-        this.#fetch = fetch;
+        this.#fetch = withBasePath(fetch);
         this.#userData = userData;
         this.#isLocal = browser && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'));
     }
