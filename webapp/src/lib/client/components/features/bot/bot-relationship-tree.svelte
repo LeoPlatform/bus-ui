@@ -2,6 +2,7 @@
   import type { AppState } from "$lib/client/appstate.svelte";
   import type { DashboardStats, RelationshipTree, TreeNode } from "$lib/types";
   import { humanize } from "$lib/utils";
+  import { base } from "$app/paths";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
@@ -101,13 +102,13 @@
     paused: boolean | undefined,
     botStatus: string | undefined,
   ): string {
-    if (paused) return "/bot.png";
+    if (paused) return `${base}/bot.png`;
     const s = botStatus || "running";
-    if (s === "rogue") return "/bot-rogue.png";
-    if (s === "danger") return "/bot-danger.png";
-    if (s === "blocked") return "/bot-blocked.png";
-    if (s === "archived") return "/bot-archived.png";
-    return "/bot.png";
+    if (s === "rogue") return `${base}/bot-rogue.png`;
+    if (s === "danger") return `${base}/bot-danger.png`;
+    if (s === "blocked") return `${base}/bot-blocked.png`;
+    if (s === "archived") return `${base}/bot-archived.png`;
+    return `${base}/bot.png`;
   }
 
   const PAUSED_BOT_IMAGE_OPACITY = "0.5";
@@ -924,7 +925,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         element
           .append("image")
           .attr("class", "node-image")
-          .attr("xlink:href", "/queue.png")
+          .attr("xlink:href", `${base}/queue.png`)
           .attr("x", -nodeWidth! / 2)
           .attr("y", -nodeWidth! / 2)
           .attr("height", nodeWidth!)
@@ -946,7 +947,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         element
           .append("image")
           .attr("class", "node-image")
-          .attr("xlink:href", "/system.png")
+          .attr("xlink:href", `${base}/system.png`)
           .attr("x", -nodeWidth! / 2)
           .attr("y", -nodeWidth! / 2)
           .attr("height", nodeWidth!)
