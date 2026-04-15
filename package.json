@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1030.0",
     "@aws-sdk/client-secrets-manager": "^3.1030.0",
     "@aws-sdk/client-ssm": "^3.1030.0"
   }
