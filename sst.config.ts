@@ -470,6 +470,22 @@ export default $config({
     });
 
     // ---------------------------------------------------------------
+    // API Gateway mapping on test-apps.dsco.io
+    //
+    // The existing DSCO custom domain at {env}-apps.dsco.io uses API
+    // Gateway API mappings to route paths to different services (e.g.,
+    // /botmon → old UI, /botmonchub → old UI chub bus, etc.).
+    //
+    // We add a mapping for /botmonAlpha → our SvelteKit Lambda so the
+    // app is accessible at test-apps.dsco.io/botmonAlpha. This puts us
+    // on the dsco.io domain, which means DSCO auth cookies work and
+    // there are no CORS issues with dw-auth-token endpoints.
+    // ---------------------------------------------------------------
+
+    const apiMappingKey = "botmonAlpha";
+    const appsCustomDomain = `${env}-apps.dsco.io`;
+
+    // ---------------------------------------------------------------
     // Environment for the SvelteKit server Lambda
     // ---------------------------------------------------------------
 
@@ -502,6 +518,9 @@ export default $config({
 
       // Performance timing (0 = off, 1 = on)
       PERF_TIMING: process.env.PERF_TIMING ?? "0",
+
+      // SvelteKit base path (must match the API mapping key)
+      SVELTE_BASE_PATH: `/${apiMappingKey}`,
     };
 
     // ---------------------------------------------------------------
@@ -512,11 +531,6 @@ export default $config({
       path: "webapp/",
       link: [leoStats],
       environment,
-      // Uncomment when a custom domain is ready:
-      // domain: {
-      //   name: `botmon-${stage}.your-domain.com`,
-      //   redirects: [`www.botmon-${stage}.your-domain.com`],
-      // },
       server: {
         memory: "1024 MB",
         architecture: "arm64",
@@ -524,8 +538,61 @@ export default $config({
       },
     });
 
+    // ---------------------------------------------------------------
+    // HTTP API → Lambda integration → API mapping on dsco.io domain
+    //
+    // Creates an API Gateway HTTP API that proxies all requests to our
+    // SvelteKit Lambda, then maps it as /botmonAlpha on the existing
+    // {env}-apps.dsco.io custom domain.
+    // ---------------------------------------------------------------
+
+    const httpApi = new aws.apigatewayv2.Api("BotmonHttpApi", {
+      name: `botmon-${stage}`,
+      protocolType: "HTTP",
+    });
+
+    const lambdaIntegration = new aws.apigatewayv2.Integration(
+      "BotmonHttpApiIntegration",
+      {
+        apiId: httpApi.id,
+        integrationType: "AWS_PROXY",
+        integrationUri: site.nodes.server.arn,
+        integrationMethod: "POST",
+        payloadFormatVersion: "2.0",
+      },
+    );
+
+    const defaultRoute = new aws.apigatewayv2.Route("BotmonHttpApiRoute", {
+      apiId: httpApi.id,
+      routeKey: "$default",
+      target: $interpolate`integrations/${lambdaIntegration.id}`,
+    });
+
+    const apiStage = new aws.apigatewayv2.Stage("BotmonHttpApiStage", {
+      apiId: httpApi.id,
+      name: "$default",
+      autoDeploy: true,
+    });
+
+    // Allow API Gateway to invoke our Lambda
+    new aws.lambda.Permission("BotmonHttpApiLambdaPermission", {
+      action: "lambda:InvokeFunction",
+      function: site.nodes.server.arn,
+      principal: "apigateway.amazonaws.com",
+      sourceArn: $interpolate`${httpApi.executionArn}/*/*`,
+    });
+
+    // Map /botmonAlpha on the existing DSCO custom domain to our HTTP API
+    const apiMapping = new aws.apigatewayv2.ApiMapping("BotmonApiMapping", {
+      apiId: httpApi.id,
+      domainName: appsCustomDomain,
+      stage: apiStage.id,
+      apiMappingKey,
+    });
+
     return {
       url: site.url,
+      dscoUrl: `https://${appsCustomDomain}/${apiMappingKey}`,
       stage,
       env,
       bus,

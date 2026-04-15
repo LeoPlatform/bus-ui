@@ -9,10 +9,13 @@ const config = {
 	preprocess: [sveltePreprocess({ postcss: true })],
 
 	kit: {
-		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter(),
+		// Base path for deployment behind API Gateway custom domain mappings.
+		// e.g., test-apps.dsco.io/botmonAlpha → paths.base = '/botmonAlpha'
+		// Set via SVELTE_BASE_PATH env var; empty for local dev.
+		paths: {
+			base: process.env.SVELTE_BASE_PATH || '',
+		},
 		alias: {
 			$lib: path.resolve('./src/lib'),
 			$ui: path.resolve("./src/lib/client/components/ui"),
