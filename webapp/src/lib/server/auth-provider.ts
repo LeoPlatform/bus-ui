@@ -133,7 +133,7 @@ export default class DscoAuthProvider extends AuthProvider<DscoAuthData> {
         // No did cookie — start / continue the client-auth flow
         if (!dasCookie) {
             // First time here: record where the user was trying to go
-            const redirectUrl = event.url.pathname + event.url.search;
+            const redirectUrl = `${base}${event.url.pathname}${event.url.search}`;
             event.cookies.set(dasCookieName, JSON.stringify({ redirectUrl }), {
                 path: '/',
                 secure: true,
