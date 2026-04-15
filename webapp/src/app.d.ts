@@ -4,10 +4,15 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			/** Set by hooks after AuthProvider flow (Stage 2). Until then, auth uses @auth/sveltekit and session. */
-			user?: import('$lib/server/auth/types.js').BusUser;
-			/** Set by hooks when AuthProvider is loaded (Stage 2). */
+			/** Authenticated user — set by hooks.server.ts after DSCO or OAuth auth. */
+			user?: import('$lib/server/auth/types.js').AuthenticatedUser;
+			/** Active auth provider — set by hooks.server.ts on every request. */
 			authProvider?: import('$lib/server/auth/types.js').AuthProvider;
+			/**
+			 * Extra per-route data injected by auth provider's addValueToLocalsForRoute().
+			 * For example: DSCO token endpoint URLs passed to the client-auth page.
+			 */
+			customData?: Record<string, unknown>;
 		}
 		// interface PageData {}
 		// interface PageState {}

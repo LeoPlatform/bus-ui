@@ -1,6 +1,7 @@
 import { fromIni } from "@aws-sdk/credential-provider-ini";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { CloudFormationClient, DescribeStackResourceCommand } from "@aws-sdk/client-cloudformation";
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import { execSync } from "child_process";
 import { writeFileSync, existsSync, readFileSync } from "fs";
 import yargs from "yargs";
@@ -75,6 +76,17 @@ async function fetchLeoStats(client: CloudFormationClient, stackName: string): P
     }
 }
 
+async function fetchLeoAuthUserTableName(ssmClient: SSMClient, env: string): Promise<string> {
+    const paramName = `/mcd/${env}/rstreams/main_bus/leo_auth_user_table_name`;
+    try {
+        const result = await ssmClient.send(new GetParameterCommand({ Name: paramName }));
+        return result.Parameter?.Value ?? "";
+    } catch (e: any) {
+        console.warn(`⚠ Could not fetch LEO_AUTH_USER_TABLE_NAME from SSM (${paramName}): ${e.message}`);
+        return "";
+    }
+}
+
 function readExistingEnvFile(path: string): Record<string, string> {
     const map: Record<string, string> = {};
     if (existsSync(path)) {
@@ -115,6 +127,12 @@ async function main(): Promise<void> {
                 choices: ["cup", "chub", "stream"] as const,
                 default: "cup" as const,
             },
+            auth: {
+                type: "boolean",
+                demandOption: false,
+                describe: "Enable DSCO auth (disables LOCAL mode, fetches LEO_AUTH table name from SSM)",
+                default: false,
+            },
         })
         .help()
         .parseSync();
@@ -151,6 +169,19 @@ async function main(): Promise<void> {
         console.log(`  LeoStats: ${leoStats}`);
     }
 
+    // --- Fetch LEO_AUTH table name from SSM (only when --auth is set) ---
+    let leoAuthUserTable = "";
+    if (argv.auth) {
+        console.log(`Fetching LEO_AUTH_USER_TABLE_NAME from SSM for stage: ${argv.env}`);
+        const ssmClient = new SSMClient(awsConfig);
+        leoAuthUserTable = await fetchLeoAuthUserTableName(ssmClient, argv.env);
+        if (leoAuthUserTable) {
+            console.log(`  LEO_AUTH_USER_TABLE_NAME: ${leoAuthUserTable}`);
+        } else {
+            console.warn(`⚠ Could not find LEO_AUTH_USER_TABLE_NAME — set it manually in .env.local`);
+        }
+    }
+
     // --- Generate AUTH_SECRET if not already present ---
     let authSecret = existing["AUTH_SECRET"] ?? "";
     if (!authSecret) {
@@ -162,6 +193,8 @@ async function main(): Promise<void> {
     }
 
     // --- Build .env.local ---
+    const useAuth = argv.auth;
+
     const envProps: Record<string, string | boolean> = {
         AWS_ACCESS_KEY_ID: creds.accessKeyId,
         AWS_SECRET_ACCESS_KEY: creds.secretAccessKey,
@@ -179,8 +212,12 @@ async function main(): Promise<void> {
         // Botmon resource (from CloudFormation)
         ...(leoStats ? { LEO_STATS_TABLE: leoStats } : {}),
 
+        // Auth mode: --auth enables DSCO auth, otherwise local mock
+        LOCAL: !useAuth,
+        ...(useAuth ? { STAGE: argv.env } : {}),
+        ...(useAuth && leoAuthUserTable ? { LEO_AUTH_USER_TABLE_NAME: leoAuthUserTable } : {}),
+
         // App settings
-        LOCAL: true,
         AUTH_CONFIG_SOURCE:
             argv.configLocation ?? existing["AUTH_CONFIG_SOURCE"] ?? "./providers.config.json",
         AUTH_SECRET: authSecret,
@@ -192,7 +229,8 @@ async function main(): Promise<void> {
 
     const lines = Object.entries(envProps).map(([key, val]) => `${key}=${val}`);
     writeFileSync(envPath, lines.join("\n") + "\n");
-    console.log(`\n✔ Wrote ${envPath} (${argv.env}/${argv.bus})`);
+    const mode = useAuth ? "DSCO auth" : "local mock (LOCAL=true)";
+    console.log(`\n✔ Wrote ${envPath} (${argv.env}/${argv.bus}, ${mode})`);
 }
 
 (async () => {

@@ -81,8 +81,10 @@
     "zod": "^3.25.7"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity": "^3.1030.0",
     "@aws-sdk/client-dynamodb": "^3.788.0",
     "@aws-sdk/client-s3": "^3.1012.0",
+    "@aws-sdk/client-ssm": "^3.1030.0",
     "@aws-sdk/lib-dynamodb": "^3.789.0",
     "@types/async": "^3.2.24",
     "@types/d3": "^7.4.3",

@@ -154,14 +154,19 @@
         });
     });
 
-    /** Keep charts aligned with wall clock: stats only loaded on id/range change otherwise, while the “now” line was advancing every 30s. */
+    /** Keep charts aligned with wall clock and re-evaluate alarm status periodically. */
     $effect(() => {
         const currentId = id;
         if (!currentId) return;
+        const dashTypeVal = compState.dashType;
         const t = setInterval(() => {
             compState.getDashStats().catch((err) => {
                 console.error('Dashboard stats refresh failed:', err);
             });
+            // Re-fetch bot stats so alarm badges (source lag, write lag, errors) update
+            if (dashTypeVal === NodeType.Bot) {
+                appState.botState.fetchBotStats().catch(() => {});
+            }
         }, 45_000);
         return () => clearInterval(t);
     });

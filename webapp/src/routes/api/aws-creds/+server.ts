@@ -1,20 +1,22 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { getSession } from '$lib/server/utils.js';
 
 export const GET: RequestHandler = async ({ locals }) => {
-  const user = locals.user;
-  const provider = locals.authProvider;
-  if (!user || !provider?.getAwsCredentials) {
-    return json({ error: 'unauthorized' }, { status: 401 });
-  }
-  const creds = await provider.getAwsCredentials(user);
-  if (!creds) {
-    return json({ error: 'no credentials', requiresReauth: true }, { status: 403 });
-  }
-  return json({
-    accessKeyId: creds.accessKeyId,
-    secretAccessKey: creds.secretAccessKey,
-    sessionToken: creds.sessionToken,
-    expiration: creds.expiration.toISOString(),
-  });
+    const result = await getSession(locals);
+
+    // getSession returns a Response on error
+    if (result instanceof Response) {
+        return result;
+    }
+
+    const { aws_credentials: creds } = result;
+    return json({
+        accessKeyId: creds.accessKeyId,
+        secretAccessKey: creds.secretAccessKey,
+        sessionToken: creds.sessionToken,
+        expiration: creds.expiration instanceof Date
+            ? creds.expiration.toISOString()
+            : creds.expiration,
+    });
 };
