@@ -542,7 +542,10 @@ export default $config({
     const environment: Record<string, string> = {
       // Auth (auto-generated on first deploy, stored in SSM as SecureString)
       AUTH_SECRET: authSecret,
-      AUTH_CONFIG_SOURCE: process.env.AUTH_CONFIG_SOURCE ?? "env",
+      // AUTH_CONFIG_SOURCE is intentionally omitted — initAuthConfig() defaults
+      // to loadAuthConfigFromEnv() when it's unset, which is what we want on
+      // Lambda (no providers.config.json file in the bundle).
+      ...(process.env.AUTH_CONFIG_SOURCE ? { AUTH_CONFIG_SOURCE: process.env.AUTH_CONFIG_SOURCE } : {}),
       LOCAL: "false",
       STAGE: env,
       DEBUG_AUTH: process.env.DEBUG_AUTH ?? "false",
