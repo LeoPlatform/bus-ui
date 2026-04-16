@@ -15,10 +15,11 @@ export class SearchBarState {
     #items = $state<SearchItem[]>([]);
 	fuse: Fuse<SearchItem>;
 	fuseOptions: IFuseOptions<SearchItem> = {
-			keys: ['id'],
+			keys: ['id', 'name'],
 			shouldSort: true,
-			// includeScore: true,
-			threshold: 0.2,
+			threshold: 0.3,
+			ignoreLocation: true,
+			minMatchCharLength: 2,
 	    };
 
 	#debounceTimer: undefined | ReturnType<typeof setTimeout> = undefined;
