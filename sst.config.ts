@@ -448,13 +448,26 @@ export default $config({
     // Gateway API mappings to route paths to different services (e.g.,
     // /botmon → old UI, /botmonchub → old UI chub bus, etc.).
     //
-    // We add a mapping for /botmonAlpha → our SvelteKit Lambda so the
-    // app is accessible at test-apps.dsco.io/botmonAlpha. This puts us
-    // on the dsco.io domain, which means DSCO auth cookies work and
-    // there are no CORS issues with dw-auth-token endpoints.
+    // We add a mapping for /botmonAlpha[Bus] → our SvelteKit Lambda so
+    // the app is accessible at test-apps.dsco.io/botmonAlpha[Bus]. This
+    // puts us on the dsco.io domain, which means DSCO auth cookies work
+    // and there are no CORS issues with dw-auth-token endpoints.
+    //
+    // Mapping key per bus:
+    //   cup    → botmonAlpha
+    //   stream → botmonAlphaStreams
+    //   chub   → botmonAlphaChub
+    // Each bus gets its own path on the shared {env}-apps.dsco.io
+    // domain so cup/stream/chub can coexist without API mapping
+    // conflicts.
     // ---------------------------------------------------------------
 
-    const apiMappingKey = "botmonAlpha";
+    const apiMappingKey =
+      bus === "cup"
+        ? "botmonAlpha"
+        : bus === "stream"
+          ? "botmonAlphaStreams"
+          : "botmonAlphaChub";
     const appsCustomDomain = `${env}-apps.dsco.io`;
 
     // ---------------------------------------------------------------
