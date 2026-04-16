@@ -442,14 +442,19 @@ export default $config({
     });
 
     // ---------------------------------------------------------------
-    // API Gateway mapping on test-apps.dsco.io
+    // API Gateway mapping on the DSCO apps custom domain
     //
-    // The existing DSCO custom domain at {env}-apps.dsco.io uses API
-    // Gateway API mappings to route paths to different services (e.g.,
-    // /botmon → old UI, /botmonchub → old UI chub bus, etc.).
+    // DSCO's apps domain uses API Gateway API mappings to route paths
+    // to different services (e.g. /botmon → old UI, /botmonchub → old
+    // UI chub bus, etc.).
+    //
+    // Domain name per env:
+    //   test    → test-apps.dsco.io
+    //   staging → staging-apps.dsco.io
+    //   prod    → apps.dsco.io   (no env prefix — prod uses the bare host)
     //
     // We add a mapping for /botmonAlpha[Bus] → our SvelteKit Lambda so
-    // the app is accessible at test-apps.dsco.io/botmonAlpha[Bus]. This
+    // the app is accessible at {appsCustomDomain}/botmonAlpha[Bus]. This
     // puts us on the dsco.io domain, which means DSCO auth cookies work
     // and there are no CORS issues with dw-auth-token endpoints.
     //
@@ -457,9 +462,8 @@ export default $config({
     //   cup    → botmonAlpha
     //   stream → botmonAlphaStreams
     //   chub   → botmonAlphaChub
-    // Each bus gets its own path on the shared {env}-apps.dsco.io
-    // domain so cup/stream/chub can coexist without API mapping
-    // conflicts.
+    // Each bus gets its own path on the shared apps domain so
+    // cup/stream/chub can coexist without API mapping conflicts.
     // ---------------------------------------------------------------
 
     const apiMappingKey =
@@ -468,7 +472,8 @@ export default $config({
         : bus === "stream"
           ? "botmonAlphaStreams"
           : "botmonAlphaChub";
-    const appsCustomDomain = `${env}-apps.dsco.io`;
+    const appsCustomDomain =
+      env === "prod" ? "apps.dsco.io" : `${env}-apps.dsco.io`;
 
     // ---------------------------------------------------------------
     // Environment for the SvelteKit server Lambda
