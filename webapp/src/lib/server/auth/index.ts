@@ -15,11 +15,26 @@ import { DefaultAuthProvider } from './default-provider.js';
 import type { AuthProvider } from './types.js';
 export { ForceUserToReauthenticateError, NotAuthenticatedError } from './types.js';
 
-const stage = env.STAGE || process.env.STAGE || (process.env.NODE_ENV === 'production' ? 'prod' : 'test');
-
 function isLocalMode(): boolean {
     return env.LOCAL === 'true' || process.env.LOCAL === 'true';
 }
+
+function resolveStage(): string {
+    const explicit = env.STAGE || process.env.STAGE || env.ENVIRONMENT || process.env.ENVIRONMENT;
+    if (explicit) return explicit;
+    if (process.env.NODE_ENV === 'production') return 'prod';
+    if (!isLocalMode()) {
+        // DSCO auth is active and STAGE/ENVIRONMENT is unset — silent fallback to 'test'
+        // would point at test.dsco.io while the rest of the app may target prod resources.
+        console.warn(
+            '[Auth] STAGE and ENVIRONMENT are both unset and LOCAL is not true; ' +
+            "defaulting to 'test'. Set STAGE explicitly in .env.local to avoid mismatches."
+        );
+    }
+    return 'test';
+}
+
+const stage = resolveStage();
 
 export async function loadAuthProvider(): Promise<AuthProvider> {
     if (isLocalMode()) {
@@ -34,7 +49,7 @@ export async function loadAuthProvider(): Promise<AuthProvider> {
         const ProviderClass = mod.default;
         if (ProviderClass && typeof ProviderClass === 'function') {
             provider = new (ProviderClass as new (s: string) => AuthProvider)(stage);
-            console.log('[Auth] Custom DSCO auth provider loaded');
+            console.log(`[Auth] Custom DSCO auth provider loaded (stage=${stage})`);
         }
     } catch {
         // No custom provider — fall back to default

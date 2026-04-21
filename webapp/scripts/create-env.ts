@@ -2,8 +2,8 @@ import { fromIni } from "@aws-sdk/credential-provider-ini";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { CloudFormationClient, DescribeStackResourceCommand } from "@aws-sdk/client-cloudformation";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import { execSync } from "child_process";
 import { writeFileSync, existsSync, readFileSync } from "fs";
+import { randomBytes } from "node:crypto";
 import yargs from "yargs";
 
 /**
@@ -185,11 +185,7 @@ async function main(): Promise<void> {
     // --- Generate AUTH_SECRET if not already present ---
     let authSecret = existing["AUTH_SECRET"] ?? "";
     if (!authSecret) {
-        try {
-            authSecret = execSync("npx auth secret --raw", { encoding: "utf-8" }).trimEnd();
-        } catch (error) {
-            console.error("Error generating auth secret:", error);
-        }
+        authSecret = randomBytes(32).toString("base64");
     }
 
     // --- Build .env.local ---
@@ -214,7 +210,7 @@ async function main(): Promise<void> {
 
         // Auth mode: --auth enables DSCO auth, otherwise local mock
         LOCAL: !useAuth,
-        ...(useAuth ? { STAGE: argv.env } : {}),
+        STAGE: argv.env,
         ...(useAuth && leoAuthUserTable ? { LEO_AUTH_USER_TABLE_NAME: leoAuthUserTable } : {}),
 
         // App settings
