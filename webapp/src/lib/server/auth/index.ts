@@ -2,20 +2,31 @@
  * Load the active AuthProvider.
  *
  * Priority:
- *  1. `../auth-provider` — custom DSCO provider (or any other custom impl)
- *  2. DefaultAuthProvider — mock for local dev
+ *  1. LOCAL=true → DefaultAuthProvider (always; bypasses any custom provider)
+ *  2. `../auth-provider` — custom DSCO provider (or any other custom impl)
+ *  3. DefaultAuthProvider — mock for local dev (fallback when import fails)
  *
  * If USE_LOCAL_COGNITO_IDENTITY=true, overrides getUserCognitoIdentity with
  * values from LOCAL_COGNITO_IDENTITY_ID and LOCAL_COGNITO_IDENTITY_TOKEN.
  */
 
+import { env } from '$env/dynamic/private';
 import { DefaultAuthProvider } from './default-provider.js';
 import type { AuthProvider } from './types.js';
 export { ForceUserToReauthenticateError, NotAuthenticatedError } from './types.js';
 
-const stage = process.env.STAGE || (process.env.NODE_ENV === 'production' ? 'prod' : 'test');
+const stage = env.STAGE || process.env.STAGE || (process.env.NODE_ENV === 'production' ? 'prod' : 'test');
+
+function isLocalMode(): boolean {
+    return env.LOCAL === 'true' || process.env.LOCAL === 'true';
+}
 
 export async function loadAuthProvider(): Promise<AuthProvider> {
+    if (isLocalMode()) {
+        console.log('[Auth] LOCAL=true — using DefaultAuthProvider (local dev mock)');
+        return addLocalCognitoIdentityOverrideIfConfigured(new DefaultAuthProvider(stage));
+    }
+
     let provider: AuthProvider | undefined;
 
     try {

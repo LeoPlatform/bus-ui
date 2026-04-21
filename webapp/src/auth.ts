@@ -6,6 +6,7 @@ const e = () => process.env;
 import { fromCognitoIdentityPool } from "@aws-sdk/credential-providers";
 import { error } from "@sveltejs/kit";
 import type { OAuthConfig, OAuthUserConfig } from "@auth/sveltekit/providers";
+import { env } from "$env/dynamic/private";
 import {
   getActiveProviders,
   loadAuthConfigFromEnv,
@@ -83,11 +84,11 @@ import {
 
 async function initAuthConfig(): Promise<AuthConfig> {
   let config = loadAuthConfigFromEnv();
-  const AUTH_CONFIG_SOURCE = process.env.AUTH_CONFIG_SOURCE;
-  const LOCAL = process.env.LOCAL;
+  const AUTH_CONFIG_SOURCE = env.AUTH_CONFIG_SOURCE || process.env.AUTH_CONFIG_SOURCE;
+  const isLocal = env.LOCAL === "true" || process.env.LOCAL === "true";
 
   try {
-    if (AUTH_CONFIG_SOURCE && !LOCAL) {
+    if (AUTH_CONFIG_SOURCE && !isLocal) {
       config = await loadAuthConfigFromExternalSource(AUTH_CONFIG_SOURCE);
     } else if (AUTH_CONFIG_SOURCE) {
       config = await loadAuthConfigFromLocal(AUTH_CONFIG_SOURCE);
@@ -220,7 +221,7 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
 
       // AWS credentials are now provided on-demand via /api/aws-creds and getSession (Stage 2).
       // For local dev with env creds, still attach so getSession can use them.
-      if (process.env.LOCAL && e().AWS_SESSION_TOKEN) {
+      if ((env.LOCAL === "true" || process.env.LOCAL === "true") && e().AWS_SESSION_TOKEN) {
         session.aws_credentials = {
           accessKeyId: e().AWS_ACCESS_KEY_ID ?? '',
           secretAccessKey: e().AWS_SECRET_ACCESS_KEY ?? '',

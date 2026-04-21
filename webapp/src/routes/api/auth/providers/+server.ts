@@ -23,14 +23,14 @@ async function getAuthConfig(): Promise<AuthConfig> {
   }
 
   const AUTH_CONFIG_SOURCE = env.AUTH_CONFIG_SOURCE;
-  const LOCAL = env.LOCAL;
+  const isLocal = env.LOCAL === 'true';
 
   // Load auth config
   let config = loadAuthConfigFromEnv();
 
   // Try to load from remote source or local file if specified
   try {
-    if (AUTH_CONFIG_SOURCE && !LOCAL) {
+    if (AUTH_CONFIG_SOURCE && !isLocal) {
       config = await loadAuthConfigFromExternalSource(AUTH_CONFIG_SOURCE);
     } else if (AUTH_CONFIG_SOURCE) {
       config = await loadAuthConfigFromLocal(AUTH_CONFIG_SOURCE);
@@ -41,7 +41,7 @@ async function getAuthConfig(): Promise<AuthConfig> {
   }
 
   // If LOCAL is true, ensure we have at least one provider so the UI doesn't get stuck
-  if (LOCAL === 'true') {
+  if (isLocal) {
     let hasEnabled = false;
     for (const key in config.providers) {
       if (config.providers[key].enabled) {
