@@ -328,7 +328,7 @@ export default $config({
     console.log(`  LeoStream: ${busConfig.LeoStream}`);
     console.log(`  LeoSystem: ${busConfig.LeoSystem}`);
     console.log(`  LeoS3: ${busConfig.LeoS3}`);
-    console.log(`  LeoStats: ${leoStatsTableName || "(not found — will create new)"}`);
+    console.log(`  LeoStats: ${leoStatsTableName || "(not found — deploy will fail)"}`);
     console.log(`  LEO_AUTH_USER_TABLE_NAME: ${leoAuthTableName || "(not found)"}`);
 
     // ---------------------------------------------------------------
