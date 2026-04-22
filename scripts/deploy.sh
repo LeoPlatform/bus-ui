@@ -64,3 +64,39 @@ else
   echo "→ Single-pass deploy"
   npx sst deploy --stage "${STAGE}" "$@"
 fi
+
+# ---------------------------------------------------------------------
+# Force a fresh API Gateway REST API deployment.
+#
+# The v1 REST API's initial `aws.apigateway.Deployment` resource can
+# capture an empty snapshot on first creation — the deployment resource
+# is created before API Gateway finishes propagating the methods and
+# integrations, so the stage serves 404 "Not Found" until a second
+# deployment is created. This also happens whenever SST updates
+# method/integration properties but doesn't see a reason to recreate
+# the Deployment resource.
+#
+# Calling create-deployment here is idempotent and cheap. It takes a
+# fresh snapshot of current routes and points the `live` stage at it.
+# Safe to run every time, even when not strictly needed.
+# ---------------------------------------------------------------------
+
+echo ""
+echo "→ Forcing API Gateway REST API redeployment"
+API_ID=$(aws apigateway get-rest-apis \
+  --region "${REGION}" \
+  --query "items[?name=='botmon-${STAGE}'].id" \
+  --output text 2>/dev/null || true)
+
+if [[ -n "${API_ID}" ]] && [[ "${API_ID}" != "None" ]]; then
+  aws apigateway create-deployment \
+    --region "${REGION}" \
+    --rest-api-id "${API_ID}" \
+    --stage-name live \
+    --description "post-sst redeploy ($(date -u +%Y-%m-%dT%H:%M:%SZ))" \
+    --query 'id' \
+    --output text > /dev/null
+  echo "✓ Fresh deployment created for REST API ${API_ID}"
+else
+  echo "⚠️  No REST API found named 'botmon-${STAGE}' — skipping redeploy"
+fi
