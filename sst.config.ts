@@ -512,9 +512,9 @@ export default $config({
       // Performance timing (0 = off, 1 = on)
       PERF_TIMING: process.env.PERF_TIMING ?? "0",
 
-      // SvelteKit base path — used for generating URLs (links, navigation).
-      // The HTTP_PROXY integration restores the stripped prefix via
-      // requestParameters, so SvelteKit receives the full path.
+      // SvelteKit base path — used for generating URLs (links, navigation)
+      // and also read by lambda-handler-v1.mjs to re-prepend the prefix
+      // that API Gateway v1 BasePathMapping strips before invoking Lambda.
       SVELTE_BASE_PATH: `/${apiMappingKey}`,
 
       // Assets URL — absolute CloudFront URL so static files (JS, CSS)
@@ -584,6 +584,15 @@ export default $config({
         architecture: "arm64",
         timeout: "30 seconds",
         install: ["leo-sdk"],
+        // Override the default adapter handler with our v1 wrapper. The
+        // wrapper re-prepends SVELTE_BASE_PATH to event.path (v1's
+        // BasePathMapping strips it, unlike v2's overwrite:path) and
+        // then delegates to the svelte-kit-sst adapter handler at
+        // ./lambda-handler/index.handler.
+        copyFiles: [
+          { from: "webapp/lambda-handler-v1.mjs", to: "lambda-handler-v1.mjs" },
+        ],
+        handler: "lambda-handler-v1.handler",
       },
       transform: {
         cdn: (args) => {
@@ -632,53 +641,119 @@ export default $config({
     });
 
     // ---------------------------------------------------------------
-    // HTTP API → Lambda Function URL (HTTP_PROXY) → API mapping
+    // REST API (v1) → Lambda (AWS_PROXY) → BasePathMapping
     //
-    // API Gateway strips the mapping key prefix (/botmonAlpha) before
-    // forwarding. We use HTTP_PROXY integration to the Lambda Function
-    // URL with requestParameters to prepend the prefix back. This way
-    // SvelteKit receives the full path and paths.base works correctly
-    // for routes, assets, and redirects — no reroute hacks needed.
+    // DSCO's apps custom domains are a mix of REGIONAL (test) and
+    // EDGE-optimized (staging, prod). API Gateway v2 (HTTP API) only
+    // supports REGIONAL custom domains, so we use v1 (REST API) which
+    // supports both. This keeps /botmonAlpha paths consistent across
+    // all environments and avoids any DSCO-side changes (CORS allowlist,
+    // DNS, cert are all already wired for the apps domain).
+    //
+    // BasePathMapping strips `/${apiMappingKey}` from the incoming URL
+    // before invoking Lambda — unlike v2's `overwrite:path`, v1 has no
+    // in-API-Gateway way to restore the prefix. Our Lambda handler
+    // (lambda-handler-v1.mjs) re-prepends SVELTE_BASE_PATH to event.path
+    // so SvelteKit's paths.base routing continues to work unchanged.
     // ---------------------------------------------------------------
 
-    const httpApi = new aws.apigatewayv2.Api("BotmonHttpApi", {
+    const restApi = new aws.apigateway.RestApi("BotmonRestApi", {
       name: `botmon-${stage}`,
-      protocolType: "HTTP",
+      binaryMediaTypes: ["*/*"],
+      endpointConfiguration: { types: "REGIONAL" },
     });
 
-    const httpProxyIntegration = new aws.apigatewayv2.Integration(
-      "BotmonHttpApiIntegration",
+    // Root method — handles GET / and other methods at the base path
+    const rootMethod = new aws.apigateway.Method("BotmonRootMethod", {
+      restApi: restApi.id,
+      resourceId: restApi.rootResourceId,
+      httpMethod: "ANY",
+      authorization: "NONE",
+    });
+
+    // {proxy+} resource — catches every non-root path under the API
+    const proxyResource = new aws.apigateway.Resource("BotmonProxyResource", {
+      restApi: restApi.id,
+      parentId: restApi.rootResourceId,
+      pathPart: "{proxy+}",
+    });
+
+    const proxyMethod = new aws.apigateway.Method("BotmonProxyMethod", {
+      restApi: restApi.id,
+      resourceId: proxyResource.id,
+      httpMethod: "ANY",
+      authorization: "NONE",
+      requestParameters: { "method.request.path.proxy": true },
+    });
+
+    // AWS_PROXY integration forwards the whole request to the Lambda.
+    // Invoke ARN format is a v1 REST API convention; constructed from
+    // the Lambda function ARN because SST's SvelteKit component does
+    // not expose `invokeArn` directly.
+    const lambdaInvokeArn = $interpolate`arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${site.nodes.server.arn}/invocations`;
+
+    const rootIntegration = new aws.apigateway.Integration("BotmonRootIntegration", {
+      restApi: restApi.id,
+      resourceId: restApi.rootResourceId,
+      httpMethod: rootMethod.httpMethod,
+      integrationHttpMethod: "POST",
+      type: "AWS_PROXY",
+      uri: lambdaInvokeArn,
+    });
+
+    const proxyIntegration = new aws.apigateway.Integration("BotmonProxyIntegration", {
+      restApi: restApi.id,
+      resourceId: proxyResource.id,
+      httpMethod: proxyMethod.httpMethod,
+      integrationHttpMethod: "POST",
+      type: "AWS_PROXY",
+      uri: lambdaInvokeArn,
+    });
+
+    // Allow API Gateway to invoke the Lambda.
+    const invokePermission = new aws.lambda.Permission("BotmonLambdaInvokePermission", {
+      action: "lambda:InvokeFunction",
+      function: site.nodes.server.name,
+      principal: "apigateway.amazonaws.com",
+      sourceArn: $interpolate`${restApi.executionArn}/*/*`,
+    });
+
+    // Deployment + Stage. `triggers` forces a redeploy whenever any of
+    // the route/integration resources change; without this, route
+    // updates would be silently ignored on subsequent deploys.
+    const apiDeployment = new aws.apigateway.Deployment(
+      "BotmonRestDeployment",
       {
-        apiId: httpApi.id,
-        integrationType: "HTTP_PROXY",
-        integrationMethod: "ANY",
-        integrationUri: site.nodes.server.url,
-        payloadFormatVersion: "1.0",
-        requestParameters: {
-          // Restore the stripped mapping key prefix before proxying
-          "overwrite:path": `/${apiMappingKey}$request.path`,
+        restApi: restApi.id,
+        triggers: {
+          redeployment: $interpolate`${proxyIntegration.id}-${rootIntegration.id}-${proxyMethod.id}-${rootMethod.id}`,
         },
+      },
+      {
+        dependsOn: [
+          rootMethod,
+          proxyMethod,
+          rootIntegration,
+          proxyIntegration,
+          invokePermission,
+        ],
       },
     );
 
-    const defaultRoute = new aws.apigatewayv2.Route("BotmonHttpApiRoute", {
-      apiId: httpApi.id,
-      routeKey: "$default",
-      target: $interpolate`integrations/${httpProxyIntegration.id}`,
+    const apiStage = new aws.apigateway.Stage("BotmonRestStage", {
+      restApi: restApi.id,
+      deployment: apiDeployment.id,
+      stageName: "live",
     });
 
-    const apiStage = new aws.apigatewayv2.Stage("BotmonHttpApiStage", {
-      apiId: httpApi.id,
-      name: "$default",
-      autoDeploy: true,
-    });
-
-    // Map /botmonAlpha on the existing DSCO custom domain to our HTTP API
-    const apiMapping = new aws.apigatewayv2.ApiMapping("BotmonApiMapping", {
-      apiId: httpApi.id,
+    // Map /${apiMappingKey} on the existing DSCO apps custom domain
+    // onto our REST API. The mapping key is stripped from the path
+    // before invocation; lambda-handler-v1.mjs re-prepends it.
+    const basePathMapping = new aws.apigateway.BasePathMapping("BotmonBasePathMapping", {
       domainName: appsCustomDomain,
-      stage: apiStage.id,
-      apiMappingKey,
+      restApi: restApi.id,
+      stageName: apiStage.stageName,
+      basePath: apiMappingKey,
     });
 
     // Store the CloudFront URL in SSM so the next deploy can bake it
