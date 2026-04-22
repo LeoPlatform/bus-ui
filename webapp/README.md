@@ -1,95 +1,164 @@
-# Introduction
+# Botmon Webapp (SvelteKit 5)
 
-This is a web application built using Typescript, Svelte 5, SvelteKit, shadcn-svelte, and Tailwindcss. It helps users visualize data flows and event searching for configured LEO buses. 
+Modern rewrite of the LEO Botmon dashboard in SvelteKit 5 + Svelte 5 runes. Deploys alongside the existing React Botmon at `old_ui/` — the two coexist today and the SvelteKit version will replace the old one once parity is complete.
 
-# Getting Started
+## Quick links
 
-The modern re-work of the project is located within the `webapp/` directory of this project. The old React-based implentation is stored in the `old_ui/` directory. 
+| Topic | Doc |
+|---|---|
+| How authentication works | **[AUTH.md](./AUTH.md)** |
+| How to deploy | **[DEPLOYMENT.md](./DEPLOYMENT.md)** |
+| App architecture | [knowledgebase/1-Architecture.md](./knowledgebase/1-Architecture.md) |
+| Feature scope (parity with old UI) | [knowledgebase/2-Features.md](./knowledgebase/2-Features.md) |
+| Server API routes | [knowledgebase/3-AppState.md](./knowledgebase/3-AppState.md) |
+| Svelte 5 runes reference | [knowledgebase/5-SvelteKnowledge.md](./knowledgebase/5-SvelteKnowledge.md) |
+| Test structure | [tests/README.md](./tests/README.md) |
 
-> [!IMPORTANT]
-> This project requires a version of NodeJs >= 20.11.0
+## Prerequisites
 
-# Project Setup
+- **Node.js ≥ 20.11.0** (nvmrc: see [`.nvmrc`](./.nvmrc))
+- AWS credentials with read access to the target bus (default profile; see [AWS credentials](#aws-credentials) below)
+- Chrome recommended; other browsers may work but are untested
 
-Before the project can be run there are few configs that are needed in order for the application to run as expected.
+## Run locally (5-step quickstart)
 
-Specifically we need the `providers.config.json` and `leo.config.json`
+Everything below assumes you're in `webapp/` and have active AWS credentials.
 
-> [!NOTE]
-> the requirement for the `leo.config.json` file may be retired fairly soon in favor of using Rstreams Flow.
+```bash
+cd webapp
+npm install
 
-## leo.config.json
+# 1. Create the auth providers config (see "Auth providers config" below)
+cp providers.config.example.json providers.config.json
+# edit providers.config.json to enable desired providers
 
-This file contains all the AWS resources that are related to the LEO bus(es) you want to view. 
+# 2. Generate .env.local for your target bus
+npm run create-env-test-cup
 
-The structure for for this file can be found [here](scripts/types.ts). 
-
-> [!NOTE]
-> The key of the `LeoConfig` type should be a PascalCase representation of the environment and the name of the bus you want to connect to. 
-> (i.e `ProdBus`, `TestBus`, `TestPlaygroundBus`, etc)
-
-This file, when created, must be placed at the root level (`webapp/leo.config.json`)
-
-## providers.config.json
-
-This contains all the details we need for us to dynamically fetch credentials for users. You will be required to auth while running locally, but the aws credentials that will be used will be your own personal credentials. 
-
-The schema for what this file looks like can be found at [webapp/src/lib/auth/config.ts](src/lib/auth/config.ts)
-
-```ts
-    interface AuthProviderConfigSchema: {
-        enabled: boolean, // defaults to false
-        id?: string,
-        secret?: string,
-        issuer?: string,
-        clientId?: string,
-        tenantId?: string,
-        region?: string,
-        userPoolId?: string,
-        scope?: string,
-        authorization?: {
-            params?: Record<string, any>,
-        },
-    };
+# 3. Run the dev server
+npm run dev
 ```
 
-Everything in this type is optional because the provider themselves determines what they want. For example Cognito requires the following fields to be provided:  `region`, `userPoolId`, `id`, `secret`, and `scope` while Google requires `id`, `secret`, `scope`
+Open http://localhost:5173 — you'll be signed in automatically as a mock user (local mode is on by default).
 
-> [!WARNING] as we add more supported providers this definition can and will change.
+## Local dev modes
 
-This file must be placed at the root of the project (`webapp/providers.config.json`)
+The webapp supports three distinct auth modes depending on what you're developing. Read **[AUTH.md](./AUTH.md)** for the full picture; the summary is:
 
-## create-env.ts
+| Mode | When to use | How to enable |
+|---|---|---|
+| **LOCAL (mock auth)** | Day-to-day frontend work — no login screen, uses your AWS profile creds directly | `LOCAL=true` in `.env.local` (default output of `create-env-*`) |
+| **OAuth (Cognito/Google/GitHub)** | Testing OSS sign-in flows via `@auth/sveltekit` | `LOCAL=false`, enable provider in `providers.config.json`, set `AUTH_COGNITO_ENABLED=true` (or equivalent) |
+| **DSCO auth** | Testing the DSCO token → LEO_AUTH → Cognito Identity flow that runs in all deployed stages | `npm run create-env-test-cup -- --auth` — but this generally **can't be tested locally** due to DSCO's CORS allowlist (dsco.io doesn't allow localhost). Use a deployed stage instead. |
 
-This helper script helps you get your local environment set up so the project can run effectively. It is set up as a CLI tool and can be run seperately. I personally have the different variations that I need to run set up as separate npm scripts. 
+The local quickstart above uses **LOCAL mode**.
 
-The definition for what args can be passed in can be found by running `tsx scripts/create-env.ts --help`
+## Configuration files
 
-What this script eventually does is creates a `.env.local` file that SvelteKit then uses to load up the environment variables that the application uses. 
+### `.env.local`
 
+Generated by `scripts/create-env.ts`. Never commit this file. Contains:
 
-# Running Locally
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_REGION` — read from your `~/.aws/credentials` `default` profile
+- `LEO_CRON_TABLE`, `LEO_EVENT_TABLE`, `LEO_STREAM_TABLE`, `LEO_SYSTEM_TABLE`, `LEO_S3` — resolved from AWS Secrets Manager secret `rstreams-{Env}{Bus}Bus`
+- `LEO_STATS_TABLE` — read from the CloudFormation stack `{Env}{Bus}Botmon` (existing old-Botmon stack)
+- `LEO_AUTH_USER_TABLE_NAME` — only when `--auth`; read from SSM param `/mcd/{env}/rstreams/main_bus/leo_auth_user_table_name`
+- `LOCAL` — `true` (mock auth) or `false` (real auth)
+- `AUTH_SECRET` — 32 random bytes, generated once and cached in `.env.local` (used to encrypt the `bu` cookie)
+- `AUTH_CONFIG_SOURCE` — path to the OAuth providers config (default `./providers.config.json`)
+- `STAGE`, `ENVIRONMENT` — `test`, `staging`, or `prod` (chosen by the `--env` flag)
+- `DEBUG_AUTH` — `true` for verbose auth logging
+- `PERF_TIMING` — `1` for server-side timing logs (`[perf]` prefix)
 
-Make sure you are in the `webapp/` directory. From there you need to:
+Run `tsx scripts/create-env.ts --help` for the full flag list.
 
-1. Get your latest set of personal AWS credentials 
-    > [!NOTE]
-    > I use `aws-azure-login` personally, but there are other tools that will work for you. 
-    > Essentially what we need is the `~/.aws/credentials` file
-2. ensure that you have valid `providers.config.json` file created and placed at `webapp/providers.config.json`
-3. Then run `npm run create-env-{env}-{bus}` (e.g. `npm run create-env-test-cup`)
-4. Then run `npm run dev`
+### `providers.config.json`
 
-> [!NOTE]
-> This project was developed using Chrome as the main supported browser. 
-> Other browsers **should** work, but your mileage may vary.
+Declares which `@auth/sveltekit` OAuth providers are available when not in LOCAL mode. Only needed when you want to sign in via Cognito/Google/GitHub; LOCAL mode ignores it entirely but the file still needs to exist (it's referenced by `AUTH_CONFIG_SOURCE`).
 
-# Deployment
+Schema lives in [`src/lib/auth/config.ts`](./src/lib/auth/config.ts):
 
-The webapp deploys to AWS as Lambda + CloudFront + S3 via [SST v3](https://sst.dev/). See **[DEPLOYMENT.md](DEPLOYMENT.md)** for:
+```json
+{
+  "providers": {
+    "cognito": {
+      "enabled": false,
+      "region": "us-east-1",
+      "userPoolId": "",
+      "id": "",
+      "secret": ""
+    },
+    "google": {
+      "enabled": false,
+      "id": "",
+      "secret": ""
+    },
+    "github": {
+      "enabled": false,
+      "id": "",
+      "secret": ""
+    }
+  },
+  "defaultProviders": []
+}
+```
 
-- Deploy commands (`npx sst deploy --stage alpha`)
-- Environment variable reference
-- Custom domain setup
-- CI/CD configuration
-- **CDK migration path** (how to switch from SST to CDK if needed)
+Each provider determines which fields are required — for example Cognito needs `region`, `userPoolId`, `id`, `secret`, and `scope`; Google only needs `id`, `secret`, `scope`.
+
+> **Note:** `@auth/sveltekit` ships 50+ providers. Adding support for a new one is a one-line import and a config entry; see [AUTH.md §OSS extension](./AUTH.md#extending-with-other-oauth-providers).
+
+## AWS credentials
+
+The webapp reads from your `default` AWS profile. If you use `aws-azure-login`, `aws-sso-util`, or another SSO tool, make sure it writes to `default` or export the exported vars before running `create-env-*`.
+
+`create-env-*` requires a `sessionToken` — long-lived IAM user credentials without STS won't work.
+
+If you see `aws credentials expired` at runtime, refresh them (`aws-azure-login -p default --no-prompt` or your tool's equivalent) and re-run `npm run create-env-*`.
+
+## Scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Vite dev server on :5173 |
+| `npm run build` | Production build (outputs `.svelte-kit/output/`) |
+| `npm run preview` | Preview the production build locally |
+| `npm run check` | TypeScript + Svelte check |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest |
+| `npm run create-env-{env}-{bus}` | Generate `.env.local` for the given stage (see [create-env.ts](./scripts/create-env.ts)) |
+| `npm run deploy -- <stage>` | Deploy to AWS (see [DEPLOYMENT.md](./DEPLOYMENT.md)) |
+
+## Project layout
+
+```
+webapp/
+├── src/
+│   ├── routes/                 # SvelteKit pages + API endpoints
+│   │   ├── (authed)/           # auth-gated routes (dashboards, etc.)
+│   │   ├── api/                # server endpoints
+│   │   └── signin/             # sign-in page
+│   ├── lib/
+│   │   ├── client/             # browser-only components + state
+│   │   ├── server/             # server-only: auth, AWS, dashboard APIs
+│   │   │   ├── auth/           # AuthProvider abstraction
+│   │   │   └── auth-provider.ts  # DSCO implementation (swappable)
+│   │   ├── stats/              # stats aggregation helpers
+│   │   └── stores/             # runes-based state classes
+│   ├── auth.ts                 # @auth/sveltekit config
+│   └── hooks.server.ts         # auth handle chain
+├── scripts/
+│   ├── create-env.ts           # .env.local generator
+│   ├── create-tree.ts          # relationship tree helper
+│   └── deploy.sh               # SST deploy wrapper
+├── sst.config.ts               # SST v3 deploy config
+├── lambda-handler-v1.mjs       # API Gateway v1 Lambda wrapper
+├── svelte.config.js
+└── package.json
+```
+
+## Related docs
+
+- **[AUTH.md](./AUTH.md)** — how authentication works end to end (LOCAL, OAuth, DSCO modes; cookies; cred minting; error handling)
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** — SST infrastructure, API Gateway v1, stage naming, deploy wrapper, custom domains
+- **[knowledgebase/1-Architecture.md](./knowledgebase/1-Architecture.md)** — domain model, component boundaries, state model
+- **[knowledgebase/2-Features.md](./knowledgebase/2-Features.md)** — feature scope and parity status vs the old React UI
