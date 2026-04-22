@@ -90,10 +90,10 @@
                         bounds: 'data',
                         type: 'linear',
                         grid: {
-                            color: 'rgba(0, 0, 0, 0.1)'
+                            color: 'rgba(128, 128, 128, 0.15)'
                         },
                         ticks: {
-                            color: '#6b7280',
+                            color: '#888888',
                             maxTicksLimit: 10,
                             callback: function(value) {
                                 return new Date(value).toLocaleTimeString(undefined, { hourCycle: 'h23', hour: '2-digit', minute: '2-digit' });
@@ -106,10 +106,10 @@
                         type: 'linear',
                         // beginAtZero: true,
                         grid: {
-                            color: 'rgba(0, 0, 0, 0.1)'
+                            color: 'rgba(128, 128, 128, 0.15)'
                         },
                         ticks: {
-                            color: '#6b7280',
+                            color: '#888888',
                             callback: function(value) {
                                 return humanize(value as number);
                             }
@@ -206,7 +206,7 @@
 
 <div class="flex flex-col h-full">
     <div class="flex flex-row justify-between">
-        <h2 class="text-xl font-semibold text-gray-700 mb-2">Queue and Source Lag</h2>
+        <h2 class="text-xl font-semibold text-foreground mb-2">Queue and Source Lag</h2>
         <!-- <div class="flex flex-row items-center gap-2">
             <Label for="logarithmic-switch">Log Scaling</Label>
             <Switch id="logarithmic-switch" bind:checked={showLogarithmic} on:change={updateChart} />
@@ -215,7 +215,7 @@
             <ChartOptionsMenu chartOptions={chartOptions} bind:logSwitch={showLogarithmic} bind:regressionType={trendLineType} bind:bestFit={bestFit}/>
         {/if}
     </div>
-    <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
+    <div class="flex flex-row bg-muted/20 rounded-md w-full h-full overflow-hidden">
         <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
             <div class="flex flex-col gap-2 justify-between h-full">
                 <div class="flex items-center justify-center gap-2 h-full">

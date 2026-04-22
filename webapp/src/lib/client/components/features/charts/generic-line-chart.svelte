@@ -86,10 +86,10 @@
             type: "linear",
             bounds: 'data',
             grid: {
-              color: "rgba(0, 0, 0, 0.1)",
+              color: "rgba(128, 128, 128, 0.15)",
             },
             ticks: {
-              color: "#6b7280",
+              color: "#888888",
               maxTicksLimit: 10,
               callback: function (value) {
                 return new Date(value).toLocaleTimeString(undefined, {
@@ -103,10 +103,10 @@
             type: "linear",
             beginAtZero: true,
             grid: {
-              color: "rgba(0, 0, 0, 0.1)",
+              color: "rgba(128, 128, 128, 0.15)",
             },
             ticks: {
-              color: "#6b7280",
+              color: "#888888",
               callback: function (value) {
                 return dataIsTimeBased ? humanize(value as number) : value.toLocaleString();
               },
@@ -219,12 +219,12 @@
 
 <div class="flex flex-col h-full">
     <div class="flex flex-row justify-between">
-      <h2 class="text-xl font-semibold text-gray-700 mb-2">{dataSetLabel}</h2>
+      <h2 class="text-xl font-semibold text-foreground mb-2">{dataSetLabel}</h2>
       {#if chartOptions}
         <ChartOptionsMenu chartOptions={chartOptions} bind:logSwitch={showLogarithmic} />
       {/if}
     </div>
-    <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
+    <div class="flex flex-row bg-muted/20 rounded-md w-full h-full overflow-hidden">
         {#if includeFullCount || includeCurrentValue}
             <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
                 <div class="flex flex-col gap-2 justify-between h-full">

@@ -113,10 +113,10 @@
           x: {
             type: 'linear',
             grid: {
-              color: 'rgba(0, 0, 0, 0.1)'
+              color: 'rgba(128, 128, 128, 0.15)'
             },
             ticks: {
-              color: '#6b7280',
+              color: '#888888',
               maxTicksLimit: 10,
               callback: function(value) {
                 return new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -126,10 +126,10 @@
           y: {
             beginAtZero: true,
             grid: {
-              color: 'rgba(0, 0, 0, 0.1)'
+              color: 'rgba(128, 128, 128, 0.15)'
             },
             ticks: {
-              color: '#6b7280',
+              color: '#888888',
               callback: function(value) {
                 return value.toLocaleString();
               }
@@ -268,8 +268,8 @@
   });
 </script>
  <div class="flex flex-col h-full">
-     <h2 class="text-xl font-semibold text-gray-700 mb-2">Events in Queue</h2>
-     <div class="flex flex-row bg-slate-100 w-full h-full overflow-hidden">
+     <h2 class="text-xl font-semibold text-foreground mb-2">Events in Queue</h2>
+     <div class="flex flex-row bg-muted/20 rounded-md w-full h-full overflow-hidden">
       <div class="p-2 shadow-sm w-1/4 h-full overflow-hidden">
         <div class="flex flex-col gap-2 justify-between h-full">
             <div class="flex items-center justify-center gap-2 h-full">

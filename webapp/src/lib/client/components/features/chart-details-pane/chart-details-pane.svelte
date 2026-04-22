@@ -13,6 +13,7 @@
   import { bucketsData, ranges } from "$lib/bucketUtils";
   import GenericBucketLineChart from "../charts/generic-bucket-line-chart.svelte";
   import { queueSystemReplaceRegex } from "$lib/utils";
+  import { assets, base } from "$app/paths";
 
   let compState = getContext<AppState>('appState').timePickerState;
 
@@ -232,7 +233,7 @@
 </script>
 
 {#snippet ChartContainer(chart: Chart )}
-  <div class="flex-1 bg-white rounded-lg p-4 shadow-sm border border-gray-200 overflow-hidden">
+  <div class="flex-1 bg-card text-card-foreground rounded-lg p-4 shadow-sm border border-border overflow-hidden">
     <div class="h-full overflow-hidden">
       {#if chart.type === 'events-in-queue'}
       <GenericBucketLineChart data={chart.data as DashboardStatsValue[]} chartLabel={chart.dataSetLabel!} checkPointValue={chart.checkPointValue} range={range} start={chart.start || end} end={chart.end || end} rangeStart={dashboardStats?.start} chartOptions={chart.chartOptions}/>
@@ -251,37 +252,35 @@
 
 
 {#if visible}
-  <div class="fixed bottom-0 left-16 right-0 h-80 bg-gray-50 border-t border-gray-200 shadow-lg z-50">
-    <div class="flex justify-between items-center px-2 border-b border-gray-200 bg-gray-100">
-      <!-- Add a section for the tabs -->
-      <!-- <h3 class="text-lg font-semibold text-gray-900 m-0">Relationship Details</h3> -->
+  <div class="fixed bottom-0 left-16 right-0 h-96 bg-background text-foreground border-t border-border shadow-lg z-50 flex flex-col">
+    <div class="flex justify-between items-center px-2 border-b border-border bg-muted">
       <div class="flex pl-2 gap-2 overflow-y-hidden w-full">
         {#if dashboardStats}
           {#each tabs as tab}
             {@const isActive = tab === selectedTab}
             <div class="relative">
-              <button 
+              <button
                 onclick={() => handleTabClick(tab)}
                 disabled={isActive}
                 class={`
                   flex items-center gap-2 px-3 py-1.5 rounded-lg
                   transition-all duration-200 ease-in-out
-                  ${isActive 
-                    ? 'bg-gray-50/20 shadow-lg transform scale-105' 
-                    : 'bg-gray-100 hover:bg-gray-300'
+                  ${isActive
+                    ? 'bg-accent shadow-lg transform scale-105'
+                    : 'bg-muted hover:bg-accent/60'
                   }
                   hover:transform hover:scale-105 hover:shadow-lg
                   group relative
-                  disabled:opacity-50 disabled:cursor-not-allowed
+                  disabled:opacity-80 disabled:cursor-not-allowed
                 `}
               >
-                <img src={`/${tab.type == 'bot-details' ? 'bot' : tab.type}.png`} alt={tab.label} class="w-10 h-10" />
+                <img src={`${assets || base}/${tab.type == 'bot-details' ? 'bot' : tab.type}.png`} alt={tab.label} class="w-10 h-10" />
                 <span class={`
-                  transition-colors ${isActive ? 'text-gray-900 font-semibold' : 'text-gray-700'}
+                  transition-colors ${isActive ? 'text-foreground font-semibold' : 'text-muted-foreground'}
                 `}>
                   {tab.label}
                 </span>
-                
+
                 <!-- Active indicator bar -->
                 {#if isActive}
                   <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-lime-600 rounded-b-lg"></div>
@@ -291,12 +290,12 @@
           {/each}
         {:else}
           <div class="flex items-center gap-2 px-3 py-1.5">
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-            <span class="text-gray-600 text-sm">Loading...</span>
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-muted-foreground"></div>
+            <span class="text-muted-foreground text-sm">Loading...</span>
           </div>
         {/if}
       </div>
-      <Button 
+      <Button
       variant="ghost"
       size="icon"
       onclick={onClose}
@@ -304,17 +303,16 @@
       <SquareX class="w-full h-full"/>
     </Button>
     </div>
-      <div class="flex h-68 p-4 gap-4 overflow-hidden">
-        {#if dashboardStats && selectedTab}
-          {#each selectedTab.charts as chart}
-            {@render ChartContainer(chart)}
-          {/each}
-        {:else}
-          <Skeleton class="w-1/3 h-full rounded-lg bg-slate-300" />
-          <Skeleton class="w-1/3 h-full rounded-lg bg-slate-300" />
-          <Skeleton class="w-1/3 h-full rounded-lg bg-slate-300" />
-        {/if}
-
+    <div class="flex flex-1 min-h-0 p-4 gap-4 overflow-hidden">
+      {#if dashboardStats && selectedTab}
+        {#each selectedTab.charts as chart}
+          {@render ChartContainer(chart)}
+        {/each}
+      {:else}
+        <Skeleton class="w-1/3 h-full rounded-lg" />
+        <Skeleton class="w-1/3 h-full rounded-lg" />
+        <Skeleton class="w-1/3 h-full rounded-lg" />
+      {/if}
     </div>
   </div>
 {/if}
