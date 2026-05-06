@@ -335,10 +335,21 @@
     function jumpToMostRecent() {
         const eid = settings?.max_eid;
         const latestWrite = settings?.latest_write;
+
+        // The stream reader reads forward from the start token, so we must start
+        // BEFORE the most recent event — not at it. Extract the ms timestamp embedded
+        // in max_eid (format: z/YYYY/MM/DD/HH/mm/TIMESTAMP_MS-SEQ) and seek back by
+        // the active time frame so the forward scan captures the latest events.
         if (eid) {
-            startPayloadSearch(trimEidToken(eid));
-        } else if (latestWrite) {
-            startPayloadSearch(buildZTokenFromUtcMs(latestWrite - DURATION_MS['5m']));
+            const parts = eid.split('/');
+            const ts = parts.length >= 7 ? parseInt(parts[6].split('-')[0], 10) : NaN;
+            if (!isNaN(ts)) {
+                startPayloadSearch(buildZTokenFromUtcMs(ts - DURATION_MS[activeTimeFrame]));
+                return;
+            }
+        }
+        if (latestWrite) {
+            startPayloadSearch(buildZTokenFromUtcMs(latestWrite - DURATION_MS[activeTimeFrame]));
         }
     }
 
