@@ -58,12 +58,12 @@
       </div>
       
       <!-- Item details -->
-      <div class="flex-1 min-w-0 overflow-hidden">
-        <div class="text-sm font-medium text-white truncate">
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-medium text-white break-all">
           {item.id}
         </div>
         {#if item.name && item.name !== item.id}
-          <div class="text-xs text-white/60 truncate">
+          <div class="text-xs text-white/60 break-all">
             {item.name}
           </div>
         {/if}

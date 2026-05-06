@@ -10,6 +10,7 @@
     import Ajv from "ajv";
     import addFormats from "ajv-formats";
     import X from "@lucide/svelte/icons/x";
+    import ChevronsRight from "@lucide/svelte/icons/chevrons-right";
     import Zap from "@lucide/svelte/icons/zap";
     import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
     import CircleCheck from "@lucide/svelte/icons/circle-check";
@@ -28,6 +29,7 @@
     } from "$lib/client/event-viewer/event-search-utils";
 
     type StreamEvent = {
+        id?: string;
         eid?: string;
         timestamp?: number;
         event_source_timestamp?: number;
@@ -330,6 +332,16 @@
         startPayloadSearch();
     }
 
+    function jumpToMostRecent() {
+        const eid = settings?.max_eid;
+        const latestWrite = settings?.latest_write;
+        if (eid) {
+            startPayloadSearch(trimEidToken(eid));
+        } else if (latestWrite) {
+            startPayloadSearch(buildZTokenFromUtcMs(latestWrite - DURATION_MS['5m']));
+        }
+    }
+
     function onSearchKeydown(e: KeyboardEvent) {
         if (e.key !== "Enter") return;
         e.preventDefault();
@@ -476,6 +488,18 @@
                     {tf}
                 </Button>
             {/each}
+            {#if settings?.max_eid || settings?.latest_write}
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="text-xs px-2 gap-1"
+                    title="Jump to most recent events"
+                    onclick={jumpToMostRecent}
+                >
+                    <ChevronsRight class="h-3 w-3" />
+                    Latest
+                </Button>
+            {/if}
         </div>
     </div>
 
