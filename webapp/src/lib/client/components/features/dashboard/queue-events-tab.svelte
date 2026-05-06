@@ -499,18 +499,6 @@
                     {tf}
                 </Button>
             {/each}
-            {#if settings?.max_eid || settings?.latest_write}
-                <Button
-                    variant="outline"
-                    size="sm"
-                    class="text-xs px-2 gap-1"
-                    title="Jump to most recent events"
-                    onclick={jumpToMostRecent}
-                >
-                    <ChevronsRight class="h-3 w-3" />
-                    Latest
-                </Button>
-            {/if}
         </div>
     </div>
 
@@ -652,6 +640,18 @@
                                     <div>No more events found</div>
                                 {:else}
                                     <div>No events found</div>
+                                    {#if settings?.max_eid || settings?.latest_write}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            class="mt-2 text-xs px-2 gap-1"
+                                            title="Jump to most recent events"
+                                            onclick={jumpToMostRecent}
+                                        >
+                                            <ChevronsRight class="h-3 w-3" />
+                                            Jump to latest events
+                                        </Button>
+                                    {/if}
                                 {/if}
                             </Table.Cell>
                         </Table.Row>
