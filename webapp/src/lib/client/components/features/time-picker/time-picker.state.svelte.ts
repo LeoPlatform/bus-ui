@@ -19,7 +19,13 @@ export class TimePickerState {
     #startTime: number = $state<number>(Date.now());
     #endTime: number | undefined = $state<number | undefined>();
     #selectedDate: CalendarDateTime | undefined = $state<CalendarDateTime>();
-    #customTime: string = $state(new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }));
+    #customTime: string = $state((() => {
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        return `${hh}:${mm}:${ss}`;
+    })());
     #dateSelectorExpanded: boolean = $state<boolean>(false);
     #isExpanded: boolean = $state<boolean>(false);
     #onTimeRangeChange: ((state: TimePickerState) => void) | undefined = undefined;

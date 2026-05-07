@@ -190,6 +190,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
                 if (matches) {
                     response.results.push({
+                        id: obj.id,
                         eid: obj.eid,
                         timestamp: obj.timestamp,
                         event_source_timestamp: obj.event_source_timestamp,

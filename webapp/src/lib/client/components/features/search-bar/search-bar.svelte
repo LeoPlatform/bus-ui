@@ -121,7 +121,7 @@
   });
 </script>
 
-<div class="relative w-full max-w-md">
+<div class="relative w-full max-w-md min-w-0">
   <div class="relative">
     <!-- Search icon -->
     <div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 z-10">
@@ -159,10 +159,10 @@
 
   <!-- Search results dropdown -->
   {#if componentState.isOpen}
-    <div 
+    <div
       data-fuzzy-dropdown
       class={cn(
-        'absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-slate-600 bg-slate-800 shadow-lg',
+        'absolute z-50 mt-1 min-w-full w-max max-w-2xl overflow-hidden rounded-md border border-slate-600 bg-slate-800 shadow-lg',
         'max-h-60 overflow-y-auto'
       )}
       role="listbox"

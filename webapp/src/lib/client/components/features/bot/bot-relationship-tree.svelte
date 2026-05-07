@@ -1223,10 +1223,8 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
           );
 
           if(filterIcon) {
-            filterIcon
-            .style("opacity", "0")
-            .style("transform-origin", "center")
-            .style("transition", "all 0.2s ease");
+            styleLucideOnLightChip(filterIcon);
+            filterIcon.style("opacity", "0");
           }
 
           (filterButtonGroup.node() as any).__iconInstance = filterIcon;
@@ -1697,14 +1695,8 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     outline-offset: 4px;
   }
   
-  /* Filter button animations */
-  :global(.filter-button) {
-    transition: all 0.2s ease;
-  }
-  
   :global(.filter-button:hover) {
     fill: #e5e7eb !important;
-    transform: scale(1.1);
   }
 
   .workflow-container {
