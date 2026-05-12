@@ -45,6 +45,8 @@
 
     const appState = getContext<AppState>("appState");
     const compState = appState.dashboardState;
+    /** Same “as of” instant as dashboard stats (header calendar / bucket navigation). */
+    const timePicker = appState.timePickerState;
 
     let settings = $derived(compState.settings as { latest_write?: number; max_eid?: string } | undefined);
 
@@ -302,8 +304,13 @@
         chainRunning = false;
     }
 
+    /** Right edge of the visible time window; matches `DashboardState.getDashStats` timestamp. */
+    function searchAnchorUtcMs(): number {
+        return timePicker.endTime ?? Date.now();
+    }
+
     function tokenFromTimeFrame(): string {
-        return buildZTokenFromUtcMs(Date.now() - DURATION_MS[activeTimeFrame]);
+        return buildZTokenFromUtcMs(searchAnchorUtcMs() - DURATION_MS[activeTimeFrame]);
     }
 
     /** User-initiated search (Enter key in search bar). */
@@ -440,14 +447,18 @@
     });
 
     /**
-     * Re-fetch events when the queue ID or time picker changes.
-     * Tracks startTime + endTime so we re-run on bucket navigation and live/historical toggle.
+     * Re-fetch events when the queue ID or global time picker changes (calendar, prev/next bucket, live vs historical).
+     * Reads `endTime` / `startTime` so Svelte tracks the same window the dashboard header controls.
      * searchText is read inside runPayloadSearchChain but via untrack so it
      * doesn't cause this effect to re-fire on every keystroke.
      */
     $effect(() => {
         const id = queueId;
         if (!id) return;
+
+        // Reactive deps: global time range (see `TimePickerState`, wired in `dashboard.svelte`)
+        void timePicker.endTime;
+        void timePicker.startTime;
 
         cancelSearch();
         abortCtrl = new AbortController();
