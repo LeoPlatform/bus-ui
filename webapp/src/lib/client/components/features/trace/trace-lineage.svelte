@@ -11,10 +11,13 @@
         parents = [],
         event = null,
         children = {},
+        hideExplainer = false,
     }: {
         parents?: TraceNode[];
         event?: TraceNode | null;
         children?: Record<string, TraceNode>;
+        /** When embedded (e.g. prototype tabs), hide the long rail/corner explainer. */
+        hideExplainer?: boolean;
     } = $props();
 
     function fmtLag(lag: unknown): string {
@@ -43,19 +46,21 @@
   overflow scrolls inside the panel (see +page wrapper + min-w-0).
 -->
 <div class="trace-lineage min-w-0 max-w-full text-sm" role="tree" aria-label="Event trace lineage">
-    <div
-        class="mb-4 flex min-w-0 items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-    >
-        <GitBranch class="size-4 shrink-0 opacity-70" aria-hidden="true" />
-        <span
-            >Read <strong class="text-foreground">top → bottom</strong>. Upstream and the selected event share the rail at left. Downstream rows use a <strong class="text-foreground">corner icon</strong> (┘) to show they extend from the parent above. Scroll horizontally if the tree is wider than the panel.</span
+    {#if !hideExplainer}
+        <div
+            class="mb-4 flex min-w-0 items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
         >
-    </div>
+            <GitBranch class="size-4 shrink-0 opacity-70" aria-hidden="true" />
+            <span
+                >Read <strong class="text-foreground">top → bottom</strong>. Upstream and the selected event share the rail at left. Downstream rows use a <strong class="text-foreground">corner icon</strong> (┘) to show they extend from the parent above. Scroll horizontally if the tree is wider than the panel.</span
+            >
+        </div>
+    {/if}
 
     <div class="min-w-0 overflow-x-auto">
         <div class="inline-block min-w-0 align-top">
             <ol class="relative m-0 ml-1 list-none space-y-0 border-l-2 border-muted-foreground/30 py-1 pl-4">
-                {#each parents ?? [] as step, i (String(step.id ?? step.server_id ?? i))}
+                {#each parents ?? [] as step, i (i)}
                     <li role="treeitem" aria-level={i + 1} class="relative py-2">
                         <span
                             class="absolute -left-[9px] top-1/2 size-2 -translate-y-1/2 rounded-full border-2 border-muted-foreground/40 bg-background"

@@ -2,7 +2,7 @@
     import { browser } from '$app/environment';
     import { base } from '$app/paths';
     import { page } from '$app/state';
-    import TraceLineage from '$lib/client/components/features/trace/trace-lineage.svelte';
+    import TraceViewPrototype from '$lib/client/components/features/trace/trace-view-prototype.svelte';
     import { Button } from '$lib/client/components/ui/button/index';
     import Loader2 from '@lucide/svelte/icons/loader-2';
 
@@ -12,18 +12,33 @@
         children?: Record<string, Record<string, unknown>>;
     };
 
+    function normalizeParents(raw: unknown): Record<string, unknown>[] {
+        if (Array.isArray(raw)) return raw as Record<string, unknown>[];
+        if (raw && typeof raw === 'object') return Object.values(raw as Record<string, unknown>);
+        return [];
+    }
+
     let traceData = $state<TracePayload | null>(null);
     let loading = $state(false);
     let error = $state<string | null>(null);
 
+    /** Stable key so the fetch effect does not re-fire on unrelated `page` identity churn. */
+    const traceQueryKey = $derived(page.url.searchParams.toString());
+
     const queue = $derived(page.url.searchParams.get('queue') ?? '');
     const eid = $derived(page.url.searchParams.get('eid') ?? '');
+
+    /** Bumped when a new trace fetch starts; stale async completions must not touch state. */
+    let traceFetchGeneration = 0;
 
     $effect(() => {
         if (!browser) return;
 
-        const q = queue;
-        const e = eid;
+        // Subscribe only to search params, not the whole page object.
+        void traceQueryKey;
+
+        const q = page.url.searchParams.get('queue') ?? '';
+        const e = page.url.searchParams.get('eid') ?? '';
 
         if (!q || !e) {
             traceData = null;
@@ -33,6 +48,8 @@
         }
 
         const ac = new AbortController();
+        /** Monotonic id so aborted in-flight requests do not leave `loading` stuck true. */
+        const requestId = ++traceFetchGeneration;
         loading = true;
         error = null;
         traceData = null;
@@ -47,7 +64,7 @@
                     signal: ac.signal,
                 });
                 const text = await res.text();
-                if (ac.signal.aborted) return;
+                if (requestId !== traceFetchGeneration) return;
                 if (!res.ok) {
                     let msg = text;
                     try {
@@ -60,10 +77,11 @@
                 }
                 traceData = JSON.parse(text) as TracePayload;
             } catch (err) {
+                if (requestId !== traceFetchGeneration) return;
                 if (err instanceof DOMException && err.name === 'AbortError') return;
                 error = err instanceof Error ? err.message : String(err);
             } finally {
-                if (!ac.signal.aborted) loading = false;
+                if (requestId === traceFetchGeneration) loading = false;
             }
         })();
 
@@ -102,10 +120,10 @@
             </div>
             <Button variant="secondary" class="mt-4" href="{base}/dashboard">Back to dashboard</Button>
         {:else if traceData}
-            <TraceLineage
-                parents={traceData.parents ?? []}
+            <TraceViewPrototype
+                parents={normalizeParents(traceData.parents)}
                 event={traceData.event ?? null}
-                children={traceData.children ?? {}}
+                children={traceData.children && typeof traceData.children === 'object' ? traceData.children : {}}
             />
         {/if}
     </div>
