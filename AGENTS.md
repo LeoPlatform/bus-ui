@@ -13,6 +13,24 @@ SvelteKit 2 + Svelte 5 webapp that monitors LEO Platform (serverless ETL). Deplo
 - **AWS**: SDK v3, Leo SDK 7.1.18, Cognito Identity Pool for client credential minting
 - **Deploy**: SST v3 → Lambda (arm64, 1GB, 30s) + CloudFront + API Gateway v1
 
+## Application version (SvelteKit Botmon)
+
+**Source of truth:** `webapp/package.json` → `version` (semver **4.x.y**). That is the **new** Botmon (`webapp/`). The **repo root** `package.json` version (3.x) is the **legacy** webpack Botmon — bump it only when you change the old UI bundle, not for SvelteKit-only work.
+
+**Agents must bump `webapp` version on every PR** that changes anything that ships in the deployed SvelteKit app (features, bug fixes, deploy-facing config, security patches). Do not merge behavior changes with an unchanged `webapp` version — it is how operators and support correlate builds to tickets.
+
+1. `cd webapp`
+2. Choose semver bump (default is patch):
+   - **Patch** — fixes, small UX, internal refactors that deploy:  
+     `npm version patch --no-git-tag-version`
+   - **Minor** — new user-visible capability, backward-compatible API:  
+     `npm version minor --no-git-tag-version`
+   - **Major** — rare; breaking operator/auth/API contract:  
+     `npm version major --no-git-tag-version`
+3. Commit the updated `package.json` and `package-lock.json` in the **same PR** as the code (same commit or the next commit on that branch).
+
+`--no-git-tag-version` skips creating a `git tag` locally (CI or release process may tag after merge).
+
 ## Architecture
 
 All app code is under `webapp/src/`:
