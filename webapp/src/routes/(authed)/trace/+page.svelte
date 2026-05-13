@@ -71,7 +71,7 @@
     });
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col gap-4 p-4 md:p-6">
+<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 p-4 md:p-6">
     <header class="shrink-0">
         <h1 class="text-xl font-semibold tracking-tight">Trace</h1>
         <p class="mt-1 text-sm text-muted-foreground">
@@ -88,7 +88,7 @@
         {/if}
     </header>
 
-    <div class="min-h-0 flex-1 rounded-lg border bg-background p-4 md:p-6">
+    <div class="min-h-0 min-w-0 flex-1 overflow-x-auto rounded-lg border bg-background p-4 md:p-6">
         {#if !queue || !eid}
             <p class="text-sm text-muted-foreground">Select an event and use <strong>Trace</strong> from the queue events tab, or pass query parameters.</p>
         {:else if loading}
