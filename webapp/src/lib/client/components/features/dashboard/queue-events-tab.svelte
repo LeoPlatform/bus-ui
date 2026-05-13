@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
     import { getContext, onDestroy, untrack } from "svelte";
     import { base } from "$app/paths";
     import type { AppState } from "$lib/client/appstate.svelte";
@@ -100,6 +101,12 @@
         navigator.clipboard.writeText(url.toString());
         sharedEid = eid;
         setTimeout(() => { sharedEid = null; }, 2000);
+    }
+
+    function openTrace(detail: StreamEvent) {
+        if (!detail.eid) return;
+        const path = `${base}/trace?queue=${encodeURIComponent(queueId)}&eid=${encodeURIComponent(detail.eid)}`;
+        void goto(path);
     }
 
     let queueSchema: Record<string, unknown> | null = null;
@@ -588,19 +595,18 @@
                                                     <Share2 class="h-4 w-4" />
                                                 {/if}
                                             </button>
+                                            <button
+                                                type="button"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                                                title="Trace event lineage"
+                                                onclick={(e) => {
+                                                    e.stopPropagation();
+                                                    openTrace(detail);
+                                                }}
+                                            >
+                                                <Zap class="h-4 w-4" />
+                                            </button>
                                         {/if}
-                                        <button
-                                            type="button"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
-                                            title="Trace — not wired in this app (legacy GET /trace/…)"
-                                            onclick={(e) => {
-                                                e.stopPropagation();
-                                                searchError =
-                                                    "Trace is not available in this app yet. Use legacy Botmon or add a trace proxy API.";
-                                            }}
-                                        >
-                                            <Zap class="h-4 w-4" />
-                                        </button>
                                         <button
                                             type="button"
                                             class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
