@@ -44,9 +44,8 @@
     const ROOT_R = 22;
     const INITIAL_SCALE = 1.45;
 
-    /** First table row = upstream-most parent, else the selected event. */
-    function firstEntryId(par: TraceNode[], ev: TraceNode): string {
-        if (par.length) return String(par[0]!.id ?? 'p-0');
+    /** Always focus the selected event node so it appears centered on load. */
+    function firstEntryId(_par: TraceNode[], ev: TraceNode): string {
         return String(ev.id ?? ev.eid ?? 'event');
     }
 
@@ -217,6 +216,24 @@
         return `M${a.px},${a.py}C${mx},${a.py} ${mx},${b.py} ${b.px},${b.py}`;
     }
 
+    /**
+     * Like linkPath but stops before the target node's circle edge so an
+     * arrowhead marker sits cleanly at the circle boundary instead of inside it.
+     */
+    function linkPathRight(
+        s: d3.HierarchyNode<GraphNode>,
+        t: d3.HierarchyNode<GraphNode>,
+        flip: number,
+        rootX: number,
+    ): string {
+        const a = toScreen(s, flip, rootX);
+        const b = toScreen(t, flip, rootX);
+        const rTgt = (t.data as GraphNode).is_root ? ROOT_R : NODE_R;
+        const bx = b.px - rTgt - 5;
+        const mx = (a.px + bx) / 2;
+        return `M${a.px},${a.py}C${mx},${a.py} ${mx},${b.py} ${bx},${b.py}`;
+    }
+
     function findWorldPos(
         id: string,
         leftRoot: d3.HierarchyNode<GraphNode>,
@@ -232,7 +249,9 @@
         ] as const) {
             for (const d of root.descendants()) {
                 if (d.data.id === id) {
-                    return toScreen(d, flip, rx);
+                    // toScreen returns { px, py } — map to { x, y } to match return type.
+                    const { px, py } = toScreen(d, flip, rx);
+                    return { x: px, y: py };
                 }
             }
         }
@@ -244,8 +263,13 @@
         if (!el || !event) return;
 
         const rect = el.getBoundingClientRect();
-        const W = Math.max(rect.width || 640, 400);
-        const H = Math.max(rect.height || 480, 400);
+        // Guard: layout hasn't settled yet — defer until next frame so CSS dimensions are available.
+        if (rect.width === 0 || rect.height === 0) {
+            requestAnimationFrame(() => draw());
+            return;
+        }
+        const W = Math.max(rect.width, 400);
+        const H = Math.max(rect.height, 400);
 
         const svg = d3.select(el).select<SVGSVGElement>('svg');
         const svgNodeBefore = svg.node();
@@ -255,7 +279,26 @@
 
         svg.on('.zoom', null);
         svg.selectAll('*').remove();
-        svg.attr('width', W).attr('height', H).attr('role', 'img').attr('aria-label', 'D3 event trace tree');
+        // Set width/height to the container's stable CSS dimensions. The container now has an
+        // explicit height (h-[min(72vh,560px)]) so these values are fixed — no feedback loop.
+        svg.attr('width', W).attr('height', H);
+        svg.attr('role', 'img').attr('aria-label', 'D3 event trace tree');
+
+        // Arrowhead marker for downstream directed links
+        const defs = svg.append('defs');
+        defs.append('marker')
+            .attr('id', 'trace-arr')
+            .attr('viewBox', '0 -4 8 8')
+            .attr('refX', 8)
+            .attr('refY', 0)
+            .attr('markerWidth', 8)
+            .attr('markerHeight', 8)
+            .attr('markerUnits', 'userSpaceOnUse')
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-4L8,0L0,4Z')
+            .attr('fill', 'var(--muted-foreground)')
+            .attr('opacity', 0.65);
 
         const rootData = buildGraphRoot(event, parentsArray, children ?? {});
         const parentMap = buildParentMap(rootData, parentsArray);
@@ -308,16 +351,25 @@
                     return `translate(${px},${py})`;
                 })
                 .style('cursor', 'pointer')
-                .on('click', (_ev, d) => {
+                // Use pointerdown + stopPropagation instead of click. D3 zoom v7 calls
+                // setPointerCapture on pointerdown which redirects the click event to the
+                // SVG element, so click handlers on child nodes never fire. Stopping
+                // propagation here prevents zoom from capturing, while background drags work.
+                .on('pointerdown', (ev, d) => {
+                    ev.stopPropagation();
                     focusNodeId = d.data.id;
                 });
 
             sel.append('circle')
                 .attr('r', (d) => (d.data.is_root ? ROOT_R : NODE_R))
-                .attr('fill', (d) => (d.data.is_root ? 'var(--secondary)' : 'var(--card)'))
+                .attr('fill', (d) => {
+                    if (d.data.is_root) return 'var(--primary)';
+                    return nodeType(d.data) === 'bot' ? 'var(--muted)' : 'var(--card)';
+                })
                 .attr('stroke', (d) => {
                     if (d.data.id === focusNodeId) return 'var(--primary)';
-                    return d.data.is_root ? 'var(--primary)' : strokeEdgeSoft;
+                    if (d.data.is_root) return 'var(--primary)';
+                    return nodeType(d.data) === 'bot' ? 'var(--muted-foreground)' : strokeEdgeSoft;
                 })
                 .attr('stroke-width', (d) => {
                     if (d.data.id === focusNodeId) return 3.5;
@@ -327,9 +379,9 @@
             sel.append('text')
                 .attr('text-anchor', 'middle')
                 .attr('dy', (d) => (d.data.is_root ? 5 : 4))
-                .attr('fill', 'var(--foreground)')
+                .attr('fill', (d) => (d.data.is_root ? 'var(--primary-foreground)' : 'var(--foreground)'))
                 .attr('font-size', 10)
-                .attr('font-weight', 600)
+                .attr('font-weight', 700)
                 .attr('class', 'pointer-events-none select-none')
                 .text((d) => (nodeType(d.data) === 'bot' ? 'B' : 'Q'));
 
@@ -342,7 +394,7 @@
                 .attr('class', 'pointer-events-none select-none')
                 .each(function (d) {
                     const label = nodeTitle(d.data);
-                    const max = 18;
+                    const max = 22;
                     const short = label.length > max ? `${label.slice(0, max - 1)}…` : label;
                     d3.select(this).text(short);
                 });
@@ -389,17 +441,21 @@
         const rightLinks = rightRoot.links();
 
         const linkG = graphG.append('g').attr('class', 'trace-links');
+
+        // Upstream links — subtler, dashed to indicate "history"
         linkG
             .selectAll('path.trace-link-left')
             .data(leftLinks)
             .join('path')
             .attr('fill', 'none')
-            .attr('stroke', strokeEdge)
-            .attr('stroke-width', 2.25)
+            .attr('stroke', strokeEdgeSoft)
+            .attr('stroke-width', 1.75)
+            .attr('stroke-dasharray', '6 3')
             .attr('stroke-linecap', 'round')
-            .attr('opacity', 0.92)
+            .attr('opacity', 0.7)
             .attr('d', (d) => linkPath(d.source, d.target, FLIP_L, rootXLeft));
 
+        // Downstream links — solid + arrowhead to show directed flow
         linkG
             .selectAll('path.trace-link-right')
             .data(rightLinks)
@@ -409,8 +465,10 @@
             .attr('stroke-width', 2.25)
             .attr('stroke-linecap', 'round')
             .attr('opacity', 0.92)
-            .attr('d', (d) => linkPath(d.source, d.target, FLIP_R, rootXRight));
+            .attr('marker-end', 'url(#trace-arr)')
+            .attr('d', (d) => linkPathRight(d.source, d.target, FLIP_R, rootXRight));
 
+        // Lag labels on upstream links
         linkG
             .selectAll('text.trace-lag-left')
             .data(
@@ -420,14 +478,38 @@
                 }),
             )
             .join('text')
-            .attr('fill', 'var(--foreground)')
+            .attr('class', 'trace-lag-left')
+            .attr('fill', 'var(--muted-foreground)')
             .attr('font-family', 'ui-monospace, monospace')
-            .attr('font-size', 10)
+            .attr('font-size', 9)
             .attr('text-anchor', 'middle')
-            .attr('dy', -6)
+            .attr('dy', -5)
             .attr('transform', (l) => {
                 const a = toScreen(l.source, FLIP_L, rootXLeft);
                 const b = toScreen(l.target, FLIP_L, rootXLeft);
+                return `translate(${(a.px + b.px) / 2},${(a.py + b.py) / 2})`;
+            })
+            .text((l) => fmtLag(l.target.data.lag));
+
+        // Lag labels on downstream links
+        linkG
+            .selectAll('text.trace-lag-right')
+            .data(
+                rightLinks.filter((l) => {
+                    const lag = l.target.data.lag;
+                    return lag !== undefined && lag !== '' && lag !== null;
+                }),
+            )
+            .join('text')
+            .attr('class', 'trace-lag-right')
+            .attr('fill', 'var(--muted-foreground)')
+            .attr('font-family', 'ui-monospace, monospace')
+            .attr('font-size', 9)
+            .attr('text-anchor', 'middle')
+            .attr('dy', -5)
+            .attr('transform', (l) => {
+                const a = toScreen(l.source, FLIP_R, rootXRight);
+                const b = toScreen(l.target, FLIP_R, rootXRight);
                 return `translate(${(a.px + b.px) / 2},${(a.py + b.py) / 2})`;
             })
             .text((l) => fmtLag(l.target.data.lag));
@@ -465,6 +547,27 @@
                 .translate(-focusPos.x, -focusPos.y);
         }
         svg.call(zoomBehavior.transform as never, targetTf);
+
+        // Zone orientation labels — fixed in the SVG viewport, outside zoom layer
+        const labelStyle = {
+            fill: 'var(--muted-foreground)',
+            'font-size': '11',
+            'font-family': 'ui-sans-serif, system-ui, sans-serif',
+            opacity: '0.45',
+            'pointer-events': 'none',
+        } as const;
+        svg.append('text')
+            .attr('x', 14)
+            .attr('y', H - 14)
+            .attr('text-anchor', 'start')
+            .call((t) => Object.entries(labelStyle).forEach(([k, v]) => t.attr(k, v)))
+            .text('← upstream');
+        svg.append('text')
+            .attr('x', W - 14)
+            .attr('y', H - 14)
+            .attr('text-anchor', 'end')
+            .call((t) => Object.entries(labelStyle).forEach(([k, v]) => t.attr(k, v)))
+            .text('downstream →');
 
         svg.on('mousedown', () => {
             (el as HTMLElement).focus({ preventScroll: true });
@@ -567,10 +670,10 @@
         tabindex="0"
         role="application"
         aria-label="Trace graph. Use arrow keys to navigate nodes."
-        class="min-h-[min(72vh,560px)] w-full min-w-0 rounded-lg border bg-muted/10 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="h-[min(72vh,560px)] w-full min-w-0 rounded-lg border bg-muted/10 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
         {#if event}
-            <svg class="block h-full min-h-[min(72vh,560px)] w-full touch-none"></svg>
+            <svg class="block h-full w-full touch-none"></svg>
         {:else}
             <p class="p-6 text-sm text-muted-foreground">No event loaded.</p>
         {/if}
