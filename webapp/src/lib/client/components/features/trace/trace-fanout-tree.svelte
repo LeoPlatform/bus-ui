@@ -4,9 +4,34 @@
      * with click + keyboard navigation and zoom/pan.
      */
     import { calendarFormat } from '$lib/client/event-viewer/event-search-utils';
+    import { base } from '$app/paths';
     import * as d3 from 'd3';
     import { onMount } from 'svelte';
     import GitBranch from '@lucide/svelte/icons/git-branch';
+    import TraceNodeTooltip from './trace-node-tooltip.svelte';
+
+    type LucideIconNode = [string, Record<string, string>];
+    const ICON_DEFS: Record<string, LucideIconNode[]> = {
+        bot: [
+            ['path', { d: 'M12 20v2' }], ['path', { d: 'M12 2v2' }],
+            ['path', { d: 'M17 20v2' }], ['path', { d: 'M17 2v2' }],
+            ['path', { d: 'M2 12h2' }], ['path', { d: 'M2 17h2' }], ['path', { d: 'M2 7h2' }],
+            ['path', { d: 'M20 12h2' }], ['path', { d: 'M20 17h2' }], ['path', { d: 'M20 7h2' }],
+            ['path', { d: 'M7 20v2' }], ['path', { d: 'M7 2v2' }],
+            ['rect', { x: '4', y: '4', width: '16', height: '16', rx: '2' }],
+            ['rect', { x: '8', y: '8', width: '8', height: '8', rx: '1' }],
+        ],
+        system: [
+            ['rect', { width: '20', height: '8', x: '2', y: '2', rx: '2', ry: '2' }],
+            ['rect', { width: '20', height: '8', x: '2', y: '14', rx: '2', ry: '2' }],
+            ['line', { x1: '6', x2: '6.01', y1: '6', y2: '6' }],
+            ['line', { x1: '6', x2: '6.01', y1: '18', y2: '18' }],
+        ],
+        queue: [
+            ['polyline', { points: '22 12 16 12 14 15 10 15 8 12 2 12' }],
+            ['path', { d: 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z' }],
+        ],
+    };
 
     type TraceNode = Record<string, unknown>;
 
@@ -94,6 +119,14 @@
         const ts = n.timestamp as number | undefined;
         return calendarFormat(ts);
     }
+
+    function dashboardHref(n: TraceNode): string | null {
+        const id = n.id ?? n.server_id;
+        return id != null && id !== '' ? `${base}/dashboard/${String(id)}` : null;
+    }
+
+    let tooltipNode = $state<GraphNode | null>(null);
+    let tooltipPos = $state<{ x: number; y: number } | null>(null);
 
     function buildGraphRoot(ev: TraceNode, flatParents: TraceNode[], down: Record<string, TraceNode>): GraphNode {
         const evtId = String(ev.id ?? ev.eid ?? 'event');
@@ -259,6 +292,8 @@
     }
 
     function draw() {
+        tooltipNode = null;
+        tooltipPos = null;
         const el = wrapEl;
         if (!el || !event) return;
 
@@ -376,14 +411,37 @@
                     return d.data.is_root ? 3 : 2;
                 });
 
-            sel.append('text')
-                .attr('text-anchor', 'middle')
-                .attr('dy', (d) => (d.data.is_root ? 5 : 4))
-                .attr('fill', (d) => (d.data.is_root ? 'var(--primary-foreground)' : 'var(--foreground)'))
-                .attr('font-size', 10)
-                .attr('font-weight', 700)
-                .attr('class', 'pointer-events-none select-none')
-                .text((d) => (nodeType(d.data) === 'bot' ? 'B' : 'Q'));
+            sel.each(function (d) {
+                const size = d.data.is_root ? 20 : 14;
+                const color = d.data.is_root ? 'var(--primary-foreground)' : 'var(--foreground)';
+                const type = nodeType(d.data);
+                const iconDef = ICON_DEFS[type] ?? ICON_DEFS['queue']!;
+                const scale = size / 24;
+                const iconG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                iconG.setAttribute('class', 'node-icon pointer-events-none select-none');
+                iconG.setAttribute('transform', `translate(${-size / 2},${-size / 2}) scale(${scale})`);
+                iconG.setAttribute('fill', 'none');
+                iconG.setAttribute('stroke', color);
+                iconG.setAttribute('stroke-width', String((2 / scale).toFixed(2)));
+                iconG.setAttribute('stroke-linecap', 'round');
+                iconG.setAttribute('stroke-linejoin', 'round');
+                for (const [tag, attrs] of iconDef) {
+                    const iconEl = document.createElementNS('http://www.w3.org/2000/svg', tag);
+                    for (const [k, v] of Object.entries(attrs)) iconEl.setAttribute(k, v);
+                    iconG.appendChild(iconEl);
+                }
+                this.appendChild(iconG);
+            });
+
+            sel.on('mouseenter', (ev: MouseEvent, d) => {
+                tooltipNode = d.data;
+                tooltipPos = { x: ev.clientX, y: ev.clientY };
+            }).on('mousemove', (ev: MouseEvent) => {
+                tooltipPos = { x: ev.clientX, y: ev.clientY };
+            }).on('mouseleave', () => {
+                tooltipNode = null;
+                tooltipPos = null;
+            });
 
             sel.append('text')
                 .attr('text-anchor', 'middle')
@@ -655,7 +713,7 @@
     });
 </script>
 
-<div class="trace-botmon-d3 flex min-w-0 max-w-full flex-col gap-2 text-sm" role="region" aria-label="Event trace D3 tree">
+<div class="trace-botmon-d3 relative flex min-w-0 max-w-full flex-col gap-2 text-sm" role="region" aria-label="Event trace D3 tree">
     <div
         class="mb-1 flex min-w-0 items-start gap-2 rounded-md border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
     >
@@ -678,4 +736,13 @@
             <p class="p-6 text-sm text-muted-foreground">No event loaded.</p>
         {/if}
     </div>
+
+    {#if tooltipNode && tooltipPos}
+        <div
+            class="pointer-events-none fixed z-[200] rounded-lg border bg-popover p-3 shadow-md"
+            style="left: {tooltipPos.x + 16}px; top: {tooltipPos.y - 8}px; max-width: 18rem;"
+        >
+            <TraceNodeTooltip node={tooltipNode} dashHref={dashboardHref(tooltipNode)} />
+        </div>
+    {/if}
 </div>
