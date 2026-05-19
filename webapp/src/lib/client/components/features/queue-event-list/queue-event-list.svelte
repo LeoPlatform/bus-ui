@@ -59,6 +59,10 @@
         onEventSelect?: (ev: StreamEvent, index: number) => void;
         /** Returns the URL to copy for the share button. If omitted, share button is hidden. */
         shareUrlFn?: (eid: string) => string;
+        /** Show the copy-EID button per row. Defaults to true. */
+        showCopyEid?: boolean;
+        /** Show the replay button per row. Defaults to true. */
+        showReplay?: boolean;
     };
 
     let {
@@ -72,6 +76,8 @@
         onReplay,
         onEventSelect,
         shareUrlFn,
+        showCopyEid = true,
+        showReplay = true,
     }: QueueEventListProps = $props();
 
     const TIME_FRAMES = ['30s', '1m', '5m', '1hr', '6hr', '1d', '1w'] as const;
@@ -562,18 +568,20 @@
                                 <Table.Cell class="text-right align-middle">
                                     <div class="flex justify-end gap-1">
                                         {#if detail.eid}
-                                            <button
-                                                type="button"
-                                                class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
-                                                title="Copy event ID"
-                                                onclick={(e) => { e.stopPropagation(); copyEid(detail.eid!); }}
-                                            >
-                                                {#if copiedEid === detail.eid}
-                                                    <Check class="h-4 w-4 text-green-500" />
-                                                {:else}
-                                                    <Copy class="h-4 w-4" />
-                                                {/if}
-                                            </button>
+                                            {#if showCopyEid}
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                                                    title="Copy event ID"
+                                                    onclick={(e) => { e.stopPropagation(); copyEid(detail.eid!); }}
+                                                >
+                                                    {#if copiedEid === detail.eid}
+                                                        <Check class="h-4 w-4 text-green-500" />
+                                                    {:else}
+                                                        <Copy class="h-4 w-4" />
+                                                    {/if}
+                                                </button>
+                                            {/if}
                                             {#if shareUrlFn}
                                                 <button
                                                     type="button"
@@ -599,14 +607,16 @@
                                                 </button>
                                             {/if}
                                         {/if}
-                                        <button
-                                            type="button"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
-                                            title="Replay"
-                                            onclick={(e) => { e.stopPropagation(); handleReplay(detail); }}
-                                        >
-                                            <RotateCcw class="h-4 w-4" />
-                                        </button>
+                                        {#if showReplay}
+                                            <button
+                                                type="button"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                                                title="Replay"
+                                                onclick={(e) => { e.stopPropagation(); handleReplay(detail); }}
+                                            >
+                                                <RotateCcw class="h-4 w-4" />
+                                            </button>
+                                        {/if}
                                         {#if payloadValidate}
                                             <button
                                                 type="button"
@@ -683,7 +693,7 @@
                     </button>
                 {/if}
             </div>
-            <div class="flex flex-col overflow-auto p-3 min-h-0 gap-3">
+            <div class="flex flex-col flex-1 overflow-auto p-3 min-h-0 gap-3">
                 {#if selected}
                     {#if oldNewPair}
                         <div class="flex items-center gap-2 text-sm shrink-0">

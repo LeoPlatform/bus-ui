@@ -141,10 +141,12 @@
 
     <!-- Event list (with built-in payload panel) -->
     {#if selectedQueue}
-        <div class="flex-1 min-h-0">
+        <div class="flex-1 min-h-0 flex flex-col">
             <QueueEventList
                 queueId={selectedQueue.id}
                 onTrace={handleTrace}
+                showCopyEid={false}
+                showReplay={false}
             />
         </div>
     {/if}
