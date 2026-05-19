@@ -410,6 +410,22 @@
         try { return JSON.stringify(selected, null, 4); } catch { return String(selected); }
     });
 
+    const s3Links = $derived.by((): { href: string; label: string }[] => {
+        if (!payloadPretty) return [];
+        const found: { href: string; label: string }[] = [];
+        const seen = new Set<string>();
+        const addLink = (bucket: string, key: string, raw: string) => {
+            const href = `https://console.aws.amazon.com/s3/buckets/${bucket}/${key}/details?region=us-west-2&tab=overview`;
+            if (!seen.has(href)) {
+                seen.add(href);
+                found.push({ href, label: raw.length > 80 ? raw.slice(0, 77) + '…' : raw });
+            }
+        };
+        for (const m of payloadPretty.matchAll(/s3:\/\/(.*?)\/(.*?\/z\/[^\s"]+)/g)) addLink(m[1], m[2], m[0]);
+        for (const m of payloadPretty.matchAll(/"[Bb]ucket":\s*"(.*?)",\s*"[Kk]ey":\s*"(.*?\/z\/.*?)"/g)) addLink(m[1], m[2], `s3://${m[1]}/${m[2]}`);
+        return found;
+    });
+
     let oldNewPair = $derived.by(() => {
         const p = selected?.payload;
         if (!p || typeof p !== "object") return null;
@@ -667,10 +683,10 @@
                     </button>
                 {/if}
             </div>
-            <div class="flex-1 overflow-auto p-3 min-h-0">
+            <div class="flex flex-col overflow-auto p-3 min-h-0 gap-3">
                 {#if selected}
                     {#if oldNewPair}
-                        <div class="flex items-center gap-2 text-sm mb-2">
+                        <div class="flex items-center gap-2 text-sm shrink-0">
                             <Switch bind:checked={showOldNewDiff} id="old-new-diff" />
                             <label for="old-new-diff" class="cursor-pointer">Old / new diff</label>
                         </div>
@@ -679,6 +695,23 @@
                         <DiffCodeView oldObj={oldNewPair.old} newObj={oldNewPair.new} />
                     {:else}
                         <CodeView code={payloadPretty} lang="json" />
+                    {/if}
+                    {#if s3Links.length > 0}
+                        <div class="shrink-0 border-t border-border pt-2">
+                            <p class="mb-1 text-xs font-semibold text-muted-foreground">S3 References</p>
+                            <ul class="flex flex-col gap-0.5">
+                                {#each s3Links as link (link.href)}
+                                    <li>
+                                        <a
+                                            href={link.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="break-all font-mono text-[10px] text-blue-600 hover:underline dark:text-blue-400"
+                                        >{link.label}</a>
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
                     {/if}
                 {:else}
                     <p class="text-sm text-muted-foreground">Select an event row.</p>
