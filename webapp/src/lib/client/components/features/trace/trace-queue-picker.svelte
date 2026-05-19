@@ -1,7 +1,7 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { base } from '$app/paths';
-    import { onDestroy } from 'svelte';
+    import { onDestroy, tick } from 'svelte';
     import * as Table from '$lib/client/components/ui/table/index';
     import { Input } from '$lib/client/components/ui/input/index';
     import { Button } from '$lib/client/components/ui/button/index';
@@ -44,7 +44,8 @@
     let eventsLoading = $state(false);
     let eventsError = $state<string | null>(null);
     let resumptionToken = $state<string | null>(null);
-    let selectedRowEid = $state<string | null>(null);
+    let activeIndex = $state(-1);
+    let tableContainer: HTMLElement | undefined = $state();
 
     // ── Fetch queue list on mount ───────────────────────────────────────────
     (async () => {
@@ -99,6 +100,11 @@
 
             events = list;
             resumptionToken = tok || null;
+            if (reset && list.length > 0) {
+                activeIndex = 0;
+                await tick();
+                tableContainer?.focus();
+            }
         } catch (e) {
             if (signal.aborted) return;
             eventsError = e instanceof Error ? e.message : String(e);
@@ -111,7 +117,7 @@
         selectedQueue = q;
         queueFilter = q.name ?? q.id;
         dropdownOpen = false;
-        selectedRowEid = null;
+        activeIndex = -1;
         const token = buildZTokenFromUtcMs(Date.now() - 5 * 60_000);
         void loadEvents(q.id, token, true);
     }
@@ -122,7 +128,7 @@
         events = [];
         eventsError = null;
         resumptionToken = null;
-        selectedRowEid = null;
+        activeIndex = -1;
     }
 
     function openTrace(ev: StreamEvent) {
@@ -148,10 +154,23 @@
         }
     }
 
-    function handleRowKeydown(e: KeyboardEvent, ev: StreamEvent) {
-        if (e.key === 'Enter' || e.key === ' ') {
+    function scrollActiveIntoView(idx: number) {
+        document.getElementById(`picker-event-${idx}`)?.scrollIntoView({ block: 'nearest' });
+    }
+
+    function handleTableKeydown(e: KeyboardEvent) {
+        if (events.length === 0) return;
+        if (e.key === 'ArrowDown') {
             e.preventDefault();
-            openTrace(ev);
+            activeIndex = Math.min(activeIndex + 1, events.length - 1);
+            scrollActiveIntoView(activeIndex);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = Math.max(activeIndex - 1, 0);
+            scrollActiveIntoView(activeIndex);
+        } else if (e.key === 'Enter' && activeIndex >= 0) {
+            e.preventDefault();
+            openTrace(events[activeIndex]);
         }
     }
 
@@ -242,7 +261,16 @@
             {:else if !eventsLoading && events.length === 0}
                 <p class="text-sm text-muted-foreground">No events found in the last 5 minutes.</p>
             {:else}
-                <div class="rounded-md border">
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <div
+                    class="rounded-md border focus:outline-none"
+                    role="grid"
+                    tabindex={0}
+                    aria-label="Event list"
+                    aria-activedescendant={activeIndex >= 0 ? `picker-event-${activeIndex}` : undefined}
+                    bind:this={tableContainer}
+                    onkeydown={handleTableKeydown}
+                >
                     <Table.Root class="text-sm">
                         <Table.Header>
                             <Table.Row>
@@ -253,14 +281,12 @@
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                            {#each events as ev (ev.eid ?? Math.random())}
+                            {#each events as ev, i (ev.eid ?? i)}
                                 <Table.Row
-                                    class="cursor-pointer {selectedRowEid === ev.eid ? 'bg-muted/80' : ''}"
-                                    onclick={() => { selectedRowEid = ev.eid ?? null; openTrace(ev); }}
-                                    onkeydown={(e) => handleRowKeydown(e, ev)}
-                                    tabindex={0}
-                                    role="button"
-                                    aria-label="Trace event {ev.eid}"
+                                    id="picker-event-{i}"
+                                    class="cursor-pointer {activeIndex === i ? 'bg-muted/80' : ''}"
+                                    aria-selected={activeIndex === i}
+                                    onclick={() => { activeIndex = i; openTrace(ev); }}
                                 >
                                     <Table.Cell class="font-mono text-xs">{ev.eid ?? '—'}</Table.Cell>
                                     <Table.Cell class="whitespace-nowrap text-xs">{calendarFormat(ev.timestamp)}</Table.Cell>
