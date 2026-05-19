@@ -147,6 +147,7 @@
                 onTrace={handleTrace}
                 showCopyEid={false}
                 showReplay={false}
+                autofocus={true}
             />
         </div>
     {/if}

@@ -63,6 +63,8 @@
         showCopyEid?: boolean;
         /** Show the replay button per row. Defaults to true. */
         showReplay?: boolean;
+        /** Focus the list region on mount (e.g. after queue selection). Defaults to false. */
+        autofocus?: boolean;
     };
 
     let {
@@ -78,7 +80,14 @@
         shareUrlFn,
         showCopyEid = true,
         showReplay = true,
+        autofocus = false,
     }: QueueEventListProps = $props();
+
+    let rootEl = $state<HTMLElement>();
+
+    $effect(() => {
+        if (autofocus && rootEl) rootEl.focus();
+    });
 
     const TIME_FRAMES = ['30s', '1m', '5m', '1hr', '6hr', '1d', '1w'] as const;
     type TimeFrame = (typeof TIME_FRAMES)[number];
@@ -375,12 +384,21 @@
 
     function onTableKeydown(e: KeyboardEvent) {
         if (!events.length) return;
+        const root = e.currentTarget as HTMLElement;
         if (e.key === "ArrowUp") {
             e.preventDefault();
             selectRow(Math.max(0, eventIndex - 1));
+            root.focus();
         } else if (e.key === "ArrowDown") {
             e.preventDefault();
             selectRow(Math.min(events.length - 1, eventIndex + 1));
+            root.focus();
+        } else if (e.key === "Enter") {
+            const tag = (e.target as HTMLElement).tagName;
+            if (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "TEXTAREA") return;
+            e.preventDefault();
+            const ev = events[eventIndex];
+            if (ev) onTrace?.(ev);
         }
     }
 
@@ -489,7 +507,8 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="flex flex-col gap-4 flex-1 min-h-0" onkeydown={onTableKeydown} tabindex="-1" role="region">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div bind:this={rootEl} class="flex flex-col gap-4 flex-1 min-h-0 outline-none" onkeydown={onTableKeydown} tabindex="0" role="region">
     <div class="flex items-center gap-2 shrink-0">
         <Input
             class="flex-1 font-mono text-sm"
