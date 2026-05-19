@@ -3,16 +3,19 @@
     import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
     import Cpu from '@lucide/svelte/icons/cpu';
     import Inbox from '@lucide/svelte/icons/inbox';
+    import Server from '@lucide/svelte/icons/server';
     import GitBranch from '@lucide/svelte/icons/git-branch';
     import Copy from '@lucide/svelte/icons/copy';
     import Check from '@lucide/svelte/icons/check';
     import X from '@lucide/svelte/icons/x';
     import ExternalLink from '@lucide/svelte/icons/external-link';
+    import Settings from '@lucide/svelte/icons/settings';
     import ChevronDown from '@lucide/svelte/icons/chevron-down';
     import ChevronRight from '@lucide/svelte/icons/chevron-right';
     import { base } from '$app/paths';
     import * as Tooltip from '$lib/client/components/ui/tooltip/index';
     import { SplitPane } from '$ui/split-pane';
+    import TraceNodeTooltip from './trace-node-tooltip.svelte';
 
     type TraceNode = Record<string, unknown>;
 
@@ -178,8 +181,6 @@
         else next.add(key);
         collapsedNodes = next;
     }
-
-
 </script>
 
 <!--
@@ -216,7 +217,7 @@
                                     role="button"
                                     tabindex="0"
                                     aria-pressed={isSelected}
-                                    class="w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted/50 {isSelected
+                                    class="group w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted/50 {isSelected
                                         ? 'bg-muted ring-1 ring-ring'
                                         : ''}"
                                     onclick={() => selectNode(stepKey, step)}
@@ -224,16 +225,23 @@
                                 >
                                     <!-- Row 1: icon · type · name · lag · dashboard -->
                                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                        <span
-                                            class="flex size-7 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm"
-                                            title={nodeType(step)}
+                                        <Tooltip.Provider>
+                                        <Tooltip.Root delayDuration={300}>
+                                        <Tooltip.Trigger
+                                            class="flex size-7 shrink-0 cursor-default items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            onclick={(e: MouseEvent) => e.stopPropagation()}
                                         >
                                             {#if nodeType(step) === 'bot'}
                                                 <Cpu class="size-4" aria-hidden="true" />
+                                            {:else if nodeType(step) === 'system'}
+                                                <Server class="size-4" aria-hidden="true" />
                                             {:else}
                                                 <Inbox class="size-4" aria-hidden="true" />
                                             {/if}
-                                        </span>
+                                        </Tooltip.Trigger>
+                                        <Tooltip.Content class="p-3"><TraceNodeTooltip node={step} /></Tooltip.Content>
+                                        </Tooltip.Root>
+                                        </Tooltip.Provider>
                                         <span
                                             class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
                                             >{String(step.type ?? '')}</span
@@ -248,12 +256,12 @@
                                                     <Tooltip.Trigger>
                                                         <a
                                                             href={stepDashHref}
-                                                            class="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:text-foreground"
+                                                            class="shrink-0 rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             onclick={(e) => e.stopPropagation()}
                                                             aria-label="Open in dashboard"
-                                                        ><ExternalLink class="size-3" aria-hidden="true" /></a>
+                                                        ><Settings class="size-3" aria-hidden="true" /></a>
                                                     </Tooltip.Trigger>
                                                     <Tooltip.Content>Dashboard</Tooltip.Content>
                                                 </Tooltip.Root>
@@ -374,6 +382,7 @@
                                     {@const nDashHref = dashboardHref(n)}
                                     {@const isSelected = panelNode?.key === nodeKey}
                                     {@const hasKids = n.children != null && typeof n.children === 'object' && Object.keys(n.children as object).length > 0}
+                                    {@const kidCount = hasKids ? Object.keys(n.children as Record<string, TraceNode>).length : 0}
                                     {@const isCollapsed = collapsedNodes.has(nodeKey)}
                                     <li role="treeitem" aria-level={(parents?.length ?? 0) + 2 + depth} aria-selected={isSelected} aria-expanded={hasKids ? !isCollapsed : undefined}>
                                         <div class="flex items-start gap-1">
@@ -403,7 +412,7 @@
                                                     role="button"
                                                     tabindex="0"
                                                     aria-pressed={isSelected}
-                                                    class="w-full rounded-md border-b border-border/55 py-1 pr-1 text-left transition-colors {isSelected
+                                                    class="group w-full rounded-md border-b border-border/55 py-1 pr-1 text-left transition-colors {isSelected
                                                         ? 'bg-muted ring-1 ring-ring'
                                                         : notProcessed
                                                           ? 'border-l-2 border-amber-500/70 pl-2 hover:bg-muted/40'
@@ -413,18 +422,25 @@
                                                 >
                                                     <!-- Row 1: icon · type · name · badges · lag · dashboard -->
                                                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                                        <span
-                                                            class="flex size-7 shrink-0 items-center justify-center rounded-md border {notProcessed
+                                                        <Tooltip.Provider>
+                                                        <Tooltip.Root delayDuration={300}>
+                                                        <Tooltip.Trigger
+                                                            class="flex size-7 shrink-0 cursor-default items-center justify-center rounded-md border {notProcessed
                                                                 ? 'border-amber-400/60 bg-background text-amber-600 dark:text-amber-400'
-                                                                : 'bg-background text-muted-foreground'} shadow-sm"
-                                                            title={nodeType(n)}
+                                                                : 'bg-background text-muted-foreground'} shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                                            onclick={(e: MouseEvent) => e.stopPropagation()}
                                                         >
                                                             {#if nodeType(n) === 'bot'}
                                                                 <Cpu class="size-4" aria-hidden="true" />
+                                                            {:else if nodeType(n) === 'system'}
+                                                                <Server class="size-4" aria-hidden="true" />
                                                             {:else}
                                                                 <Inbox class="size-4" aria-hidden="true" />
                                                             {/if}
-                                                        </span>
+                                                        </Tooltip.Trigger>
+                                                        <Tooltip.Content class="p-3"><TraceNodeTooltip node={n} /></Tooltip.Content>
+                                                        </Tooltip.Root>
+                                                        </Tooltip.Provider>
                                                         <span
                                                             class="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide {notProcessed
                                                                 ? 'bg-muted text-amber-600 dark:text-amber-400'
@@ -448,12 +464,12 @@
                                                                     <Tooltip.Trigger>
                                                                         <a
                                                                             href={nDashHref}
-                                                                            class="shrink-0 rounded p-0.5 text-muted-foreground/50 hover:text-foreground"
+                                                                            class="shrink-0 rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             onclick={(e) => e.stopPropagation()}
                                                                             aria-label="Open in dashboard"
-                                                                        ><ExternalLink class="size-3" aria-hidden="true" /></a>
+                                                                        ><Settings class="size-3" aria-hidden="true" /></a>
                                                                     </Tooltip.Trigger>
                                                                     <Tooltip.Content>Dashboard</Tooltip.Content>
                                                                 </Tooltip.Root>
@@ -487,8 +503,17 @@
                                                         </div>
                                                     {/if}
                                                 </div>
-                                                {#if hasKids && !isCollapsed}
-                                                    {@render branch(n.children as Record<string, TraceNode>, depth + 1, nodeKey)}
+                                                {#if hasKids}
+                                                    {#if isCollapsed}
+                                                        <div class="ml-1 mt-1 flex items-center gap-1.5 py-0.5 pl-1" aria-hidden="true">
+                                                            <span class="size-1.5 rounded-full bg-muted-foreground/30"></span>
+                                                            <span class="size-1.5 rounded-full bg-muted-foreground/30"></span>
+                                                            <span class="size-1.5 rounded-full bg-muted-foreground/30"></span>
+                                                            <span class="text-[10px] text-muted-foreground/50">{kidCount} hidden</span>
+                                                        </div>
+                                                    {:else}
+                                                        {@render branch(n.children as Record<string, TraceNode>, depth + 1, nodeKey)}
+                                                    {/if}
                                                 {/if}
                                             </div>
                                         </div>
@@ -513,6 +538,8 @@
                     <span class="flex size-7 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm">
                         {#if nodeType(pn) === 'bot'}
                             <Cpu class="size-4" aria-hidden="true" />
+                        {:else if nodeType(pn) === 'system'}
+                            <Server class="size-4" aria-hidden="true" />
                         {:else}
                             <Inbox class="size-4" aria-hidden="true" />
                         {/if}
