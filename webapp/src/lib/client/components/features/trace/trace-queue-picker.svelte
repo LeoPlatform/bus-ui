@@ -1,27 +1,20 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { base } from '$app/paths';
-    import { onDestroy, tick } from 'svelte';
-    import * as Table from '$lib/client/components/ui/table/index';
+    import { onDestroy } from 'svelte';
     import { Input } from '$lib/client/components/ui/input/index';
     import { Button } from '$lib/client/components/ui/button/index';
+    import { Switch } from '$lib/client/components/ui/switch/index';
+    import { SplitPane } from '$ui/split-pane';
+    import { CodeView, DiffCodeView } from '$ui/code-view';
+    import { QueueEventList, type StreamEvent } from '$lib/client/components/features/queue-event-list';
     import Loader2 from '@lucide/svelte/icons/loader-2';
     import Search from '@lucide/svelte/icons/search';
-    import Zap from '@lucide/svelte/icons/zap';
     import X from '@lucide/svelte/icons/x';
-    import {
-        buildZTokenFromUtcMs,
-        calendarFormat,
-        filterSearchPathSegment,
-    } from '$lib/client/event-viewer/event-search-utils';
+    import Copy from '@lucide/svelte/icons/copy';
+    import Check from '@lucide/svelte/icons/check';
 
     type SearchItem = { id: string; name?: string; type: string };
-
-    type StreamEvent = {
-        eid?: string;
-        timestamp?: number;
-        event_source_timestamp?: number;
-    };
 
     // ── Queue search state ──────────────────────────────────────────────────
     let allQueues = $state<SearchItem[]>([]);
@@ -39,22 +32,62 @@
         }),
     );
 
-    // ── Event list state ────────────────────────────────────────────────────
-    let events = $state<StreamEvent[]>([]);
-    let eventsLoading = $state(false);
-    let eventsError = $state<string | null>(null);
-    let resumptionToken = $state<string | null>(null);
-    let activeIndex = $state(-1);
-    let tableContainer: HTMLElement | undefined = $state();
+    // ── Selected event state (for payload panel) ────────────────────────────
+    let selectedEvent = $state<StreamEvent | null>(null);
+    let showOldNewDiff = $state(false);
+    let copied = $state(false);
+
+    const payloadPretty = $derived.by(() => {
+        if (!selectedEvent) return '';
+        try { return JSON.stringify(selectedEvent, null, 4); } catch { return String(selectedEvent); }
+    });
+
+    const oldNewPair = $derived.by(() => {
+        const p = selectedEvent?.payload;
+        if (!p || typeof p !== 'object') return null;
+        if (!('old' in p) && !('new' in p)) return null;
+        return {
+            old: (p.old ?? {}) as Record<string, unknown>,
+            new: (p.new ?? {}) as Record<string, unknown>,
+        };
+    });
+
+    // Detect s3:// and "Bucket"/"Key" patterns in the payload JSON.
+    // Returns unique S3 console links found.
+    const s3Links = $derived.by((): { href: string; label: string }[] => {
+        if (!payloadPretty) return [];
+        const found: { href: string; label: string }[] = [];
+        const seen = new Set<string>();
+
+        const addLink = (bucket: string, key: string, raw: string) => {
+            const href = `https://console.aws.amazon.com/s3/buckets/${bucket}/${key}/details?region=us-west-2&tab=overview`;
+            if (!seen.has(href)) {
+                seen.add(href);
+                found.push({ href, label: raw.length > 80 ? raw.slice(0, 77) + '…' : raw });
+            }
+        };
+
+        // Pattern 1: s3://bucket/key/z/...
+        for (const m of payloadPretty.matchAll(/s3:\/\/(.*?)\/(.*?\/z\/[^\s"]+)/g)) {
+            addLink(m[1], m[2], m[0]);
+        }
+
+        // Pattern 2: "Bucket": "...", "Key": ".../z/..."
+        for (const m of payloadPretty.matchAll(/"[Bb]ucket":\s*"(.*?)",\s*"[Kk]ey":\s*"(.*?\/z\/.*?)"/g)) {
+            addLink(m[1], m[2], `s3://${m[1]}/${m[2]}`);
+        }
+
+        return found;
+    });
 
     // ── Fetch queue list on mount ───────────────────────────────────────────
     (async () => {
         try {
             const res = await fetch(`${base}/api/resources`, { credentials: 'include' });
             const json = (await res.json()) as { items: SearchItem[] };
-            allQueues = (json.items ?? []).filter((i) => i.type === 'queue').sort((a, b) =>
-                (a.name ?? a.id).localeCompare(b.name ?? b.id),
-            );
+            allQueues = (json.items ?? [])
+                .filter((i) => i.type === 'queue')
+                .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
         } catch (e) {
             queuesError = e instanceof Error ? e.message : String(e);
         } finally {
@@ -62,80 +95,38 @@
         }
     })();
 
-    // ── Fetch recent events when a queue is selected ────────────────────────
-    let eventAbort: AbortController | null = null;
-
-    async function loadEvents(queueId: string, token: string, reset: boolean) {
-        eventAbort?.abort();
-        eventAbort = new AbortController();
-        const signal = eventAbort.signal;
-
-        eventsLoading = true;
-        if (reset) {
-            events = [];
-            resumptionToken = null;
-            eventsError = null;
-        }
-
-        try {
-            let list = reset ? [] : [...events];
-            let tok = token;
-            let attempts = 0;
-
-            while (!signal.aborted && attempts < 6 && list.length < 40) {
-                attempts++;
-                const u = new URL(`${base}/api/queue/event-search`, window.location.origin);
-                u.searchParams.set('serverId', queueId);
-                u.searchParams.set('token', tok);
-                u.searchParams.set('search', filterSearchPathSegment('', tok));
-                const res = await fetch(u.toString(), { signal, credentials: 'include' });
-                const data = (await res.json()) as {
-                    results?: StreamEvent[];
-                    resumptionToken?: string | null;
-                };
-                list = list.concat(data.results ?? []);
-                tok = data.resumptionToken ?? '';
-                if (!tok) break;
-            }
-
-            events = list;
-            resumptionToken = tok || null;
-            if (reset && list.length > 0) {
-                activeIndex = 0;
-                await tick();
-                tableContainer?.focus();
-            }
-        } catch (e) {
-            if (signal.aborted) return;
-            eventsError = e instanceof Error ? e.message : String(e);
-        } finally {
-            if (!signal.aborted) eventsLoading = false;
-        }
-    }
-
     function selectQueue(q: SearchItem) {
         selectedQueue = q;
         queueFilter = q.name ?? q.id;
         dropdownOpen = false;
-        activeIndex = -1;
-        const token = buildZTokenFromUtcMs(Date.now() - 5 * 60_000);
-        void loadEvents(q.id, token, true);
+        selectedEvent = null;
+        showOldNewDiff = false;
     }
 
     function clearQueue() {
         selectedQueue = null;
         queueFilter = '';
-        events = [];
-        eventsError = null;
-        resumptionToken = null;
-        activeIndex = -1;
+        selectedEvent = null;
+        showOldNewDiff = false;
     }
 
-    function openTrace(ev: StreamEvent) {
+    function handleTrace(ev: StreamEvent) {
         if (!selectedQueue || !ev.eid) return;
         void goto(
             `${base}/trace?queue=${encodeURIComponent(selectedQueue.id)}&eid=${encodeURIComponent(ev.eid)}`,
         );
+    }
+
+    function handleEventSelect(ev: StreamEvent) {
+        selectedEvent = ev;
+        showOldNewDiff = false;
+    }
+
+    function copyPayload() {
+        if (!payloadPretty) return;
+        navigator.clipboard.writeText(payloadPretty);
+        copied = true;
+        setTimeout(() => { copied = false; }, 2000);
     }
 
     function handleQueueInput(e: Event) {
@@ -143,41 +134,17 @@
         queueFilter = val;
         if (val !== (selectedQueue?.name ?? selectedQueue?.id ?? '')) {
             selectedQueue = null;
-            events = [];
+            selectedEvent = null;
         }
         dropdownOpen = true;
     }
 
     function handleQueueKeydown(e: KeyboardEvent) {
-        if (e.key === 'Escape') {
-            dropdownOpen = false;
-        }
+        if (e.key === 'Escape') dropdownOpen = false;
     }
-
-    function scrollActiveIntoView(idx: number) {
-        document.getElementById(`picker-event-${idx}`)?.scrollIntoView({ block: 'nearest' });
-    }
-
-    function handleTableKeydown(e: KeyboardEvent) {
-        if (events.length === 0) return;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            activeIndex = Math.min(activeIndex + 1, events.length - 1);
-            scrollActiveIntoView(activeIndex);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            activeIndex = Math.max(activeIndex - 1, 0);
-            scrollActiveIntoView(activeIndex);
-        } else if (e.key === 'Enter' && activeIndex >= 0) {
-            e.preventDefault();
-            openTrace(events[activeIndex]);
-        }
-    }
-
-    onDestroy(() => eventAbort?.abort());
 </script>
 
-<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-4">
     <!-- Queue search -->
     <div class="flex flex-col gap-2">
         <label for="queue-search" class="text-sm font-medium">Queue</label>
@@ -244,88 +211,75 @@
         </div>
     </div>
 
-    <!-- Event list -->
+    <!-- Event list + payload panel -->
     {#if selectedQueue}
-        <div class="flex flex-col gap-2">
-            <div class="flex items-center justify-between">
-                <p class="text-sm font-medium">Recent events <span class="text-muted-foreground">(last 5 min)</span></p>
-                {#if eventsLoading}
-                    <Loader2 class="h-4 w-4 animate-spin text-muted-foreground" />
-                {/if}
-            </div>
+        <SplitPane open={selectedEvent !== null} defaultWidth={360} minWidth={240} maxWidth={700}>
+            {#snippet left()}
+                <QueueEventList
+                    queueId={selectedQueue!.id}
+                    onTrace={handleTrace}
+                    onEventSelect={handleEventSelect}
+                />
+            {/snippet}
+            {#snippet right()}
+                <div class="flex w-full flex-col gap-3 rounded-lg border bg-muted/20 p-3 text-xs">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="min-w-0 truncate font-mono text-[10px] text-muted-foreground">
+                            {selectedEvent?.eid ?? ''}
+                        </span>
+                        <button
+                            type="button"
+                            class="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Copy payload"
+                            onclick={copyPayload}
+                            aria-label="Copy payload"
+                        >
+                            {#if copied}
+                                <Check class="size-3.5 text-green-500" />
+                            {:else}
+                                <Copy class="size-3.5" />
+                            {/if}
+                        </button>
+                    </div>
 
-            {#if eventsError}
-                <div class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                    {eventsError}
-                </div>
-            {:else if !eventsLoading && events.length === 0}
-                <p class="text-sm text-muted-foreground">No events found in the last 5 minutes.</p>
-            {:else}
-                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-                <div
-                    class="rounded-md border focus:outline-none"
-                    role="grid"
-                    tabindex={0}
-                    aria-label="Event list"
-                    aria-activedescendant={activeIndex >= 0 ? `picker-event-${activeIndex}` : undefined}
-                    bind:this={tableContainer}
-                    onkeydown={handleTableKeydown}
-                >
-                    <Table.Root class="text-sm">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.Head class="font-mono text-xs">Event ID</Table.Head>
-                                <Table.Head class="text-xs">Created</Table.Head>
-                                <Table.Head class="text-xs">Source Time</Table.Head>
-                                <Table.Head class="w-10"></Table.Head>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {#each events as ev, i (ev.eid ?? i)}
-                                <Table.Row
-                                    id="picker-event-{i}"
-                                    class="cursor-pointer {activeIndex === i ? 'bg-muted/80' : ''}"
-                                    aria-selected={activeIndex === i}
-                                    onclick={() => { activeIndex = i; openTrace(ev); }}
-                                >
-                                    <Table.Cell class="font-mono text-xs">{ev.eid ?? '—'}</Table.Cell>
-                                    <Table.Cell class="whitespace-nowrap text-xs">{calendarFormat(ev.timestamp)}</Table.Cell>
-                                    <Table.Cell class="whitespace-nowrap text-xs">{calendarFormat(ev.event_source_timestamp)}</Table.Cell>
-                                    <Table.Cell>
-                                        {#if ev.eid}
-                                            <div class="flex justify-end">
-                                                <button
-                                                    type="button"
-                                                    class="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted"
-                                                    title="Trace event lineage"
-                                                    onclick={(e) => { e.stopPropagation(); openTrace(ev); }}
-                                                >
-                                                    <Zap class="h-3.5 w-3.5" />
-                                                </button>
-                                            </div>
-                                        {/if}
-                                    </Table.Cell>
-                                </Table.Row>
-                            {/each}
-                        </Table.Body>
-                    </Table.Root>
-                </div>
+                    <!-- Old/new diff toggle -->
+                    {#if oldNewPair}
+                        <div class="flex items-center gap-2 border-t border-border pt-2">
+                            <Switch bind:checked={showOldNewDiff} id="picker-diff" />
+                            <label for="picker-diff" class="cursor-pointer text-xs">Old / new diff</label>
+                        </div>
+                    {/if}
 
-                {#if resumptionToken}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        class="self-start"
-                        disabled={eventsLoading}
-                        onclick={() => loadEvents(selectedQueue!.id, resumptionToken!, false)}
-                    >
-                        {#if eventsLoading}
-                            <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                    <!-- Payload viewer -->
+                    <div class="min-h-0 overflow-auto">
+                        {#if showOldNewDiff && oldNewPair}
+                            <DiffCodeView oldObj={oldNewPair.old} newObj={oldNewPair.new} />
+                        {:else}
+                            <CodeView code={payloadPretty} lang="json" />
                         {/if}
-                        Load more
-                    </Button>
-                {/if}
-            {/if}
-        </div>
+                    </div>
+
+                    <!-- S3 links -->
+                    {#if s3Links.length > 0}
+                        <div class="border-t border-border pt-2">
+                            <p class="mb-1 font-semibold text-muted-foreground">S3 References</p>
+                            <ul class="flex flex-col gap-0.5">
+                                {#each s3Links as link (link.href)}
+                                    <li>
+                                        <a
+                                            href={link.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="break-all font-mono text-[10px] text-blue-600 hover:underline dark:text-blue-400"
+                                        >{link.label}</a>
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
+                    {/if}
+                </div>
+            {/snippet}
+        </SplitPane>
     {/if}
 </div>
