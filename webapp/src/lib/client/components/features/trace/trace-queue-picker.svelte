@@ -144,9 +144,9 @@
     }
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-4 flex-1 min-h-0">
     <!-- Queue search -->
-    <div class="flex flex-col gap-2">
+    <div class="shrink-0 flex flex-col gap-2">
         <label for="queue-search" class="text-sm font-medium">Queue</label>
         <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
@@ -213,6 +213,7 @@
 
     <!-- Event list + payload panel -->
     {#if selectedQueue}
+        <div class="flex-1 min-h-0">
         <SplitPane open={selectedEvent !== null} defaultWidth={360} minWidth={240} maxWidth={700}>
             {#snippet left()}
                 <QueueEventList
@@ -281,5 +282,6 @@
                 </div>
             {/snippet}
         </SplitPane>
+        </div>
     {/if}
 </div>

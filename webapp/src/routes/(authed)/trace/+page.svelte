@@ -106,7 +106,7 @@
         {/if}
     </header>
 
-    <div class="min-h-0 min-w-0 flex-1 overflow-x-auto rounded-lg border bg-background p-4 md:p-6">
+    <div class="min-h-0 min-w-0 flex-1 overflow-hidden flex flex-col rounded-lg border bg-background p-4 md:p-6">
         {#if !queue || !eid}
             <TraceQueuePicker />
         {:else if loading}

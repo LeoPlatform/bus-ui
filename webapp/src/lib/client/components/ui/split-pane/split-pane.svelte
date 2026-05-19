@@ -6,6 +6,13 @@
         defaultWidth?: number;
         minWidth?: number;
         maxWidth?: number;
+        /**
+         * When true the right pane uses `sticky top-4 self-start` so it pins
+         * while the left side scrolls (trace-lineage style).
+         * When false (default) both panes fill the container height and scroll
+         * independently.
+         */
+        stickyRight?: boolean;
         left: Snippet;
         right: Snippet;
     };
@@ -15,6 +22,7 @@
         defaultWidth = 288,
         minWidth = 200,
         maxWidth = 600,
+        stickyRight = false,
         left,
         right,
     }: SplitPaneProps = $props();
@@ -41,8 +49,8 @@
     }
 </script>
 
-<div class="flex min-h-0 gap-3">
-    <div class="min-w-0 flex-1">
+<div class="flex min-h-0 flex-1 gap-3">
+    <div class="min-w-0 flex-1 {stickyRight ? '' : 'overflow-y-auto'}">
         {@render left()}
     </div>
 
@@ -55,8 +63,14 @@
             onpointerdown={onHandlePointerDown}
         ></div>
 
-        <div class="sticky top-4 flex shrink-0 self-start" style="width: {panelWidth}px">
-            {@render right()}
-        </div>
+        {#if stickyRight}
+            <div class="sticky top-4 flex shrink-0 self-start" style="width: {panelWidth}px">
+                {@render right()}
+            </div>
+        {:else}
+            <div class="shrink-0 min-h-0 overflow-y-auto" style="width: {panelWidth}px">
+                {@render right()}
+            </div>
+        {/if}
     {/if}
 </div>

@@ -199,7 +199,7 @@
         </div>
     {/if}
 
-    <SplitPane open={panelNode !== null}>
+    <SplitPane open={panelNode !== null} stickyRight={true}>
         {#snippet left()}
         <div class="overflow-x-auto">
             <div class="inline-block min-w-0 align-top">
