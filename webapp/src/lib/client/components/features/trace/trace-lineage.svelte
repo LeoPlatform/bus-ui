@@ -12,6 +12,7 @@
     import ChevronRight from '@lucide/svelte/icons/chevron-right';
     import { base } from '$app/paths';
     import * as Tooltip from '$lib/client/components/ui/tooltip/index';
+    import { SplitPane } from '$ui/split-pane';
 
     type TraceNode = Record<string, unknown>;
 
@@ -139,10 +140,6 @@
     // ── R8: split-pane detail panel ──────────────────────────────────────────
     type PanelNode = { key: string; node: TraceNode };
     let panelNode = $state<PanelNode | null>(null);
-    let panelWidth = $state(288); // px — matches w-72 default
-
-    const PANEL_MIN = 200;
-    const PANEL_MAX = 600;
 
     function selectNode(key: string, node: TraceNode) {
         panelNode = panelNode?.key === key ? null : { key, node };
@@ -182,24 +179,6 @@
         collapsedNodes = next;
     }
 
-    function onHandlePointerDown(e: PointerEvent) {
-        const handle = e.currentTarget as HTMLElement;
-        handle.setPointerCapture(e.pointerId);
-        const startX = e.clientX;
-        const startW = panelWidth;
-
-        function onMove(ev: PointerEvent) {
-            // Dragging left widens the panel (handle is on its left edge).
-            const delta = startX - ev.clientX;
-            panelWidth = Math.min(PANEL_MAX, Math.max(PANEL_MIN, startW + delta));
-        }
-        function onUp() {
-            handle.removeEventListener('pointermove', onMove);
-            handle.removeEventListener('pointerup', onUp);
-        }
-        handle.addEventListener('pointermove', onMove);
-        handle.addEventListener('pointerup', onUp);
-    }
 
 </script>
 
@@ -220,9 +199,9 @@
         </div>
     {/if}
 
-    <div class="flex min-h-0 gap-3">
-        <!-- Rail (left, scrollable) -->
-        <div class="min-w-0 flex-1 overflow-x-auto">
+    <SplitPane open={panelNode !== null}>
+        {#snippet left()}
+        <div class="overflow-x-auto">
             <div class="inline-block min-w-0 align-top">
                 <ol class="m-0 list-none space-y-0 py-0">
                     {#each parents ?? [] as step, i (i)}
@@ -523,21 +502,12 @@
             </div>
         </div>
 
-        <!-- R8: Side detail panel — sticky so it follows scroll position -->
-        {#if panelNode}
-            <!-- Drag handle -->
-            <div
-                class="w-1.5 shrink-0 cursor-col-resize self-stretch rounded-full bg-border transition-colors hover:bg-muted-foreground/40 active:bg-muted-foreground/60"
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="Resize detail panel"
-                onpointerdown={onHandlePointerDown}
-            ></div>
-
-            {@const pn = panelNode.node}
+        {/snippet}
+        {#snippet right()}
+            {@const pn = panelNode!.node}
             {@const pDetail = nodeDetail(pn)}
             {@const pDashHref = dashboardHref(pn)}
-            <div class="sticky top-4 flex shrink-0 self-start flex-col gap-3 rounded-lg border bg-muted/20 p-3 text-xs" style="width: {panelWidth}px">
+            <div class="flex w-full flex-col gap-3 rounded-lg border bg-muted/20 p-3 text-xs">
                 <!-- Panel header -->
                 <div class="flex items-start gap-2">
                     <span class="flex size-7 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm">
@@ -641,6 +611,6 @@
                     <p class="border-t border-border pt-3 text-muted-foreground">No payload data available for this node.</p>
                 {/if}
             </div>
-        {/if}
-    </div>
+        {/snippet}
+    </SplitPane>
 </div>
