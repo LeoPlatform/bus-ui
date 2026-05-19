@@ -3,6 +3,7 @@
     import { base } from '$app/paths';
     import { page } from '$app/state';
     import TraceViewPrototype from '$lib/client/components/features/trace/trace-view-prototype.svelte';
+    import TraceQueuePicker from '$lib/client/components/features/trace/trace-queue-picker.svelte';
     import { Button } from '$lib/client/components/ui/button/index';
     import Loader2 from '@lucide/svelte/icons/loader-2';
 
@@ -93,9 +94,8 @@
     <header class="shrink-0">
         <h1 class="text-xl font-semibold tracking-tight">Trace</h1>
         <p class="mt-1 text-sm text-muted-foreground">
-            Event lineage across queues and bots. Open from the dashboard queue <strong>Events</strong> tab (trace
-            action) or append
-            <code class="rounded bg-muted px-1 py-0.5 font-mono text-xs">?queue=…&amp;eid=…</code> to this URL.
+            Event lineage across queues and bots. Pick a queue below, then select an event to trace — or open from
+            the dashboard <strong>Events</strong> tab.
         </p>
         {#if queue && eid}
             <p class="mt-2 font-mono text-xs text-muted-foreground break-all">
@@ -108,7 +108,7 @@
 
     <div class="min-h-0 min-w-0 flex-1 overflow-x-auto rounded-lg border bg-background p-4 md:p-6">
         {#if !queue || !eid}
-            <p class="text-sm text-muted-foreground">Select an event and use <strong>Trace</strong> from the queue events tab, or pass query parameters.</p>
+            <TraceQueuePicker />
         {:else if loading}
             <div class="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 class="h-4 w-4 animate-spin" />
