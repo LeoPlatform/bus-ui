@@ -77,8 +77,7 @@
     const detailPreview = $derived.by(() => {
         if (!detail) return null;
         const json = JSON.stringify(detail.data, null, 2);
-        const lines = json.split('\n');
-        return { label: detail.label, preview: lines.slice(0, 18).join('\n'), truncated: lines.length > 18 };
+        return { label: detail.label, preview: json };
     });
 </script>
 
@@ -115,7 +114,7 @@
     {#if detailPreview}
         <div class="border-t border-border pt-1.5">
             <div class="mb-1 font-semibold text-muted-foreground">{detailPreview.label}</div>
-            <pre class="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-1.5 font-mono text-[10px] leading-relaxed ring-1 ring-border">{detailPreview.preview}{detailPreview.truncated ? '\n…' : ''}</pre>
+            <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-1.5 font-mono text-[10px] leading-relaxed ring-1 ring-border">{detailPreview.preview}</pre>
         </div>
     {/if}
 
