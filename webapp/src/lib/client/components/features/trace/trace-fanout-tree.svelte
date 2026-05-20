@@ -40,6 +40,8 @@
         is_root?: boolean;
         parents?: GraphNode[];
         kids?: GraphNode[];
+        _rawKidsCount?: number;
+        _isCollapsed?: boolean;
     };
 
     let {
@@ -128,7 +130,37 @@
     let tooltipNode = $state<GraphNode | null>(null);
     let tooltipPos = $state<{ x: number; y: number } | null>(null);
 
-    function buildGraphRoot(ev: TraceNode, flatParents: TraceNode[], down: Record<string, TraceNode>): GraphNode {
+    let collapsedDownstream = $state(new Set<string>());
+
+    function toggleCollapse(nodeId: string) {
+        const next = new Set(collapsedDownstream);
+        if (next.has(nodeId)) next.delete(nodeId);
+        else next.add(nodeId);
+        collapsedDownstream = next;
+    }
+
+    function collectAutoCollapsedFromRaw(down: Record<string, TraceNode>): Set<string> {
+        const out = new Set<string>();
+        function walk(rec: Record<string, TraceNode>) {
+            for (const [cid, c] of Object.entries(rec)) {
+                const nodeId = String(c.id ?? cid);
+                const rawKids = c.children as Record<string, TraceNode> | undefined;
+                const kidsCount = rawKids ? Object.keys(rawKids).length : 0;
+                if (kidsCount > 0) {
+                    const didNotProcess = nodeType(c) === 'bot' && c.has_processed === false;
+                    if (kidsCount > 2 || didNotProcess) {
+                        out.add(nodeId);
+                    } else {
+                        walk(rawKids!);
+                    }
+                }
+            }
+        }
+        walk(down);
+        return out;
+    }
+
+    function buildGraphRoot(ev: TraceNode, flatParents: TraceNode[], down: Record<string, TraceNode>, collapsed: Set<string>): GraphNode {
         const evtId = String(ev.id ?? ev.eid ?? 'event');
         const wrapped: GraphNode[] = [];
         for (let i = 0; i < flatParents.length; i++) {
@@ -139,7 +171,7 @@
                 parents: i === 0 ? [] : [wrapped[i - 1]!],
             } as GraphNode);
         }
-        const kids = buildKids(down);
+        const kids = buildKids(down, collapsed);
         return {
             ...(ev as object),
             id: evtId,
@@ -149,18 +181,24 @@
         } as GraphNode;
     }
 
-    function buildKids(rec: Record<string, TraceNode>): GraphNode[] {
+    function buildKids(rec: Record<string, TraceNode>, collapsed: Set<string>): GraphNode[] {
         return Object.entries(rec).map(([cid, c]) => {
+            const nodeId = String(c.id ?? cid);
+            const rawKids = c.children as Record<string, TraceNode> | undefined;
+            const rawKidsCount = rawKids ? Object.keys(rawKids).length : 0;
+            const isCollapsed = collapsed.has(nodeId);
             const sub =
-                c.children && typeof c.children === 'object'
-                    ? buildKids(c.children as Record<string, TraceNode>)
+                !isCollapsed && rawKids && typeof rawKids === 'object'
+                    ? buildKids(rawKids, collapsed)
                     : [];
             const { children: _ignore, ...rest } = c as TraceNode & { children?: unknown };
             return {
                 ...(rest as object),
-                id: String(c.id ?? cid),
+                id: nodeId,
                 parents: [],
                 kids: sub,
+                _rawKidsCount: rawKidsCount,
+                _isCollapsed: isCollapsed,
             } as GraphNode;
         });
     }
@@ -312,6 +350,15 @@
         const traceChanged = lastDrawTraceKey !== traceKey;
         lastDrawTraceKey = traceKey;
 
+        // On new trace data, reset to auto-collapsed state and re-enter draw().
+        if (traceChanged) {
+            const autoCollapsed = collectAutoCollapsedFromRaw(children ?? {});
+            if (autoCollapsed.size !== 0 || collapsedDownstream.size !== 0) {
+                collapsedDownstream = autoCollapsed;
+                return; // effect will schedule draw() with new collapsed state
+            }
+        }
+
         svg.on('.zoom', null);
         svg.selectAll('*').remove();
         // Set width/height to the container's stable CSS dimensions. The container now has an
@@ -335,7 +382,7 @@
             .attr('fill', 'var(--muted-foreground)')
             .attr('opacity', 0.65);
 
-        const rootData = buildGraphRoot(event, parentsArray, children ?? {});
+        const rootData = buildGraphRoot(event, parentsArray, children ?? {}, collapsedDownstream);
         const parentMap = buildParentMap(rootData, parentsArray);
         const childrenMap = buildChildrenMap(rootData);
         const navIds = navOrderIds(rootData, parentsArray);
@@ -489,6 +536,42 @@
                           ? 'Not processed'
                           : '',
                 );
+
+            // Collapse/expand badge — right side only, non-root nodes with children
+            if (classPrefix === 'right') {
+                sel.filter((d) => !d.data.is_root && (d.data._rawKidsCount ?? 0) > 0)
+                    .each(function (d) {
+                        const badgeG = d3
+                            .select(this)
+                            .append('g')
+                            .attr('class', 'collapse-badge')
+                            .attr('transform', `translate(${NODE_R - 1},${-(NODE_R - 1)})`)
+                            .style('cursor', 'pointer');
+
+                        const r = 7;
+                        badgeG
+                            .append('circle')
+                            .attr('r', r)
+                            .attr('fill', 'var(--background)')
+                            .attr('stroke', d.data._isCollapsed ? 'var(--primary)' : 'var(--border)')
+                            .attr('stroke-width', 1.5);
+
+                        badgeG
+                            .append('text')
+                            .attr('text-anchor', 'middle')
+                            .attr('dominant-baseline', 'central')
+                            .attr('font-size', 9)
+                            .attr('font-weight', 700)
+                            .attr('fill', d.data._isCollapsed ? 'var(--primary)' : 'var(--muted-foreground)')
+                            .attr('class', 'pointer-events-none select-none')
+                            .text(d.data._isCollapsed ? '+' : '−');
+
+                        badgeG.on('pointerdown', (ev: PointerEvent) => {
+                            ev.stopPropagation();
+                            toggleCollapse(d.data.id);
+                        });
+                    });
+            }
         }
 
         drawNodes(leftRoot, FLIP_L, rootXLeft, 'left');
@@ -694,6 +777,7 @@
         event;
         children;
         focusNodeId;
+        collapsedDownstream; // track collapse state changes
         if (!wrapEl || !event) return;
         queueMicrotask(() => draw());
     });
@@ -719,7 +803,7 @@
     >
         <GitBranch class="mt-0.5 size-4 shrink-0 opacity-70" aria-hidden="true" />
         <span
-            ><strong class="text-foreground">D3 tree</strong> — opens on the <strong class="text-foreground">first trace entry</strong> (upstream oldest, else the event). Click a node or use the panel + <strong class="text-foreground">↑↓</strong> linear order, <strong class="text-foreground">←→</strong> parent / first child, <strong class="text-foreground">Home</strong>/<strong class="text-foreground">End</strong> first/last. Wheel zoom, drag pan.</span
+            ><strong class="text-foreground">D3 tree</strong> — opens on the <strong class="text-foreground">first trace entry</strong> (upstream oldest, else the event). Click a node to focus; click the <strong class="text-foreground">+/−</strong> badge on a downstream node to collapse/expand its children. <strong class="text-foreground">↑↓</strong> linear order, <strong class="text-foreground">←→</strong> parent / first child, <strong class="text-foreground">Home</strong>/<strong class="text-foreground">End</strong> first/last. Wheel zoom, drag pan.</span
         >
     </div>
 
