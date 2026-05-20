@@ -443,7 +443,7 @@
                 });
 
             sel.each(function (d) {
-                const size = d.data.is_root ? 28 : 18;
+                const size = d.data.is_root ? 38 : 26;
                 d3.select(this)
                     .append('image')
                     .attr('class', 'node-icon pointer-events-none')
@@ -786,7 +786,7 @@
         tabindex="0"
         role="application"
         aria-label="Trace graph. Use arrow keys to navigate nodes."
-        class="h-[min(72vh,560px)] w-full min-w-0 rounded-lg border bg-muted/10 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="h-[min(88vh,900px)] w-full min-w-0 rounded-lg border bg-muted/10 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
         {#if event}
             <svg class="block h-full w-full touch-none"></svg>
