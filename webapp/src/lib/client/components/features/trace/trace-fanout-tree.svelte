@@ -113,6 +113,26 @@
 
     let tooltipNode = $state<GraphNode | null>(null);
     let tooltipPos = $state<{ x: number; y: number } | null>(null);
+    /** True while cursor is inside the tooltip div — prevents node mouseleave from hiding it. */
+    let tooltipLocked = false;
+    let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function scheduleTooltipHide() {
+        tooltipHideTimer = setTimeout(() => {
+            if (!tooltipLocked) {
+                tooltipNode = null;
+                tooltipPos = null;
+            }
+            tooltipHideTimer = null;
+        }, 150);
+    }
+
+    function cancelTooltipHide() {
+        if (tooltipHideTimer !== null) {
+            clearTimeout(tooltipHideTimer);
+            tooltipHideTimer = null;
+        }
+    }
 
     let collapsedDownstream = $state(new Set<string>());
     /** Set to true by toggleCollapse so draw() knows to preserve the current pan/zoom. */
@@ -522,14 +542,14 @@
             });
 
             sel.on('mouseenter', (ev: MouseEvent, d) => {
+                cancelTooltipHide();
                 tooltipNode = d.data;
                 tooltipPos = { x: ev.clientX, y: ev.clientY };
                 d3.select(ev.currentTarget as Element).select('.gear-btn').attr('opacity', 1);
             }).on('mousemove', (ev: MouseEvent) => {
                 tooltipPos = { x: ev.clientX, y: ev.clientY };
             }).on('mouseleave', (ev: MouseEvent) => {
-                tooltipNode = null;
-                tooltipPos = null;
+                scheduleTooltipHide();
                 d3.select(ev.currentTarget as Element).select('.gear-btn').attr('opacity', 0);
             });
 
@@ -924,8 +944,12 @@
 
     {#if tooltipNode && tooltipPos}
         <div
-            class="pointer-events-none fixed z-[200] rounded-lg border bg-popover p-3 shadow-md"
+            class="fixed z-[200] rounded-lg border bg-popover p-3 shadow-md"
             style="left: {tooltipPos.x + 16}px; top: {tooltipPos.y - 8}px; max-width: 18rem;"
+            onwheel={(e) => e.stopPropagation()}
+            onmouseenter={() => { tooltipLocked = true; cancelTooltipHide(); }}
+            onmouseleave={() => { tooltipLocked = false; tooltipNode = null; tooltipPos = null; }}
+            role="tooltip"
         >
             <TraceNodeTooltip node={tooltipNode} />
         </div>
