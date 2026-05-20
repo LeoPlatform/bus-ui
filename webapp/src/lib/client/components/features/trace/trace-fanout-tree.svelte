@@ -10,28 +10,12 @@
     import GitBranch from '@lucide/svelte/icons/git-branch';
     import TraceNodeTooltip from './trace-node-tooltip.svelte';
 
-    type LucideIconNode = [string, Record<string, string>];
-    const ICON_DEFS: Record<string, LucideIconNode[]> = {
-        bot: [
-            ['path', { d: 'M12 20v2' }], ['path', { d: 'M12 2v2' }],
-            ['path', { d: 'M17 20v2' }], ['path', { d: 'M17 2v2' }],
-            ['path', { d: 'M2 12h2' }], ['path', { d: 'M2 17h2' }], ['path', { d: 'M2 7h2' }],
-            ['path', { d: 'M20 12h2' }], ['path', { d: 'M20 17h2' }], ['path', { d: 'M20 7h2' }],
-            ['path', { d: 'M7 20v2' }], ['path', { d: 'M7 2v2' }],
-            ['rect', { x: '4', y: '4', width: '16', height: '16', rx: '2' }],
-            ['rect', { x: '8', y: '8', width: '8', height: '8', rx: '1' }],
-        ],
-        system: [
-            ['rect', { width: '20', height: '8', x: '2', y: '2', rx: '2', ry: '2' }],
-            ['rect', { width: '20', height: '8', x: '2', y: '14', rx: '2', ry: '2' }],
-            ['line', { x1: '6', x2: '6.01', y1: '6', y2: '6' }],
-            ['line', { x1: '6', x2: '6.01', y1: '18', y2: '18' }],
-        ],
-        queue: [
-            ['polyline', { points: '22 12 16 12 14 15 10 15 8 12 2 12' }],
-            ['path', { d: 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z' }],
-        ],
-    };
+    function nodeImageHref(n: TraceNode): string {
+        const t = nodeType(n);
+        if (t === 'queue') return `${base}/queue.png`;
+        if (t === 'system') return `${base}/system.png`;
+        return `${base}/bot.png`;
+    }
 
     type TraceNode = Record<string, unknown>;
 
@@ -459,25 +443,15 @@
                 });
 
             sel.each(function (d) {
-                const size = d.data.is_root ? 20 : 14;
-                const color = d.data.is_root ? 'var(--primary-foreground)' : 'var(--foreground)';
-                const type = nodeType(d.data);
-                const iconDef = ICON_DEFS[type] ?? ICON_DEFS['queue']!;
-                const scale = size / 24;
-                const iconG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                iconG.setAttribute('class', 'node-icon pointer-events-none select-none');
-                iconG.setAttribute('transform', `translate(${-size / 2},${-size / 2}) scale(${scale})`);
-                iconG.setAttribute('fill', 'none');
-                iconG.setAttribute('stroke', color);
-                iconG.setAttribute('stroke-width', String((2 / scale).toFixed(2)));
-                iconG.setAttribute('stroke-linecap', 'round');
-                iconG.setAttribute('stroke-linejoin', 'round');
-                for (const [tag, attrs] of iconDef) {
-                    const iconEl = document.createElementNS('http://www.w3.org/2000/svg', tag);
-                    for (const [k, v] of Object.entries(attrs)) iconEl.setAttribute(k, v);
-                    iconG.appendChild(iconEl);
-                }
-                this.appendChild(iconG);
+                const size = d.data.is_root ? 28 : 18;
+                d3.select(this)
+                    .append('image')
+                    .attr('class', 'node-icon pointer-events-none')
+                    .attr('href', nodeImageHref(d.data))
+                    .attr('x', -size / 2)
+                    .attr('y', -size / 2)
+                    .attr('width', size)
+                    .attr('height', size);
             });
 
             sel.on('mouseenter', (ev: MouseEvent, d) => {
