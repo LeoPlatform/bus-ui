@@ -118,6 +118,11 @@
     /** Set to true by toggleCollapse so draw() knows to preserve the current pan/zoom. */
     let collapseToggled = false;
 
+    type EdgeMode = 'comb' | 'bus';
+    let edgeMode = $state<EdgeMode>('comb');
+    /** Set to true when edgeMode changes so draw() preserves pan/zoom. */
+    let edgeModeToggled = false;
+
     function toggleCollapse(nodeId: string) {
         const next = new Set(collapsedDownstream);
         if (next.has(nodeId)) next.delete(nodeId);
@@ -274,11 +279,8 @@
         return `M${a.px},${a.py}C${mx},${a.py} ${mx},${b.py} ${b.px},${b.py}`;
     }
 
-    /**
-     * Like linkPath but stops before the target node's circle edge so an
-     * arrowhead marker sits cleanly at the circle boundary instead of inside it.
-     */
-    function linkPathRight(
+    /** Comb mode: control point is close to source so curves fan out immediately. */
+    function linkPathRightComb(
         s: d3.HierarchyNode<GraphNode>,
         t: d3.HierarchyNode<GraphNode>,
         flip: number,
@@ -287,9 +289,47 @@
         const a = toScreen(s, flip, rootX);
         const b = toScreen(t, flip, rootX);
         const rTgt = (t.data as GraphNode).is_root ? ROOT_R : NODE_R;
-        const bx = b.px - rTgt - 5;
-        const mx = (a.px + bx) / 2;
-        return `M${a.px},${a.py}C${mx},${a.py} ${mx},${b.py} ${bx},${b.py}`;
+        const tx = b.px - rTgt - 5;
+        const mx = a.px + BRANCH_X * 0.15;
+        return `M${a.px},${a.py}C${mx},${a.py} ${mx},${b.py} ${tx},${b.py}`;
+    }
+
+    /** Bus mode: horizontal stub → shared vertical rail → horizontal to target, with rounded elbows. */
+    function linkPathRightBus(
+        s: d3.HierarchyNode<GraphNode>,
+        t: d3.HierarchyNode<GraphNode>,
+        flip: number,
+        rootX: number,
+    ): string {
+        const a = toScreen(s, flip, rootX);
+        const b = toScreen(t, flip, rootX);
+        const rTgt = (t.data as GraphNode).is_root ? ROOT_R : NODE_R;
+        const tx = b.px - rTgt - 5;
+        const busX = a.px + BRANCH_X * 0.35;
+        const dy = b.py - a.py;
+        if (Math.abs(dy) < 2) return `M${a.px},${a.py} H${tx}`;
+        const r = Math.min(8, Math.abs(dy) / 2);
+        const sign = dy > 0 ? 1 : -1;
+        return [
+            `M${a.px},${a.py}`,
+            `H${busX - r}`,
+            `Q${busX},${a.py} ${busX},${a.py + sign * r}`,
+            `V${b.py - sign * r}`,
+            `Q${busX},${b.py} ${busX + r},${b.py}`,
+            `H${tx}`,
+        ].join(' ');
+    }
+
+    /** Dispatches to comb or bus implementation based on current edgeMode. */
+    function linkPathRight(
+        s: d3.HierarchyNode<GraphNode>,
+        t: d3.HierarchyNode<GraphNode>,
+        flip: number,
+        rootX: number,
+    ): string {
+        return edgeMode === 'bus'
+            ? linkPathRightBus(s, t, flip, rootX)
+            : linkPathRightComb(s, t, flip, rootX);
     }
 
     function findWorldPos(
@@ -376,9 +416,10 @@
 
         const leftRoot = d3.hierarchy<GraphNode>(rootData, (d) => d.parents ?? []);
         const rightRoot = d3.hierarchy<GraphNode>(rootData, (d) => d.kids ?? []);
+        const nodeSpacing = edgeMode === 'bus' ? 60 : 70;
         const innerH = Math.max(
             360,
-            Math.max(leftRoot.descendants().length, rightRoot.descendants().length) * 46,
+            Math.max(leftRoot.descendants().length, rightRoot.descendants().length) * nodeSpacing,
         );
 
         d3.tree<GraphNode>().size([innerH, Math.max(leftRoot.height, 1) * BRANCH_X])(leftRoot);
@@ -648,6 +689,8 @@
 
         const wasCollapseToggle = collapseToggled;
         collapseToggled = false;
+        const wasEdgeModeToggle = edgeModeToggled;
+        edgeModeToggled = false;
 
         let targetTf: d3.ZoomTransform;
         if (traceChanged) {
@@ -655,8 +698,8 @@
                 .translate(W / 2, H / 2)
                 .scale(INITIAL_SCALE)
                 .translate(-focusPos.x, -focusPos.y);
-        } else if (wasCollapseToggle && prevTf) {
-            // Preserve exact pan/zoom — don't snap back to focused node on collapse/expand.
+        } else if ((wasCollapseToggle || wasEdgeModeToggle) && prevTf) {
+            // Preserve exact pan/zoom on collapse/expand or edge-mode switch.
             targetTf = prevTf;
         } else if (prevTf) {
             const k = prevTf.k;
@@ -761,6 +804,7 @@
         children;
         focusNodeId;
         collapsedDownstream; // track collapse state changes
+        edgeMode; // track edge mode changes
         if (!wrapEl || !event) return;
         queueMicrotask(() => draw());
     });
@@ -782,12 +826,27 @@
 
 <div class="trace-botmon-d3 relative flex min-w-0 max-w-full flex-col gap-2 text-sm" role="region" aria-label="Event trace D3 tree">
     <div
-        class="mb-1 flex min-w-0 items-start gap-2 rounded-md border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+        class="mb-1 flex min-w-0 items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
     >
-        <GitBranch class="mt-0.5 size-4 shrink-0 opacity-70" aria-hidden="true" />
-        <span
-            ><strong class="text-foreground">D3 tree</strong> — opens on the <strong class="text-foreground">first trace entry</strong> (upstream oldest, else the event). Click a node to focus; click the <strong class="text-foreground">+/−</strong> badge on a downstream node to collapse/expand its children. <strong class="text-foreground">↑↓</strong> linear order, <strong class="text-foreground">←→</strong> parent / first child, <strong class="text-foreground">Home</strong>/<strong class="text-foreground">End</strong> first/last. Wheel zoom, drag pan.</span
+        <GitBranch class="size-4 shrink-0 opacity-70" aria-hidden="true" />
+        <span class="min-w-0 flex-1"
+            ><strong class="text-foreground">D3 tree</strong> — click a node to focus; <strong class="text-foreground">+/−</strong> badge collapses children. <strong class="text-foreground">↑↓←→</strong> navigate, wheel zoom, drag pan.</span
         >
+        <div class="flex shrink-0 items-center gap-1.5">
+            <span class="text-muted-foreground/60">edges:</span>
+            <div class="flex overflow-hidden rounded border border-border text-xs">
+                <button
+                    onclick={() => { edgeModeToggled = true; edgeMode = 'comb'; }}
+                    class="{edgeMode === 'comb' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'} px-2 py-0.5 transition-colors"
+                    title="Comb — curves fan out early from source"
+                >Comb</button>
+                <button
+                    onclick={() => { edgeModeToggled = true; edgeMode = 'bus'; }}
+                    class="{edgeMode === 'bus' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'} border-l border-border px-2 py-0.5 transition-colors"
+                    title="Bus — horizontal stubs share a vertical rail"
+                >Bus</button>
+            </div>
+        </div>
     </div>
 
     <div
