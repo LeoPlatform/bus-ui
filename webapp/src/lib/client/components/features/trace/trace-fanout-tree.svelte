@@ -51,7 +51,7 @@
     let ro: ResizeObserver | undefined;
 
     const BRANCH_X = 220;
-    const NODE_R = 14;
+    const NODE_R = 22;
     const ROOT_R = 22;
     const INITIAL_SCALE = 1.45;
 
@@ -115,11 +115,14 @@
     let tooltipPos = $state<{ x: number; y: number } | null>(null);
 
     let collapsedDownstream = $state(new Set<string>());
+    /** Set to true by toggleCollapse so draw() knows to preserve the current pan/zoom. */
+    let collapseToggled = false;
 
     function toggleCollapse(nodeId: string) {
         const next = new Set(collapsedDownstream);
         if (next.has(nodeId)) next.delete(nodeId);
         else next.add(nodeId);
+        collapseToggled = true;
         collapsedDownstream = next;
     }
 
@@ -443,7 +446,7 @@
                 });
 
             sel.each(function (d) {
-                const size = d.data.is_root ? 38 : 26;
+                const size = d.data.is_root ? 38 : 34;
                 d3.select(this)
                     .append('image')
                     .attr('class', 'node-icon pointer-events-none')
@@ -643,12 +646,18 @@
 
         const focusPos = findWorldPos(focusNodeId, leftRoot, rightRoot, rootXLeft, rootXRight) ?? { x: 0, y: 0 };
 
+        const wasCollapseToggle = collapseToggled;
+        collapseToggled = false;
+
         let targetTf: d3.ZoomTransform;
         if (traceChanged) {
             targetTf = d3.zoomIdentity
                 .translate(W / 2, H / 2)
                 .scale(INITIAL_SCALE)
                 .translate(-focusPos.x, -focusPos.y);
+        } else if (wasCollapseToggle && prevTf) {
+            // Preserve exact pan/zoom — don't snap back to focused node on collapse/expand.
+            targetTf = prevTf;
         } else if (prevTf) {
             const k = prevTf.k;
             targetTf = d3.zoomIdentity
