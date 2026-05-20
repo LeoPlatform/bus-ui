@@ -1,10 +1,9 @@
 <script lang="ts">
     import { calendarFormat } from '$lib/client/event-viewer/event-search-utils';
-    import ExternalLink from '@lucide/svelte/icons/external-link';
 
     type TraceNode = Record<string, unknown>;
 
-    let { node, dashHref = null }: { node: TraceNode; dashHref?: string | null } = $props();
+    let { node }: { node: TraceNode } = $props();
 
     const UNSET_TIME_LABELS = new Set(['unspecified', 'invalid date', 'n/a', '']);
 
@@ -120,17 +119,4 @@
         </div>
     {/if}
 
-    {#if dashHref}
-        <div class="border-t border-border pt-1.5">
-            <a
-                href={dashHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
-            >
-                <ExternalLink class="size-3" />
-                Open in dashboard
-            </a>
-        </div>
-    {/if}
 </div>

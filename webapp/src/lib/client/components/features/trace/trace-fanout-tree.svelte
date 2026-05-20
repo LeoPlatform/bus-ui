@@ -393,21 +393,42 @@
         svg.attr('width', W).attr('height', H);
         svg.attr('role', 'img').attr('aria-label', 'D3 event trace tree');
 
-        // Arrowhead marker for downstream directed links
+        // Arrowhead markers — default, processed (green), not-processed (red)
         const defs = svg.append('defs');
-        defs.append('marker')
-            .attr('id', 'trace-arr')
-            .attr('viewBox', '0 -4 8 8')
-            .attr('refX', 8)
-            .attr('refY', 0)
-            .attr('markerWidth', 8)
-            .attr('markerHeight', 8)
-            .attr('markerUnits', 'userSpaceOnUse')
-            .attr('orient', 'auto')
-            .append('path')
-            .attr('d', 'M0,-4L8,0L0,4Z')
-            .attr('fill', 'var(--muted-foreground)')
-            .attr('opacity', 0.65);
+        for (const [id, color] of [
+            ['trace-arr', 'var(--muted-foreground)'],
+            ['trace-arr-green', '#00B315'],
+            ['trace-arr-red', '#FF1424'],
+        ] as const) {
+            defs.append('marker')
+                .attr('id', id)
+                .attr('viewBox', '0 -4 8 8')
+                .attr('refX', 8)
+                .attr('refY', 0)
+                .attr('markerWidth', 8)
+                .attr('markerHeight', 8)
+                .attr('markerUnits', 'userSpaceOnUse')
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M0,-4L8,0L0,4Z')
+                .attr('fill', color)
+                .attr('opacity', 0.8);
+        }
+
+        function linkProcessedColor(target: d3.HierarchyNode<GraphNode>): string {
+            if (String(target.data.type ?? '').toLowerCase() === 'bot') {
+                if (target.data.has_processed === true) return '#00B315';
+                if (target.data.has_processed === false) return '#FF1424';
+            }
+            return strokeEdge;
+        }
+        function linkMarker(target: d3.HierarchyNode<GraphNode>): string {
+            if (String(target.data.type ?? '').toLowerCase() === 'bot') {
+                if (target.data.has_processed === true) return 'url(#trace-arr-green)';
+                if (target.data.has_processed === false) return 'url(#trace-arr-red)';
+            }
+            return 'url(#trace-arr)';
+        }
 
         const rootData = buildGraphRoot(event, parentsArray, children ?? {}, collapsedDownstream);
         const parentMap = buildParentMap(rootData, parentsArray);
@@ -439,6 +460,8 @@
         const zoomG = svg.append('g').attr('class', 'trace-zoom-layer');
         const graphG = zoomG.append('g').attr('class', 'trace-graph');
 
+        // linkG appended first so edges render beneath node circles.
+        const linkG = graphG.append('g').attr('class', 'trace-links');
         const nodeG = graphG.append('g').attr('class', 'trace-nodes');
 
         function drawNodes(
@@ -501,11 +524,13 @@
             sel.on('mouseenter', (ev: MouseEvent, d) => {
                 tooltipNode = d.data;
                 tooltipPos = { x: ev.clientX, y: ev.clientY };
+                d3.select(ev.currentTarget as Element).select('.gear-btn').attr('opacity', 1);
             }).on('mousemove', (ev: MouseEvent) => {
                 tooltipPos = { x: ev.clientX, y: ev.clientY };
-            }).on('mouseleave', () => {
+            }).on('mouseleave', (ev: MouseEvent) => {
                 tooltipNode = null;
                 tooltipPos = null;
+                d3.select(ev.currentTarget as Element).select('.gear-btn').attr('opacity', 0);
             });
 
             sel.append('text')
@@ -555,6 +580,42 @@
                           : '',
                 );
 
+            // Gear icon — right side only, non-root nodes with a dashboard URL; shown on hover
+            if (classPrefix === 'right') {
+                sel.filter((d) => !d.data.is_root && dashboardHref(d.data) != null)
+                    .each(function (d) {
+                        const href = dashboardHref(d.data)!;
+                        const gearG = d3
+                            .select(this)
+                            .append('g')
+                            .attr('class', 'gear-btn')
+                            .attr('transform', `translate(${-(NODE_R - 1)},${-(NODE_R - 1)})`)
+                            .attr('opacity', 0)
+                            .style('cursor', 'pointer');
+
+                        gearG
+                            .append('circle')
+                            .attr('r', 7)
+                            .attr('fill', 'var(--background)')
+                            .attr('stroke', 'var(--border)')
+                            .attr('stroke-width', 1.5);
+
+                        gearG
+                            .append('text')
+                            .attr('text-anchor', 'middle')
+                            .attr('dominant-baseline', 'central')
+                            .attr('font-size', 10)
+                            .attr('fill', 'var(--foreground)')
+                            .attr('class', 'pointer-events-none select-none')
+                            .text('⚙');
+
+                        gearG.on('pointerdown', (ev: PointerEvent) => {
+                            ev.stopPropagation();
+                            window.open(href, '_blank', 'noopener');
+                        });
+                    });
+            }
+
             // Collapse/expand badge — right side only, non-root nodes with children
             if (classPrefix === 'right') {
                 sel.filter((d) => !d.data.is_root && (d.data._rawKidsCount ?? 0) > 0)
@@ -599,8 +660,6 @@
         const leftLinks = leftRoot.links();
         const rightLinks = rightRoot.links();
 
-        const linkG = graphG.append('g').attr('class', 'trace-links');
-
         // Upstream links — subtler, dashed to indicate "history"
         linkG
             .selectAll('path.trace-link-left')
@@ -614,17 +673,17 @@
             .attr('opacity', 0.7)
             .attr('d', (d) => linkPath(d.source, d.target, FLIP_L, rootXLeft));
 
-        // Downstream links — solid + arrowhead to show directed flow
+        // Downstream links — solid + arrowhead; color shows processed status
         linkG
             .selectAll('path.trace-link-right')
             .data(rightLinks)
             .join('path')
             .attr('fill', 'none')
-            .attr('stroke', strokeEdge)
+            .attr('stroke', (d) => linkProcessedColor(d.target))
             .attr('stroke-width', 2.25)
             .attr('stroke-linecap', 'round')
             .attr('opacity', 0.92)
-            .attr('marker-end', 'url(#trace-arr)')
+            .attr('marker-end', (d) => linkMarker(d.target))
             .attr('d', (d) => linkPathRight(d.source, d.target, FLIP_R, rootXRight));
 
         // Lag labels on upstream links
@@ -650,7 +709,7 @@
             })
             .text((l) => fmtLag(l.target.data.lag));
 
-        // Lag labels on downstream links
+        // Lag labels on downstream links — anchored just before the target circle
         linkG
             .selectAll('text.trace-lag-right')
             .data(
@@ -661,15 +720,15 @@
             )
             .join('text')
             .attr('class', 'trace-lag-right')
-            .attr('fill', 'var(--muted-foreground)')
+            .attr('fill', (l) => linkProcessedColor(l.target))
             .attr('font-family', 'ui-monospace, monospace')
             .attr('font-size', 9)
-            .attr('text-anchor', 'middle')
-            .attr('dy', -5)
+            .attr('text-anchor', 'end')
+            .attr('dominant-baseline', 'auto')
             .attr('transform', (l) => {
-                const a = toScreen(l.source, FLIP_R, rootXRight);
                 const b = toScreen(l.target, FLIP_R, rootXRight);
-                return `translate(${(a.px + b.px) / 2},${(a.py + b.py) / 2})`;
+                const rTgt = (l.target.data as GraphNode).is_root ? ROOT_R : NODE_R;
+                return `translate(${b.px - rTgt - 13},${b.py - 5})`;
             })
             .text((l) => fmtLag(l.target.data.lag));
 
@@ -868,7 +927,7 @@
             class="pointer-events-none fixed z-[200] rounded-lg border bg-popover p-3 shadow-md"
             style="left: {tooltipPos.x + 16}px; top: {tooltipPos.y - 8}px; max-width: 18rem;"
         >
-            <TraceNodeTooltip node={tooltipNode} dashHref={dashboardHref(tooltipNode)} />
+            <TraceNodeTooltip node={tooltipNode} />
         </div>
     {/if}
 </div>
