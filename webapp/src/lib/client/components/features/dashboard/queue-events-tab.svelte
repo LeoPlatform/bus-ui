@@ -39,6 +39,7 @@
         correlation_id?: string;
         is_valid?: boolean | null;
         validation_errors?: string[];
+        [key: string]: unknown; // preserve extra fields (e.g. errorMessage on DLQ events)
     };
 
     let { id: queueId, initialEid }: { id: string; initialEid?: string } = $props();
