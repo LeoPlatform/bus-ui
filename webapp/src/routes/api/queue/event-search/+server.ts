@@ -189,16 +189,10 @@ export const GET: RequestHandler = async ({ locals, url }) => {
                 const matches = textMatches && scriptMatches;
 
                 if (matches) {
-                    response.results.push({
-                        id: obj.id,
-                        eid: obj.eid,
-                        timestamp: obj.timestamp,
-                        event_source_timestamp: obj.event_source_timestamp,
-                        event: obj.event,
-                        payload: obj.payload,
-                        version: obj.version,
-                        correlation_id: obj.correlation_id,
-                    });
+                    // Spread the full event so non-standard fields (e.g. errorMessage on DLQ events)
+                    // reach the client. Exclude 'size' — it's an internal SDK byte-count, not event data.
+                    const { size: _size, ...eventData } = obj;
+                    response.results.push(eventData);
 
                     size += obj.size || Buffer.byteLength(JSON.stringify(obj));
 
