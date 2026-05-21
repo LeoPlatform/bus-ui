@@ -190,9 +190,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
                 if (matches) {
                     // Spread the full event so non-standard fields (e.g. errorMessage on DLQ events)
-                    // reach the client. Exclude 'size' — it's an internal SDK byte-count, not event data.
-                    const { size: _size, ...eventData } = obj;
-                    response.results.push(eventData);
+                    // reach the client. Matches legacy Object.assign({}, obj) behavior.
+                    response.results.push({ ...obj });
 
                     size += obj.size || Buffer.byteLength(JSON.stringify(obj));
 
