@@ -88,17 +88,20 @@
 
     function fmtLag(lag: unknown): string {
         if (lag === null || lag === undefined || lag === '') return '';
-        if (typeof lag === 'number') return formatLagSeconds(lag);
-        return String(lag);
-    }
-
-    function formatLagSeconds(ms: number): string {
-        if (!Number.isFinite(ms) || ms < 0) return '';
-        const s = ms / 1000;
-        if (s < 60) return `${s >= 10 ? s.toFixed(0) : s.toFixed(1)}s`;
-        const m = Math.floor(s / 60);
-        const r = s - m * 60;
-        return `${m}m${r < 10 ? '0' : ''}${r.toFixed(0)}s`;
+        const ms = typeof lag === 'number' ? lag : Number(lag);
+        if (isNaN(ms)) return String(lag);
+        const abs = Math.abs(ms);
+        const prefix = ms < 0 ? '-' : '';
+        if (abs < 1000) return `${prefix}${abs}ms`;
+        if (abs < 60_000) return `${prefix}${(abs / 1000).toFixed(1)}s`;
+        if (abs < 3_600_000) {
+            const m = Math.floor(abs / 60_000);
+            const s = Math.floor((abs % 60_000) / 1000);
+            return `${prefix}${m}m ${s}s`;
+        }
+        const h = Math.floor(abs / 3_600_000);
+        const m = Math.floor((abs % 3_600_000) / 60_000);
+        return `${prefix}${h}h ${m}m`;
     }
 
     function eventTime(n: TraceNode): string {
