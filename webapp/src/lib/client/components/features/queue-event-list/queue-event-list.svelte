@@ -38,6 +38,7 @@
         correlation_id?: string;
         is_valid?: boolean | null;
         validation_errors?: string[];
+        [key: string]: unknown; // preserve extra fields (e.g. errorMessage on DLQ events)
     };
 
     type QueueEventListProps = {

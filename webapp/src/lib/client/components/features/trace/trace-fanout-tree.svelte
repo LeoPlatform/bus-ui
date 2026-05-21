@@ -104,9 +104,13 @@
         return `${prefix}${h}h ${m}m`;
     }
 
+    const UNSET_TIME_LABELS = new Set(['unspecified', 'invalid date', 'n/a', '']);
+
     function eventTime(n: TraceNode): string {
         const ts = n.timestamp as number | undefined;
-        return calendarFormat(ts);
+        if (ts == null) return '';
+        const formatted = calendarFormat(ts);
+        return UNSET_TIME_LABELS.has(formatted.toLowerCase()) ? '' : formatted;
     }
 
     function dashboardHref(n: TraceNode): string | null {

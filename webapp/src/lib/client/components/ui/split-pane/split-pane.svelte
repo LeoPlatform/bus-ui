@@ -43,9 +43,11 @@
         function onUp() {
             handle.removeEventListener('pointermove', onMove);
             handle.removeEventListener('pointerup', onUp);
+            handle.removeEventListener('pointercancel', onUp);
         }
         handle.addEventListener('pointermove', onMove);
         handle.addEventListener('pointerup', onUp);
+        handle.addEventListener('pointercancel', onUp);
     }
 </script>
 
