@@ -92,6 +92,14 @@ function parseStage(stage: string): { env: Env; bus: Bus } {
       `Invalid bus "${bus}" in stage "${stage}". Valid buses: ${VALID_BUSES.join(", ")}`,
     );
   }
+  // playground is a single ad-hoc training bus that only exists in the test
+  // environment. Its LEO_AUTH still resolves via /mcd/{env}, so a non-test
+  // stage would deploy but authenticate against the wrong (or missing) pool.
+  if (bus === "playground" && env !== "test") {
+    throw new Error(
+      `Invalid stage "${stage}". The playground bus only exists in the test environment — use "test-playground".`,
+    );
+  }
   return { env: env as Env, bus: bus as Bus };
 }
 
@@ -133,6 +141,14 @@ function secretName(env: string, bus: string): string {
   return `rstreams-${capitalize(env)}${busSuffix(bus)}Bus`;
 }
 
+/**
+ * Map (env, bus) to the Botmon CloudFormation stack name (source of the
+ * LeoStats table). Convention: {Env}{Bus}Botmon, with ad-hoc buses overridden.
+ */
+function botmonStackName(env: string, bus: string): string {
+  return BUS_OVERRIDES[bus as Bus]?.botmonStack ?? `${capitalize(env)}${busSuffix(bus)}Botmon`;
+}
+
 async function fetchBusSecret(
   region: string,
   env: string,
@@ -169,9 +185,7 @@ async function fetchLeoStatsTableName(
     "@aws-sdk/client-cloudformation"
   );
   const client = new CloudFormationClient({ region });
-  const stackName =
-    BUS_OVERRIDES[bus as Bus]?.botmonStack ??
-    `${capitalize(env)}${busSuffix(bus)}Botmon`;
+  const stackName = botmonStackName(env, bus);
 
   try {
     console.log(`Fetching LeoStats table from stack: ${stackName}`);
@@ -377,7 +391,7 @@ export default $config({
     if (!leoStatsTableName) {
       throw new Error(
         `Could not find existing LeoStats table for stage "${stage}". ` +
-        `Expected CloudFormation stack "${capitalize(env)}${busSuffix(bus)}Botmon" ` +
+        `Expected CloudFormation stack "${botmonStackName(env, bus)}" ` +
         `with a "LeoStats" resource. The new botmon reads from the existing ` +
         `LeoStats table — it does not create its own.`,
       );

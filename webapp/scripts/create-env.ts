@@ -151,6 +151,13 @@ async function main(): Promise<void> {
         .help()
         .parseSync();
 
+    // playground is a single ad-hoc training bus that only exists in test.
+    if (argv.bus === "playground" && argv.env !== "test") {
+        throw new Error(
+            `The playground bus only exists in the test environment — use --env test.`,
+        );
+    }
+
     const envPath = "./.env.local";
     const existing = readExistingEnvFile(envPath);
 
