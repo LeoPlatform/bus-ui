@@ -64,6 +64,7 @@
     "globals": "^16.0.0",
     "layerchart": "^2.0.0-next.43",
     "playwright": "^1.51.1",
+    "sst": "^3.19.3",
     "storybook": "^8.6.12",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
