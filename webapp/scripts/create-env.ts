@@ -40,17 +40,31 @@ function capitalize(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/**
+ * Ad-hoc bus overrides — kept in sync with sst.config.ts.
+ * PlaygroundBus was deployed ad-hoc (PlaygroundBus-* names, no env prefix),
+ * so it doesn't follow the {Env}{Bus} convention. Map its secret and Botmon
+ * stack explicitly. LEO_AUTH still uses the standard /mcd/{env} path (shared
+ * TestAuth for the test env).
+ */
+const BUS_OVERRIDES: Record<string, { secretName?: string; botmonStack?: string }> = {
+    playground: {
+        secretName: "rstreams-PlaygroundBus",
+        botmonStack: "PlaygroundBus-Botmon-HWSMESWEJX0K",
+    },
+};
+
 /** Map (env, bus) → the suffix used in AWS resource names. "cup" is the default bus (no suffix). */
 function busSuffix(bus: string): string {
     return bus === "cup" ? "" : capitalize(bus);
 }
 
 function secretName(env: string, bus: string): string {
-    return `rstreams-${capitalize(env)}${busSuffix(bus)}Bus`;
+    return BUS_OVERRIDES[bus]?.secretName ?? `rstreams-${capitalize(env)}${busSuffix(bus)}Bus`;
 }
 
 function botmonStackName(env: string, bus: string): string {
-    return `${capitalize(env)}${busSuffix(bus)}Botmon`;
+    return BUS_OVERRIDES[bus]?.botmonStack ?? `${capitalize(env)}${busSuffix(bus)}Botmon`;
 }
 
 async function fetchBusSecret(client: SecretsManagerClient, name: string): Promise<BusSecret> {
@@ -124,7 +138,7 @@ async function main(): Promise<void> {
                 type: "string",
                 demandOption: false,
                 describe: "Target bus",
-                choices: ["cup", "chub", "stream"] as const,
+                choices: ["cup", "chub", "stream", "playground"] as const,
                 default: "cup" as const,
             },
             auth: {
@@ -136,6 +150,13 @@ async function main(): Promise<void> {
         })
         .help()
         .parseSync();
+
+    // playground is a single ad-hoc training bus that only exists in test.
+    if (argv.bus === "playground" && argv.env !== "test") {
+        throw new Error(
+            `The playground bus only exists in the test environment — use --env test.`,
+        );
+    }
 
     const envPath = "./.env.local";
     const existing = readExistingEnvFile(envPath);

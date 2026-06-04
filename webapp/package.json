@@ -1,7 +1,7 @@
 {
   "name": "botmon",
   "private": true,
-  "version": "4.1.0",
+  "version": "4.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -24,6 +24,7 @@
     "create-env-test-stream": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env test --bus stream",
     "create-env-staging-stream": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env staging --bus stream",
     "create-env-prod-stream": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env prod --bus stream",
+    "create-env-test-playground": "tsx scripts/create-env.ts --configLocation ./providers.config.json --env test --bus playground",
     "deploy": "./scripts/deploy.sh"
   },
   "devDependencies": {
@@ -63,6 +64,7 @@
     "globals": "^16.0.0",
     "layerchart": "^2.0.0-next.43",
     "playwright": "^1.51.1",
+    "sst": "^3.19.3",
     "storybook": "^8.6.12",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",

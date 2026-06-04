@@ -8,7 +8,9 @@
  * Stage naming convention: {env}-{bus}
  *   Matches the create-env npm scripts (e.g., create-env-test-cup).
  *   Valid envs: test, staging, prod
- *   Valid buses: cup, chub, stream
+ *   Valid buses: cup, chub, stream, playground
+ *   (playground is a single ad-hoc training bus — only test-playground
+ *    is valid; see BUS_OVERRIDES.)
  *
  * Resources CREATED by this stack (mirrors old_ui/cloudformation/):
  *   - LeoStats DynamoDB table with auto-scaling
@@ -39,10 +41,36 @@
 // ---------------------------------------------------------------
 
 const VALID_ENVS = ["test", "staging", "prod"] as const;
-const VALID_BUSES = ["cup", "chub", "stream"] as const;
+const VALID_BUSES = ["cup", "chub", "stream", "playground"] as const;
 
 type Env = (typeof VALID_ENVS)[number];
 type Bus = (typeof VALID_BUSES)[number];
+
+// ---------------------------------------------------------------
+// Ad-hoc bus overrides
+//
+// Most buses follow the {Env}{Bus} naming convention, so their
+// resources are discovered automatically (see helpers below).
+// PlaygroundBus was deployed ad-hoc: its resources use PlaygroundBus-*
+// physical names with no env prefix, so convention-based discovery
+// misses. Map the exceptions explicitly. Only the bus secret, the
+// Botmon CloudFormation stack (source of the LeoStats table), and the
+// API mapping key differ — LEO_AUTH still resolves via the standard
+// /mcd/{env} path, which for the test env is the shared TestAuth table.
+// That is intentional: TestAuth is auto-populated from the test DSCO
+// identity pool that playground logins authenticate against, so trainee
+// identities resolve without per-user maintenance.
+// ---------------------------------------------------------------
+
+const BUS_OVERRIDES: Partial<
+  Record<Bus, { secretName?: string; botmonStack?: string; apiMappingKey?: string }>
+> = {
+  playground: {
+    secretName: "rstreams-PlaygroundBus",
+    botmonStack: "PlaygroundBus-Botmon-HWSMESWEJX0K",
+    apiMappingKey: "botmonAlphaPlayground",
+  },
+};
 
 function parseStage(stage: string): { env: Env; bus: Bus } {
   const parts = stage.split("-");
@@ -62,6 +90,14 @@ function parseStage(stage: string): { env: Env; bus: Bus } {
   if (!VALID_BUSES.includes(bus as Bus)) {
     throw new Error(
       `Invalid bus "${bus}" in stage "${stage}". Valid buses: ${VALID_BUSES.join(", ")}`,
+    );
+  }
+  // playground is a single ad-hoc training bus that only exists in the test
+  // environment. Its LEO_AUTH still resolves via /mcd/{env}, so a non-test
+  // stage would deploy but authenticate against the wrong (or missing) pool.
+  if (bus === "playground" && env !== "test") {
+    throw new Error(
+      `Invalid stage "${stage}". The playground bus only exists in the test environment — use "test-playground".`,
     );
   }
   return { env: env as Env, bus: bus as Bus };
@@ -100,7 +136,17 @@ function busSuffix(bus: string): string {
  *   (test, stream) → rstreams-TestStreamBus
  */
 function secretName(env: string, bus: string): string {
+  const override = BUS_OVERRIDES[bus as Bus]?.secretName;
+  if (override) return override;
   return `rstreams-${capitalize(env)}${busSuffix(bus)}Bus`;
+}
+
+/**
+ * Map (env, bus) to the Botmon CloudFormation stack name (source of the
+ * LeoStats table). Convention: {Env}{Bus}Botmon, with ad-hoc buses overridden.
+ */
+function botmonStackName(env: string, bus: string): string {
+  return BUS_OVERRIDES[bus as Bus]?.botmonStack ?? `${capitalize(env)}${busSuffix(bus)}Botmon`;
 }
 
 async function fetchBusSecret(
@@ -139,7 +185,7 @@ async function fetchLeoStatsTableName(
     "@aws-sdk/client-cloudformation"
   );
   const client = new CloudFormationClient({ region });
-  const stackName = `${capitalize(env)}${busSuffix(bus)}Botmon`;
+  const stackName = botmonStackName(env, bus);
 
   try {
     console.log(`Fetching LeoStats table from stack: ${stackName}`);
@@ -345,7 +391,7 @@ export default $config({
     if (!leoStatsTableName) {
       throw new Error(
         `Could not find existing LeoStats table for stage "${stage}". ` +
-        `Expected CloudFormation stack "${capitalize(env)}${busSuffix(bus)}Botmon" ` +
+        `Expected CloudFormation stack "${botmonStackName(env, bus)}" ` +
         `with a "LeoStats" resource. The new botmon reads from the existing ` +
         `LeoStats table — it does not create its own.`,
       );
@@ -459,19 +505,21 @@ export default $config({
     // and there are no CORS issues with dw-auth-token endpoints.
     //
     // Mapping key per bus:
-    //   cup    → botmonAlpha
-    //   stream → botmonAlphaStreams
-    //   chub   → botmonAlphaChub
-    // Each bus gets its own path on the shared apps domain so
-    // cup/stream/chub can coexist without API mapping conflicts.
+    //   cup        → botmonAlpha
+    //   stream     → botmonAlphaStreams
+    //   chub       → botmonAlphaChub
+    //   playground → botmonAlphaPlayground (via BUS_OVERRIDES)
+    // Each bus gets its own path on the shared apps domain so they
+    // can coexist without API mapping conflicts.
     // ---------------------------------------------------------------
 
     const apiMappingKey =
-      bus === "cup"
+      BUS_OVERRIDES[bus]?.apiMappingKey ??
+      (bus === "cup"
         ? "botmonAlpha"
         : bus === "stream"
           ? "botmonAlphaStreams"
-          : "botmonAlphaChub";
+          : "botmonAlphaChub");
     const appsCustomDomain =
       env === "prod" ? "apps.dsco.io" : `${env}-apps.dsco.io`;
 
