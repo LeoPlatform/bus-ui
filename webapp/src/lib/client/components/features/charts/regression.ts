@@ -1,6 +1,14 @@
 import type { DashboardStatsValue } from "$lib/types";
-import type { ChartDataset } from "chart.js/auto";
-import regression, { type DataPoint } from "regression";
+import regression from "regression";
+
+/** Library-agnostic trend-line series: fitted points plus a predictor for arbitrary x. */
+export interface RegressionSeries {
+    /** Fitted regression points, sorted by x (time). */
+    points: { x: number; y: number }[];
+    /** Predicts the regression y value at an arbitrary x (time). */
+    predict: (x: number) => number;
+    label?: string;
+}
 
 export type RegressionType = 'linear' | 'exponential' | 'polynomial' | 'power' | 'logarithmic';
 export const regressionTypes: RegressionType[] = ['linear', 'exponential', 'polynomial', 'power', 'logarithmic']
@@ -24,7 +32,7 @@ function convertToRegressionValidData(data: DashboardStatsValue[]): {data: [numb
     return {data: data.map((item) => [item.time, item.value]), xVals: data.filter((item) => item.value == 0).map((item) => [item.time, item.value])};
 }
 
-export function createDataSet(opts: RegressionOptions): ChartDataset<"line"> {
+export function createRegressionSeries(opts: RegressionOptions): RegressionSeries {
     if(!opts.type && !opts.bestFit) {
         throw new Error('Either type or bestFit must be provided');
     }
@@ -77,14 +85,9 @@ export function createDataSet(opts: RegressionOptions): ChartDataset<"line"> {
         y: item[1],
     })).concat(extendedData).sort((a, b) => a.x - b.x);
     return {
-        // labels: regressionLine.map((item) => item.x),
-        data: regressionLine,
-        borderColor: 'green',
-        borderWidth: 2,
-        borderDash: [5, 5],
-        pointStyle: false,
+        points: regressionLine,
+        predict: (x: number) => reg!.predict(x)[1],
         label: opts.label,
-        xAxisID: 'x',
     };
 }
 

@@ -97,8 +97,6 @@
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
     "async": "^3.2.6",
-    "chart.js": "^4.5.0",
-    "chartjs-plugin-annotation": "^3.1.0",
     "d3": "^7.9.0",
     "diff": "^5.2.2",
     "fuse.js": "^7.1.0",
