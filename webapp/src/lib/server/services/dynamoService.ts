@@ -7,7 +7,7 @@ import { createDynamoClient } from "$lib/server/aws_utils";
 import { getLeoCronTable } from "$lib/server/utils";
 import type { AwsCreds, BotSettings, CheckpointType, DashboardStats, DashboardStatsRequest, MergedStatsRecord, QueueSettings, StatsDynamoRecord, StatsQueryRequest, StatsRecord, SystemSettings } from "$lib/types";
 import { DynamoDBClient, QueryCommand, ReturnConsumedCapacity, type QueryOutput } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand, UpdateCommand, type NativeAttributeValue, type ScanCommandInput, type ScanCommandOutput } from "@aws-sdk/lib-dynamodb";
 import { bucketsData, ranges } from "$lib/bucketUtils";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {  mergeStatsResults } from "$lib/stats/utils";
@@ -671,55 +671,96 @@ export async function saveCron(
     const docClient = DynamoDBDocumentClient.from(client);
     const botId = params.id.replace(/^bot:/, "");
 
-    // Fetch existing item to merge checkpoint data
-    const existing = await docClient.send(new GetCommand({
-        TableName: LEO_CRON_TABLE(),
-        Key: { id: botId }
-    }));
-
-    if (!existing.Item) {
-        throw new Error(`Bot ${botId} not found in the cron table`);
-    }
-
-    const current = existing.Item;
-    const updated: Record<string, any> = { ...current };
+    const sets: string[] = [];
+    const removes: string[] = [];
+    const names: Record<string, string> = {};
+    const values: Record<string, NativeAttributeValue> = {};
 
     // Force run: set trigger to now, ignorePaused, reset errorCount
     if (params.executeNow) {
-        updated.trigger = Date.now();
-        updated.ignorePaused = true;
-        updated.errorCount = 0;
-        updated.scheduledTrigger = null;
+        sets.push("#trigger = :trigger", "#ignorePaused = :ignorePaused", "#errorCount = :errorCount", "#scheduledTrigger = :scheduledTrigger");
+        names["#trigger"] = "trigger";
+        names["#ignorePaused"] = "ignorePaused";
+        names["#errorCount"] = "errorCount";
+        names["#scheduledTrigger"] = "scheduledTrigger";
+        values[":trigger"] = Date.now();
+        values[":ignorePaused"] = true;
+        values[":errorCount"] = 0;
+        values[":scheduledTrigger"] = null;
     }
 
-    // Force run really: also clear instances and invokeTime
+    // Force run really: also clear the running instance and invokeTime
+    // (REMOVE on a missing path is a no-op, so no existence checks needed)
     if (params.executeNowClear) {
-        if (updated.instances && updated.instances['0']) {
-            delete updated.instances['0'];
-        }
-        delete updated.invokeTime;
+        removes.push("#instances.#instanceId", "#invokeTime");
+        names["#instances"] = "instances";
+        names["#instanceId"] = "0";
+        names["#invokeTime"] = "invokeTime";
     }
 
-    // Change checkpoint: merge new checkpoint values into existing read checkpoints
+    // Change checkpoint: merge new checkpoint values into existing read checkpoints.
+    // A read is still needed to merge each queue entry, but the write below only
+    // touches the specific attributes being changed instead of the whole item.
     if (params.checkpoint) {
-        if (!updated.checkpoints) {
-            updated.checkpoints = { read: {}, write: {} };
+        const existing = await docClient.send(new GetCommand({
+            TableName: LEO_CRON_TABLE(),
+            Key: { id: botId }
+        }));
+        if (!existing.Item) {
+            throw new Error(`Bot ${botId} not found in the cron table`);
         }
-        if (!updated.checkpoints.read) {
-            updated.checkpoints.read = {};
-        }
-        for (const [queueId, checkpointValue] of Object.entries(params.checkpoint)) {
-            updated.checkpoints.read[queueId] = {
-                ...(current.checkpoints?.read?.[queueId] ?? {}),
-                checkpoint: checkpointValue,
-            };
+        const currentCheckpoints = existing.Item.checkpoints;
+
+        if (currentCheckpoints?.read && typeof currentCheckpoints.read === 'object') {
+            // Nested path per queue: only the changed queue entries are written
+            names["#checkpoints"] = "checkpoints";
+            names["#read"] = "read";
+            let i = 0;
+            for (const [queueId, checkpointValue] of Object.entries(params.checkpoint)) {
+                sets.push(`#checkpoints.#read.#q${i} = :q${i}`);
+                names[`#q${i}`] = queueId;
+                values[`:q${i}`] = {
+                    ...(currentCheckpoints.read[queueId] ?? {}),
+                    checkpoint: checkpointValue,
+                };
+                i++;
+            }
+        } else {
+            // checkpoints.read doesn't exist yet — nested SET would fail, so
+            // write the whole checkpoints attribute
+            const read: Record<string, NativeAttributeValue> = {};
+            for (const [queueId, checkpointValue] of Object.entries(params.checkpoint)) {
+                read[queueId] = { checkpoint: checkpointValue };
+            }
+            sets.push("#checkpoints = :checkpoints");
+            names["#checkpoints"] = "checkpoints";
+            values[":checkpoints"] = { ...(currentCheckpoints ?? {}), read, write: currentCheckpoints?.write ?? {} };
         }
     }
 
-    await docClient.send(new PutCommand({
-        TableName: LEO_CRON_TABLE(),
-        Item: updated,
-    }));
+    if (sets.length === 0 && removes.length === 0) {
+        return;
+    }
+
+    const updateExpression =
+        (sets.length ? `SET ${sets.join(", ")}` : "") +
+        (removes.length ? ` REMOVE ${removes.join(", ")}` : "");
+
+    try {
+        await docClient.send(new UpdateCommand({
+            TableName: LEO_CRON_TABLE(),
+            Key: { id: botId },
+            UpdateExpression: updateExpression.trim(),
+            ConditionExpression: "attribute_exists(id)",
+            ExpressionAttributeNames: names,
+            ...(Object.keys(values).length ? { ExpressionAttributeValues: values } : {}),
+        }));
+    } catch (err: any) {
+        if (err?.name === 'ConditionalCheckFailedException') {
+            throw new Error(`Bot ${botId} not found in the cron table`);
+        }
+        throw err;
+    }
 }
 
 async function scan(client: DynamoDBDocumentClient, input: ScanCommandInput): Promise<ScanCommandOutput> {

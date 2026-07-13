@@ -39,6 +39,22 @@ export class AppState {
         this.#fetch = withBasePath(fetch);
         this.#userData = userData;
         this.#isLocal = browser && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'));
+        if (browser) {
+            // Console toggle carried over from old_ui (main.jsx) — admins run
+            // enableAdminFeatures(true) in devtools to unlock admin-only actions.
+            (window as unknown as Record<string, unknown>).enableAdminFeatures = (enableFeatures: boolean) => {
+                if (enableFeatures) {
+                    localStorage.setItem('enableAdminFeatures', String(enableFeatures));
+                } else {
+                    localStorage.removeItem('enableAdminFeatures');
+                }
+                return `Refresh the page to ${enableFeatures ? 'show' : 'hide'} Admin Features`;
+            };
+        }
+    }
+
+    get adminFeaturesEnabled() {
+        return browser && !!localStorage.getItem('enableAdminFeatures');
     }
    
     get userData() {

@@ -21,7 +21,8 @@
         isPaused?: boolean;
         disabled?: boolean;
     }
-    const compState = getContext<AppState>("appState").dashboardState;
+    const appState = getContext<AppState>("appState");
+    const compState = appState.dashboardState;
 
     let {currentCheckpoint, isPaused, disabled}: CheckpointActionBarProps = $props();
 
@@ -180,10 +181,12 @@
                         <Menubar.Item onclick={handleForceRun} disabled={forceRunning}>
                             {forceRunning ? 'Running...' : 'Force Run'}
                         </Menubar.Item>
-                        <Menubar.Separator />
-                        <Menubar.Item onclick={handleForceRunReally} disabled={forceRunning}>
-                            {forceRunning ? 'Running...' : 'Force Run Really'}
-                        </Menubar.Item>
+                        {#if appState.adminFeaturesEnabled}
+                            <Menubar.Separator />
+                            <Menubar.Item onclick={handleForceRunReally} disabled={forceRunning}>
+                                {forceRunning ? 'Running...' : 'Force Run Really'}
+                            </Menubar.Item>
+                        {/if}
                         <Menubar.Separator />
                         <Menubar.Item onclick={() => openCheckpointDialog(true)}>
                             Change Checkpoint and Force Run
