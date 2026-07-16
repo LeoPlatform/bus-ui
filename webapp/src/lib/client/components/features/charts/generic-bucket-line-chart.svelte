@@ -2,6 +2,7 @@
   import { browser } from "$app/environment";
   import type { Component } from "svelte";
   import { bucketsData, ranges } from "$lib/bucketUtils";
+  import { computeBucketTotals } from "./bucket-totals";
   import type { DashboardStatsValue, StatsRange } from "$lib/types";
   import HelpTooltip from "../../help-tooltip.svelte";
   import { Separator } from "../../ui/separator";
@@ -71,30 +72,23 @@
 
   let showLogarithmic = $state<boolean>(false);
 
-  const finiteOr = (n: number | undefined, fallback: number) =>
-    typeof n === "number" && Number.isFinite(n) ? n : fallback;
-
-  const countInBucket = $derived(
-    finiteOr(
-      overrideCountInBucket,
-      (data ?? []).reduce((acc, p) => (p.time >= start && p.time <= end ? acc + (Number(p.value) || 0) : acc), 0)
-    )
-  );
-  const totalCount = $derived(
-    finiteOr(
+  // Aggregation for the three "total" rows. Lib-agnostic and unit-tested in
+  // bucket-totals.test.ts (ES-3031) so the migration can't silently change the numbers.
+  const totals = $derived(
+    computeBucketTotals({
+      data,
+      start,
+      end,
+      effectiveRangeStart,
+      lastBucket,
       overrideTotal,
-      (data ?? []).reduce(
-        (acc, p) => (p.time >= effectiveRangeStart && p.time <= end ? acc + (Number(p.value) || 0) : acc),
-        0
-      )
-    )
-  );
-  const countInLastBucket = $derived(
-    finiteOr(
+      overrideCountInBucket,
       overrideCountInLastBucket,
-      (data ?? []).reduce((acc, p) => (p.time >= lastBucket && p.time < start ? acc + (Number(p.value) || 0) : acc), 0)
-    )
+    })
   );
+  const countInBucket = $derived(totals.countInBucket);
+  const totalCount = $derived(totals.totalCount);
+  const countInLastBucket = $derived(totals.countInLastBucket);
 
   // LayerChart renders client-side only; lazy-load the inner chart behind a browser guard.
   let GenericBucketLineChartInner: Component<{
