@@ -5,7 +5,7 @@
   import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
   import { createRegressionSeries, type RegressionType } from "./regression";
-  import { chartYBaseline } from "./y-axis";
+  import { chartYBaseline, logSafe } from "./y-axis";
 
   interface Props {
     sourceLagData: DashboardStatsValue[];
@@ -56,9 +56,9 @@
       .sort((a, b) => a - b)
       .map((t) => ({
         time: new Date(t),
-        source: map.get(t)!.source,
-        queue: map.get(t)!.queue,
-        trend: predict ? predict(t) : null,
+        source: logSafe(map.get(t)!.source, showLogarithmic),
+        queue: logSafe(map.get(t)!.queue, showLogarithmic),
+        trend: logSafe(predict ? predict(t) : null, showLogarithmic),
       }));
   });
 
@@ -112,7 +112,9 @@
           formatTime((payload?.[0]?.payload as { time?: Date } | undefined)?.time ?? new Date())}
       >
         {#snippet formatter({ value, name })}
-          <span>{name}: {humanize(value as number)}</span>
+          {#if value != null}
+            <span>{name}: {humanize(value as number)}</span>
+          {/if}
         {/snippet}
       </Chart.Tooltip>
     {/snippet}

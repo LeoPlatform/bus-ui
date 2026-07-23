@@ -79,7 +79,14 @@
         labelFormatter={(_v, payload) =>
           formatTime((payload?.[0]?.payload as { time?: Date } | undefined)?.time ?? new Date())}
         hideIndicator
-      />
+      >
+        {#snippet formatter({ value, item })}
+          <!-- Total series only; guard null so gap points don't throw. -->
+          {#if item.key === "total" && value != null}
+            <span>Events In Queue: {(value as number).toLocaleString()}</span>
+          {/if}
+        {/snippet}
+      </Chart.Tooltip>
     {/snippet}
   </AreaChart>
 </Chart.Container>

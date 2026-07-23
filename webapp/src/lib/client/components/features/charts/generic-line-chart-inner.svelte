@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
-  import { chartYBaseline } from "./y-axis";
+  import { chartYBaseline, logSafe } from "./y-axis";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -25,7 +25,7 @@
   });
 
   const chartData = $derived(
-    data.map((d) => ({ time: new Date(d.time), value: d.value || 0 }))
+    data.map((d) => ({ time: new Date(d.time), value: logSafe(d.value || 0, showLogarithmic) }))
   );
 
   // Extend the x domain to include "now" so the now-line is always visible.
@@ -83,7 +83,9 @@
         hideIndicator
       >
         {#snippet formatter({ value })}
-          <span>{tooltipLabel}: {formatValue(value as number)}</span>
+          {#if value != null}
+            <span>{tooltipLabel}: {formatValue(value as number)}</span>
+          {/if}
         {/snippet}
       </Chart.Tooltip>
     {/snippet}

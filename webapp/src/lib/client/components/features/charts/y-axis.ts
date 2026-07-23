@@ -14,3 +14,20 @@
 export function chartYBaseline(showLogarithmic: boolean): number | null {
   return showLogarithmic ? null : 0;
 }
+
+/**
+ * Sanitize a y-value for the active scale.
+ *
+ * Real Bus data contains 0s (e.g. buckets with no events/errors). A `scaleLog`
+ * cannot place a non-positive value — `log(0) = -Infinity`, `log(-n) = NaN` —
+ * so a single 0 in the series turns the whole path into `M0,NaN…` and the chart
+ * renders blank. `yBaseline` alone does NOT fix this: it controls the domain, not
+ * the per-point values. On a log axis we therefore map non-positive values to
+ * `null` (a gap: the point has no logarithmic position) instead of feeding NaN to
+ * the path. On a linear axis the value passes through unchanged.
+ */
+export function logSafe(value: number | null | undefined, showLogarithmic: boolean): number | null {
+  if (value == null) return null;
+  if (showLogarithmic && value <= 0) return null;
+  return value;
+}

@@ -4,7 +4,7 @@
   import { scaleTime, scaleLinear, scaleLog } from "d3-scale";
   import { onMount } from "svelte";
   import type { DashboardStatsValue } from "$lib/types";
-  import { chartYBaseline } from "./y-axis";
+  import { chartYBaseline, logSafe } from "./y-axis";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -44,7 +44,7 @@
     const lastBeforeCurrent = sorted.filter((p) => p.time < start).at(-1);
     const lastBeforePrev = sorted.filter((p) => p.time < lastBucket).at(-1);
     return sorted.map((p) => {
-      const v = p.value || 0;
+      const v = logSafe(p.value || 0, showLogarithmic);
       const inCurrent = p.time >= start && p.time <= end;
       const inPrev = p.time >= lastBucket && p.time < start;
       return {
@@ -114,7 +114,17 @@
         labelFormatter={(_v, payload) =>
           formatTime((payload?.[0]?.payload as { time?: Date } | undefined)?.time ?? new Date())}
         hideIndicator
-      />
+      >
+        {#snippet formatter({ value, item })}
+          <!-- Show only the "total" series (like the prior Chart.js tooltip, which
+               returned "" for the current/previous datasets). Guard null so gap
+               points — including non-positive values dropped on a log axis — don't
+               throw on `null.toLocaleString()`. -->
+          {#if item.key === "total" && value != null}
+            <span>{chartLabel}: {formatValue(value as number)}</span>
+          {/if}
+        {/snippet}
+      </Chart.Tooltip>
     {/snippet}
   </AreaChart>
 </Chart.Container>
