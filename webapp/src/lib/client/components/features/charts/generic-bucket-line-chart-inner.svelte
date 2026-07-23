@@ -4,6 +4,7 @@
   import { scaleTime, scaleLinear, scaleLog } from "d3-scale";
   import { onMount } from "svelte";
   import type { DashboardStatsValue } from "$lib/types";
+  import { chartYBaseline } from "./y-axis";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -84,6 +85,7 @@
     {xDomain}
     yScale={showLogarithmic ? scaleLog() : scaleLinear()}
     yNice
+    yBaseline={chartYBaseline(showLogarithmic)}
     series={[
       { key: "total", label: chartLabel, color: "#3b82f6" },
       { key: "previous", label: "Previous Bucket", color: "#F47D4A" },

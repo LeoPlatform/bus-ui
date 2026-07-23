@@ -5,6 +5,7 @@
   import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
   import { createRegressionSeries, type RegressionType } from "./regression";
+  import { chartYBaseline } from "./y-axis";
 
   interface Props {
     sourceLagData: DashboardStatsValue[];
@@ -64,7 +65,17 @@
   const series = $derived([
     { key: "source", label: "Source Lag", color: "#3b82f6" },
     { key: "queue", label: "Queue Lag", color: "#ef4444" },
-    ...(showTrend ? [{ key: "trend", label: trendLineLabel ?? "Trend", color: "#16a34a" }] : []),
+    ...(showTrend
+      ? [
+          {
+            key: "trend",
+            label: trendLineLabel ?? "Trend",
+            color: "#16a34a",
+            // Dashed to match the prior Chart.js trend line (borderDash).
+            props: { style: "stroke-dasharray: 6 4;" },
+          },
+        ]
+      : []),
   ]);
 
   const config = $derived({
@@ -85,6 +96,7 @@
     y="source"
     yScale={showLogarithmic ? scaleLog() : scaleLinear()}
     yNice
+    yBaseline={chartYBaseline(showLogarithmic)}
     {series}
     legend
     props={{

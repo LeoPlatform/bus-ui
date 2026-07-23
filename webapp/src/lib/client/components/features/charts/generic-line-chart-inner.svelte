@@ -5,6 +5,7 @@
   import { onMount } from "svelte";
   import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
+  import { chartYBaseline } from "./y-axis";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -60,6 +61,7 @@
     y="value"
     yScale={showLogarithmic ? scaleLog() : scaleLinear()}
     yNice
+    yBaseline={chartYBaseline(showLogarithmic)}
     series={[{ key: "value", label: dataSetLabel, color: "#3b82f6" }]}
     props={{
       spline: { class: "stroke-2" },
