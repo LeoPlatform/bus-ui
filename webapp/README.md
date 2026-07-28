@@ -150,7 +150,7 @@ webapp/
 │   ├── create-env.ts           # .env.local generator
 │   ├── create-tree.ts          # relationship tree helper
 │   └── deploy.sh               # SST deploy wrapper
-├── sst.config.ts               # SST v3 deploy config
+├── sst.config.ts               # SST v4 deploy config
 ├── lambda-handler-v1.mjs       # API Gateway v1 Lambda wrapper
 ├── svelte.config.js
 └── package.json

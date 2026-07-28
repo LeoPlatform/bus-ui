@@ -1,6 +1,13 @@
 # Deployment
 
-The SvelteKit webapp deploys to AWS as **Lambda (SSR) + CloudFront (CDN) + S3 (static assets)** via [SST v3](https://sst.dev/). All infrastructure is defined in [`sst.config.ts`](./sst.config.ts).
+The SvelteKit webapp deploys to AWS as **Lambda (SSR) + CloudFront (CDN) + S3 (static assets)** via [SST v4](https://sst.dev/). All infrastructure is defined in [`sst.config.ts`](./sst.config.ts).
+
+> **The `sst` version is pinned exactly (`4.14.3`), and the pin is load-bearing.** The SST major
+> determines both the bundled Pulumi AWS provider and the resource type tokens its platform writes
+> into state — v3 emits `aws:s3:BucketV2`, v4 emits `aws:s3:Bucket`. Deploying a v4-created stack
+> with a v3 CLI makes Pulumi see a *different resource* and plan a destroy/recreate of the assets
+> bucket. Running the v4 CLI needs **node >= 22** (`.nvmrc` is `v22`); this is independent of the
+> Lambda `runtime`, which is pinned separately to `nodejs24.x` in `sst.config.ts`.
 
 ## Contents
 
@@ -95,6 +102,7 @@ Note the prod domain is the bare `apps.dsco.io` (no env prefix).
 
 ```bash
 cd webapp
+nvm use          # v22 — the SST v4 CLI's deps require node >= 22
 npm install
 
 # Ensure AWS credentials are active (default profile)

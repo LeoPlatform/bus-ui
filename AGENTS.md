@@ -11,7 +11,7 @@ SvelteKit 2 + Svelte 5 webapp that monitors LEO Platform (serverless ETL). Deplo
 - **Charts**: Chart.js + LayerChart, D3.js (relationship tree SVG)
 - **Auth**: `@auth/sveltekit` (OAuth mode) + custom DSCO/LOCAL providers
 - **AWS**: SDK v3, Leo SDK 7.1.18, Cognito Identity Pool for client credential minting
-- **Deploy**: SST v3 → Lambda (arm64, 1GB, 30s) + CloudFront + API Gateway v1
+- **Deploy**: SST v4 (pinned exactly — see DEPLOYMENT.md) → Lambda (arm64, 1GB, 30s, `nodejs24.x`) + CloudFront + API Gateway v1
 
 ## Application version (SvelteKit Botmon)
 
