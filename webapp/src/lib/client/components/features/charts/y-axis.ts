@@ -16,18 +16,40 @@ export function chartYBaseline(showLogarithmic: boolean): number | null {
 }
 
 /**
- * Sanitize a y-value for the active scale.
+ * Smallest positive value across a series — the floor used to clamp non-positive
+ * values on a log axis (see {@link logClamp}). Falls back to 1 when the series has
+ * no positive values (nothing meaningful to plot on a log scale).
+ */
+export function logFloor(values: Array<number | null | undefined>): number {
+  let min = Infinity;
+  for (const v of values) {
+    if (v != null && v > 0 && v < min) min = v;
+  }
+  return Number.isFinite(min) ? min : 1;
+}
+
+/**
+ * Clamp a y-value for the active scale.
  *
  * Real Bus data contains 0s (e.g. buckets with no events/errors). A `scaleLog`
  * cannot place a non-positive value — `log(0) = -Infinity`, `log(-n) = NaN` —
  * so a single 0 in the series turns the whole path into `M0,NaN…` and the chart
  * renders blank. `yBaseline` alone does NOT fix this: it controls the domain, not
- * the per-point values. On a log axis we therefore map non-positive values to
- * `null` (a gap: the point has no logarithmic position) instead of feeding NaN to
- * the path. On a linear axis the value passes through unchanged.
+ * the per-point values.
+ *
+ * On a log axis we raise non-positive values to `floor` (the smallest positive
+ * value in the series) so the line stays **continuous** and 0s render at the
+ * bottom of the axis — matching the prior Chart.js logarithmic behavior — rather
+ * than punching gaps into the series. On a linear axis the value passes through
+ * unchanged. Structural `null`s (deliberate gaps, e.g. a bucket series outside its
+ * window) are preserved as `null`, not floored.
  */
-export function logSafe(value: number | null | undefined, showLogarithmic: boolean): number | null {
+export function logClamp(
+  value: number | null | undefined,
+  showLogarithmic: boolean,
+  floor: number,
+): number | null {
   if (value == null) return null;
-  if (showLogarithmic && value <= 0) return null;
+  if (showLogarithmic && value <= 0) return floor;
   return value;
 }

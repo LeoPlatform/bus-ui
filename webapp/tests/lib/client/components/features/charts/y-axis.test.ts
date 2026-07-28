@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { scaleLog } from 'd3-scale';
-import { chartYBaseline, logSafe } from '$comps/features/charts/y-axis';
+import { chartYBaseline, logClamp, logFloor } from '$comps/features/charts/y-axis';
 
 /**
  * Regression guard for the log-axis break found during the ES-3031 visual pass.
@@ -31,33 +31,52 @@ describe('chartYBaseline', () => {
   });
 });
 
-describe('logSafe', () => {
-  it('passes values through unchanged on a linear axis (including 0 and negatives)', () => {
-    expect(logSafe(0, false)).toBe(0);
-    expect(logSafe(42, false)).toBe(42);
-    expect(logSafe(-5, false)).toBe(-5);
+describe('logFloor', () => {
+  it('returns the smallest positive value in the series', () => {
+    expect(logFloor([0, 24, 5, 80, -1, 20])).toBe(5);
   });
 
-  it('maps non-positive values to null on a log axis (0 and negatives have no log position)', () => {
+  it('ignores 0, negatives, and null/undefined', () => {
+    expect(logFloor([0, -3, null, undefined, 12])).toBe(12);
+  });
+
+  it('falls back to 1 when there is no positive value', () => {
+    expect(logFloor([0, -1, null])).toBe(1);
+    expect(logFloor([])).toBe(1);
+  });
+});
+
+describe('logClamp', () => {
+  const floor = 5;
+
+  it('passes values through unchanged on a linear axis (including 0 and negatives)', () => {
+    expect(logClamp(0, false, floor)).toBe(0);
+    expect(logClamp(42, false, floor)).toBe(42);
+    expect(logClamp(-5, false, floor)).toBe(-5);
+  });
+
+  it('raises non-positive values to the floor on a log axis (continuous, not a gap)', () => {
     // Real Bus data has 0s (empty buckets); a single 0 in a scaleLog series
-    // otherwise turns the whole path into NaN and blanks the chart.
-    expect(logSafe(0, true)).toBeNull();
-    expect(logSafe(-3, true)).toBeNull();
+    // otherwise turns the whole path into NaN and blanks the chart. Flooring
+    // (rather than nulling) keeps the line continuous, matching Chart.js.
+    expect(logClamp(0, true, floor)).toBe(floor);
+    expect(logClamp(-3, true, floor)).toBe(floor);
   });
 
   it('keeps positive values on a log axis', () => {
-    expect(logSafe(1, true)).toBe(1);
-    expect(logSafe(9999, true)).toBe(9999);
+    expect(logClamp(1, true, floor)).toBe(1);
+    expect(logClamp(9999, true, floor)).toBe(9999);
   });
 
-  it('preserves null/undefined as null on both axes', () => {
-    expect(logSafe(null, true)).toBeNull();
-    expect(logSafe(undefined, false)).toBeNull();
+  it('preserves structural null/undefined as null (deliberate gaps are not floored)', () => {
+    expect(logClamp(null, true, floor)).toBeNull();
+    expect(logClamp(undefined, false, floor)).toBeNull();
   });
 
-  it('a sanitized log series feeds scaleLog only finite numbers', () => {
+  it('a floored log series feeds scaleLog only finite numbers', () => {
     const raw = [0, 5, 0, 80, -1, 20];
-    const cleaned = raw.map((v) => logSafe(v, true)).filter((v): v is number => v != null);
+    const f = logFloor(raw);
+    const cleaned = raw.map((v) => logClamp(v, true, f)).filter((v): v is number => v != null);
     const scale = scaleLog().domain([Math.min(...cleaned), Math.max(...cleaned)]);
     for (const v of cleaned) expect(Number.isFinite(scale(v))).toBe(true);
   });

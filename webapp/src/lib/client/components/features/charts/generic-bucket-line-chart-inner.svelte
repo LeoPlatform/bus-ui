@@ -4,7 +4,7 @@
   import { scaleTime, scaleLinear, scaleLog } from "d3-scale";
   import { onMount } from "svelte";
   import type { DashboardStatsValue } from "$lib/types";
-  import { chartYBaseline, logSafe } from "./y-axis";
+  import { chartYBaseline, logClamp, logFloor } from "./y-axis";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -43,8 +43,9 @@
     const sorted = [...data].sort((a, b) => a.time - b.time);
     const lastBeforeCurrent = sorted.filter((p) => p.time < start).at(-1);
     const lastBeforePrev = sorted.filter((p) => p.time < lastBucket).at(-1);
+    const floor = logFloor(sorted.map((p) => p.value));
     return sorted.map((p) => {
-      const v = logSafe(p.value || 0, showLogarithmic);
+      const v = logClamp(p.value || 0, showLogarithmic, floor);
       const inCurrent = p.time >= start && p.time <= end;
       const inPrev = p.time >= lastBucket && p.time < start;
       return {

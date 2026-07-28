@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
-  import { chartYBaseline, logSafe } from "./y-axis";
+  import { chartYBaseline, logClamp, logFloor } from "./y-axis";
 
   interface Props {
     data: DashboardStatsValue[];
@@ -24,9 +24,10 @@
     return () => clearInterval(id);
   });
 
-  const chartData = $derived(
-    data.map((d) => ({ time: new Date(d.time), value: logSafe(d.value || 0, showLogarithmic) }))
-  );
+  const chartData = $derived.by(() => {
+    const floor = logFloor(data.map((d) => d.value));
+    return data.map((d) => ({ time: new Date(d.time), value: logClamp(d.value || 0, showLogarithmic, floor) }));
+  });
 
   // Extend the x domain to include "now" so the now-line is always visible.
   const xDomain = $derived.by(() => {

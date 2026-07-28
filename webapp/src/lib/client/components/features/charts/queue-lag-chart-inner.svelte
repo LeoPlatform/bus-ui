@@ -5,7 +5,7 @@
   import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
   import { createRegressionSeries, type RegressionType } from "./regression";
-  import { chartYBaseline, logSafe } from "./y-axis";
+  import { chartYBaseline, logClamp, logFloor } from "./y-axis";
 
   interface Props {
     sourceLagData: DashboardStatsValue[];
@@ -52,13 +52,16 @@
       }
     }
 
+    // Shared floor across both series (one y-axis) for clamping 0s on a log scale.
+    const floor = logFloor([...sourceLagData.map((d) => d.value), ...queueLagData.map((d) => d.value)]);
+
     return [...map.keys()]
       .sort((a, b) => a - b)
       .map((t) => ({
         time: new Date(t),
-        source: logSafe(map.get(t)!.source, showLogarithmic),
-        queue: logSafe(map.get(t)!.queue, showLogarithmic),
-        trend: logSafe(predict ? predict(t) : null, showLogarithmic),
+        source: logClamp(map.get(t)!.source, showLogarithmic, floor),
+        queue: logClamp(map.get(t)!.queue, showLogarithmic, floor),
+        trend: logClamp(predict ? predict(t) : null, showLogarithmic, floor),
       }));
   });
 
