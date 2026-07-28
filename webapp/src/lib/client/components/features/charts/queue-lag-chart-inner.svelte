@@ -5,7 +5,7 @@
   import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
   import { createRegressionSeries, type RegressionType } from "./regression";
-  import { chartYBaseline, logClamp, logFloor } from "./y-axis";
+  import { logClamp, logFloor } from "./y-axis";
 
   interface Props {
     sourceLagData: DashboardStatsValue[];
@@ -92,6 +92,13 @@
 </script>
 
 <Chart.Container {config} class="h-full w-full">
+  <!--
+    yBaseline={null}: fit the y-axis to the data range, never to 0. The prior
+    Chart.js queue-lag chart had `beginAtZero` commented out; lag values sit far
+    above zero, so pinning the baseline at 0 flattens the variation. (Unlike
+    generic-line, which used beginAtZero:true, and the bucket area charts, which
+    fill to origin — those keep the 0 baseline via chartYBaseline.)
+  -->
   <LineChart
     data={rows}
     x="time"
@@ -99,7 +106,7 @@
     y="source"
     yScale={showLogarithmic ? scaleLog() : scaleLinear()}
     yNice
-    yBaseline={chartYBaseline(showLogarithmic)}
+    yBaseline={null}
     {series}
     legend
     props={{
