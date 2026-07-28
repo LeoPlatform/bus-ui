@@ -63,14 +63,24 @@ The SvelteKit webapp deploys to AWS as **Lambda (SSR) + CloudFront (CDN) + S3 (s
 
 If the `{Env}{Bus}Botmon` stack doesn't exist (no old-Botmon), the deploy fails hard — it won't create a new LeoStats. Create one out-of-band before first deploy.
 
+The `playground` bus is the one exception to convention-based naming — see [Ad-hoc bus overrides](#ad-hoc-bus-overrides).
+
 ## Stage naming
 
 `{env}-{bus}` — matches the `create-env` npm scripts:
 
 - `env` ∈ `test`, `staging`, `prod`
-- `bus` ∈ `cup`, `chub`, `stream` (`cup` is the default bus; no suffix in AWS resource names)
+- `bus` ∈ `cup`, `chub`, `stream`, `playground` (`cup` is the default bus; no suffix in AWS resource names)
 
-Examples: `test-cup`, `staging-chub`, `prod-stream`.
+Examples: `test-cup`, `staging-chub`, `prod-stream`, `test-playground`.
+
+**`playground` is test-only.** It is a single ad-hoc training bus that exists in the test
+environment and nowhere else. `parseStage` rejects any other combination:
+
+```
+Invalid stage "staging-playground". The playground bus only exists in the test
+environment — use "test-playground".
+```
 
 The API Gateway base path also varies per bus:
 
@@ -79,16 +89,18 @@ The API Gateway base path also varies per bus:
 | cup | `botmonAlpha` |
 | chub | `botmonAlphaChub` |
 | stream | `botmonAlphaStreams` |
+| playground | `botmonAlphaPlayground` |
 
 ## Live stages
 
-All nine stages are currently deployed:
+All ten stages are currently deployed:
 
 | Stage | URL |
 |---|---|
 | test-cup | https://test-apps.dsco.io/botmonAlpha |
 | test-chub | https://test-apps.dsco.io/botmonAlphaChub |
 | test-stream | https://test-apps.dsco.io/botmonAlphaStreams |
+| test-playground | https://test-apps.dsco.io/botmonAlphaPlayground |
 | staging-cup | https://staging-apps.dsco.io/botmonAlpha |
 | staging-chub | https://staging-apps.dsco.io/botmonAlphaChub |
 | staging-stream | https://staging-apps.dsco.io/botmonAlphaStreams |
@@ -146,6 +158,27 @@ Most environment variables are resolved **automatically at deploy time** — no 
 | `AWS_REGION` | From Bus secret or defaults to `us-east-1` |
 
 If a value is missing (wrong region, stack not deployed, IAM missing), the deploy fails with a clear error. See [`sst.config.ts`](./sst.config.ts) resource-discovery helpers around lines 100-270.
+
+### Ad-hoc bus overrides
+
+`cup`, `chub`, and `stream` all follow the `{Env}{Bus}` naming convention, so their resources are
+discovered automatically. **PlaygroundBus was deployed ad-hoc** — its physical names are
+`PlaygroundBus-*` with no env prefix, so convention-based discovery misses. The exceptions are
+mapped explicitly in the `BUS_OVERRIDES` table in [`sst.config.ts`](./sst.config.ts):
+
+| | Convention (`cup`/`chub`/`stream`) | `playground` |
+|---|---|---|
+| Bus secret | `rstreams-{Env}{Bus}Bus` | `rstreams-PlaygroundBus` |
+| Botmon CFN stack (LeoStats source) | `{Env}{Bus}Botmon` | `PlaygroundBus-Botmon-HWSMESWEJX0K` |
+| BasePathMapping key | `botmonAlpha[Bus]` | `botmonAlphaPlayground` |
+
+`LEO_AUTH_USER_TABLE_NAME` is deliberately **not** overridden — playground resolves it through the
+standard `/mcd/test/rstreams/main_bus/leo_auth_user_table_name` path to the shared TestAuth table.
+That table is auto-populated from the test DSCO identity pool that playground logins authenticate
+against, so trainee identities resolve without per-user maintenance.
+
+If the playground stack is ever rebuilt, the CloudFormation stack name (including its random
+suffix) changes and `BUS_OVERRIDES` must be updated to match.
 
 ## API Gateway v1 REST API
 
