@@ -35,7 +35,11 @@
       map.set(d.time, e);
     }
 
-    let predict: ((x: number) => number) | null = null;
+    // Trend keyed by timestamp. Use the fitted regression `points` (windowed to
+    // the last 10 samples via offset: -10), NOT predict() across the whole axis —
+    // the prior Chart.js chart plotted only those windowed points, so the trend
+    // should cover the same recent segment, not extrapolate over the full range.
+    let trendByTime: Map<number, number> | null = null;
     if (showTrend && sourceLagData.length > 1) {
       try {
         // bestFit and an explicit type are mutually exclusive; prefer bestFit when set.
@@ -46,7 +50,7 @@
           bestFit: bestFit || undefined,
           label: trendLineLabel,
         });
-        predict = series.predict;
+        trendByTime = new Map(series.points.map((p) => [p.x, p.y]));
       } catch (error) {
         console.warn("queue-lag trend line failed:", error);
       }
@@ -61,7 +65,7 @@
         time: new Date(t),
         source: logClamp(map.get(t)!.source, showLogarithmic, floor),
         queue: logClamp(map.get(t)!.queue, showLogarithmic, floor),
-        trend: logClamp(predict ? predict(t) : null, showLogarithmic, floor),
+        trend: logClamp(trendByTime?.get(t) ?? null, showLogarithmic, floor),
       }));
   });
 
