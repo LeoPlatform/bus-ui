@@ -2,7 +2,7 @@
 
 ## Overview
 
-SvelteKit 2 + Svelte 5 webapp that monitors LEO Platform (serverless ETL). Deployed to AWS Lambda via SST v3 in three parallel instances: `botmonAlpha` (cup bus), `botmonAlphaChub` (chub bus), `botmonAlphaStreams` (stream bus). All instances are the same codebase — the stage name (`test-cup`, `prod-stream`, etc.) controls which DynamoDB tables and S3 bucket are targeted.
+SvelteKit 2 + Svelte 5 webapp that monitors LEO Platform (serverless ETL). Deployed to AWS Lambda via SST v3 in four parallel instances: `botmonAlpha` (cup bus), `botmonAlphaChub` (chub bus), `botmonAlphaStreams` (stream bus), and `botmonAlphaPlayground` (ad-hoc training bus, test env only). All instances are the same codebase — the stage name (`test-cup`, `prod-stream`, etc.) controls which DynamoDB tables and S3 bucket are targeted.
 
 ## Tech Stack
 
