@@ -1,7 +1,15 @@
 /// <reference path="./.sst/platform/config.d.ts" />
 
 /**
- * SST v3 deployment configuration for the Botmon SvelteKit webapp.
+ * SST v4 deployment configuration for the Botmon SvelteKit webapp.
+ *
+ * The `sst` version in package.json is pinned exactly, not by range. The SST
+ * major determines the Pulumi AWS provider *and* the resource type tokens its
+ * platform emits, and those are recorded in the deployed state — v3 emits
+ * `aws:s3:BucketV2` where v4 emits `aws:s3:Bucket`. Deploying a v4-created
+ * stack with a v3 CLI therefore plans a destroy/recreate of the assets bucket
+ * rather than an update. Change this pin only deliberately, and run
+ * `sst diff` against every stage before merging the change.
  *
  * Deploys as: Lambda (SSR) + CloudFront (CDN) + S3 (static assets).
  *
@@ -631,6 +639,11 @@ export default $config({
         memory: "1024 MB",
         architecture: "arm64",
         timeout: "30 seconds",
+        // Pin the runtime. Left unset it silently follows whatever the
+        // installed SST version defaults to, which is how the deployed
+        // functions drifted from nodejs20.x to nodejs24.x without any
+        // code change — and how a downgraded CLI would drift them back.
+        runtime: "nodejs24.x",
         install: ["leo-sdk"],
         // Override the default adapter handler with our v1 wrapper. The
         // wrapper re-prepends SVELTE_BASE_PATH to event.path (v1's
