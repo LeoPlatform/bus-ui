@@ -5,7 +5,7 @@ import type { BotSettings, MergedStatsRecord, ReadWriteStats } from '$lib/types'
 
 const NOW = Date.now();
 
-/** Build a minimal read-stat with the given error count and enough units to keep the error RATE low. */
+/** Build a minimal read-stat with the given (window) error count and enough units to keep the rate low. */
 function readStat(errors: number, units = 1000): ReadWriteStats {
     return {
         checkpoint: 'z/2026/07/30/00/00/00/',
@@ -21,6 +21,7 @@ function bot(overrides: Partial<BotSettings> = {}): BotSettings {
     return { id: 'my-bot', archived: false, paused: false, ...overrides };
 }
 
+/** Stats with `errors` errors in the current window (drives BLOCKED, not ROGUE). */
 function statsWithReadErrors(errors: number, units = 1000): MergedStatsRecord {
     return { id: 'my-bot', read: { 'queue:source': readStat(errors, units) } } as MergedStatsRecord;
 }
@@ -28,49 +29,67 @@ function statsWithReadErrors(errors: number, units = 1000): MergedStatsRecord {
 describe('evaluateBotStatus', () => {
     const ROGUE = BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD; // 10
 
-    describe('rogue vs blocked precedence (ES-3461 issue 3)', () => {
-        it('reports rogue (not blocked) when error count exceeds the rogue threshold', () => {
-            const result = evaluateBotStatus(bot(), statsWithReadErrors(ROGUE + 1));
+    describe('rogue is driven by the persisted errorCount (matches legacy bus-ui)', () => {
+        it('reports rogue when the persisted errorCount exceeds the threshold', () => {
+            const result = evaluateBotStatus(bot({ errorCount: ROGUE + 1 }), statsWithReadErrors(0));
             expect(result.rogue).toBe(true);
-            // Regression: a rogue bot always has errors > 0, so the BLOCKED branch used to
-            // clobber status back to 'blocked'. Rogue must win.
             expect(result.status).toBe('rogue');
         });
 
-        it('still reports blocked when there are current errors but below the rogue threshold', () => {
-            const result = evaluateBotStatus(bot(), statsWithReadErrors(3));
+        it('stays rogue even when the current window has zero errors', () => {
+            // The whole point of using the persisted counter: a narrow/quiet time window
+            // must not clear a rogue bot.
+            const result = evaluateBotStatus(bot({ errorCount: 25 }), statsWithReadErrors(0));
+            expect(result.status).toBe('rogue');
+        });
+
+        it('is NOT rogue when only the window has many errors but the persisted count is low', () => {
+            // 15 window errors but persisted errorCount 0 → blocked (current errors), not rogue.
+            const result = evaluateBotStatus(bot({ errorCount: 0 }), statsWithReadErrors(15));
             expect(result.rogue).toBe(false);
             expect(result.status).toBe('blocked');
         });
+    });
 
-        it('reports rogue at a high error count regardless of a low error rate', () => {
-            // 50 errors out of 100k units → 0.05% error rate (well under the 50% alarm),
-            // but still far past the rogue threshold.
-            const result = evaluateBotStatus(bot(), statsWithReadErrors(50, 100_000));
+    describe('rogue vs blocked precedence (ES-3461 issue 3)', () => {
+        it('reports rogue (not blocked) when a rogue bot also has current window errors', () => {
+            // Regression: the BLOCKED branch used to clobber status back to 'blocked'.
+            const result = evaluateBotStatus(bot({ errorCount: ROGUE + 1 }), statsWithReadErrors(3));
             expect(result.status).toBe('rogue');
+        });
+
+        it('still reports blocked when there are current errors but the bot is not rogue', () => {
+            const result = evaluateBotStatus(bot({ errorCount: 0 }), statsWithReadErrors(3));
+            expect(result.status).toBe('blocked');
         });
     });
 
-    describe('non-error statuses are unaffected', () => {
-        it('reports running when there are no errors', () => {
-            const result = evaluateBotStatus(bot(), statsWithReadErrors(0));
-            expect(result.status).toBe('running');
-        });
-
-        it('paused overrides rogue', () => {
-            const result = evaluateBotStatus(bot({ paused: true }), statsWithReadErrors(ROGUE + 5));
-            expect(result.status).toBe('paused');
-            // rogue flag is still surfaced for downstream badges/tooltips
+    describe('manual-state precedence', () => {
+        it('rogue wins over paused (a paused bot that went rogue still shows rogue)', () => {
+            const result = evaluateBotStatus(bot({ paused: true, errorCount: ROGUE + 5 }), statsWithReadErrors(0));
+            expect(result.status).toBe('rogue');
             expect(result.rogue).toBe(true);
         });
 
+        it('paused wins when the bot is not rogue', () => {
+            const result = evaluateBotStatus(bot({ paused: true, errorCount: 0 }), statsWithReadErrors(0));
+            expect(result.status).toBe('paused');
+        });
+
         it('archived overrides rogue', () => {
-            const result = evaluateBotStatus(bot({ archived: true }), statsWithReadErrors(ROGUE + 5));
+            const result = evaluateBotStatus(bot({ archived: true, errorCount: ROGUE + 5 }), statsWithReadErrors(0));
             expect(result.status).toBe('archived');
+        });
+    });
+
+    describe('non-error statuses', () => {
+        it('reports running when there are no errors', () => {
+            const result = evaluateBotStatus(bot({ errorCount: 0 }), statsWithReadErrors(0));
+            expect(result.status).toBe('running');
         });
 
         it('returns running defaults when there are no stats', () => {
-            const result = evaluateBotStatus(bot(), undefined);
+            const result = evaluateBotStatus(bot({ errorCount: 0 }), undefined);
             expect(result.status).toBe('running');
             expect(result.rogue).toBe(false);
             expect(result.errorCount).toBe(0);

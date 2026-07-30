@@ -106,7 +106,7 @@ export class BotState {
           source_lag: (b as any).computedSourceLag || b.health?.source_lag,
           write_lag: (b as any).computedWriteLag || b.health?.write_lag,
         },
-        errorCount: b.errorCount,
+        errorCount: (b as any).computedErrorCount ?? b.errorCount,
         lambdaName: b.lambdaName,
         status: b.status,
         isAlarmed: b.isAlarmed,
@@ -477,8 +477,11 @@ export class BotState {
       bot.alarms = statusEvaluation.alarms;
       bot.rogue = statusEvaluation.rogue;
       bot.alarmed = statusEvaluation.isAlarmed;
-      bot.errorCount = statusEvaluation.errorCount;
-      // Store computed lag values so the catalog/home table can display them
+      // Store window-derived values on `computed*` fields (mirrors the lag values below)
+      // rather than overwriting the persisted `bot.errorCount`. Rogue is driven by the
+      // persisted counter, and a stats-only refresh re-runs this without re-fetching bot
+      // settings — clobbering bot.errorCount here would corrupt the rogue signal.
+      (bot as any).computedErrorCount = statusEvaluation.errorCount;
       (bot as any).computedSourceLag = statusEvaluation.sourceLag;
       (bot as any).computedWriteLag = statusEvaluation.writeLag;
     }

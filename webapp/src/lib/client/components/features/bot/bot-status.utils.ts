@@ -33,16 +33,21 @@ export function evaluateBotStatus(
   const writeLag = calculateWriteLag(stats);
   const sourceLag = calculateSourceLag(stats);
 
-  // 1. Check if bot is ROGUE (>10 errors)
-  if (errorCount > BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD) {
+  // 1. Check if bot is ROGUE.
+  //    Match the legacy bus-ui behavior (old_ui/lib/stats.js): rogue is driven by the
+  //    persisted consecutive-error counter on the cron record (reset to 0 on force-run /
+  //    success), NOT by errors summed over the currently-viewed stats window. This keeps
+  //    rogue a sticky "needs intervention until cleared" state that doesn't disappear when
+  //    the operator narrows the time range.
+  const persistedErrorCount = bot.errorCount ?? 0;
+  if (persistedErrorCount > BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD) {
     rogue = true;
     status = 'rogue';
   }
 
   // 2. Check if bot is BLOCKED (has current errors).
-  //    Rogue is the more severe error state and already implies errors > 0,
-  //    so only fall back to BLOCKED when the bot isn't rogue — otherwise the
-  //    rogue status set above would always be clobbered here.
+  //    Rogue is the more severe error state, so only fall back to BLOCKED when the bot
+  //    isn't rogue — otherwise the rogue status set above would be clobbered here.
   else if (hasCurrentErrors(stats)) {
     status = 'blocked';
   }
@@ -79,10 +84,14 @@ export function evaluateBotStatus(
     };
   }
 
-  // 4. Override with manual states
+  // 4. Override with manual states.
+  //    A rogue bot stays 'rogue' even when paused — the legacy UI surfaced rogue over a
+  //    paused state so operators can still see a paused bot that went bad. Archived is the
+  //    one exception (an archived bot is intentionally decommissioned; the old UI didn't
+  //    process archived bots for rogue at all).
   if (bot.archived) {
     status = 'archived';
-  } else if (bot.paused) {
+  } else if (bot.paused && !rogue) {
     status = 'paused';
   } else if (isAlarmed && (status === 'running' || status === 'paused')) {
     status = 'danger';
