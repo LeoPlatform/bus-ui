@@ -15,6 +15,14 @@
     import { Label } from "$ui/label";
     import Input from "$ui/input/input.svelte";
     import CopyButton from "$comps/copy-button.svelte";
+    import Calendar from "$ui/calendar/calendar.svelte";
+    import { CalendarDate, type DateValue } from "@internationalized/date";
+    import Clock2Icon from "@lucide/svelte/icons/clock-2";
+    import {
+        BEGINNING_CHECKPOINT_TOKEN,
+        nowCheckpointToken,
+        checkpointTokenFromDateTime,
+    } from "./checkpoint-token";
 
     type CheckpointActionBarProps = {
         currentCheckpoint?: string;
@@ -39,6 +47,9 @@
     let selectedQueue = $state<string>("");
     let checkpointPreset = $state<string>("now");
     let customCheckpoint = $state("");
+    // Calendar picker state (interpreted as UTC — see checkpoint-token.ts).
+    let selectedDate = $state<DateValue | undefined>(undefined);
+    let selectedTime = $state("00:00:00");
 
     // Read queues from settings for the source queue selector
     let readQueues = $derived.by(() => {
@@ -60,13 +71,12 @@
 
     function computeCheckpointValue(): string {
         switch (checkpointPreset) {
-            case "now": {
-                const d = new Date();
-                const pad = (n: number) => String(n).padStart(2, '0');
-                return `z/${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/${pad(d.getUTCHours())}/${pad(d.getUTCMinutes())}/${pad(d.getUTCSeconds())}/`;
-            }
+            case "now":
+                return nowCheckpointToken();
             case "beginning":
-                return "z/";
+                return BEGINNING_CHECKPOINT_TOKEN;
+            case "datetime":
+                return checkpointTokenFromDateTime(selectedDate, selectedTime) ?? "";
             case "custom":
                 return customCheckpoint;
             default:
@@ -104,6 +114,12 @@
         checkpointSaving = false;
         checkpointPreset = "now";
         customCheckpoint = "";
+        // Pre-fill the calendar picker with the current UTC date/time so switching
+        // to "Pick date & time" starts from now (tokens are UTC — see checkpoint-token.ts).
+        const d = new Date();
+        selectedDate = new CalendarDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+        const pad = (n: number) => String(n).padStart(2, "0");
+        selectedTime = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
         // Re-select first queue if none selected
         if (!selectedQueue && readQueues.length > 0) {
             selectedQueue = readQueues[0];
@@ -119,6 +135,10 @@
         const value = computeCheckpointValue();
         if (checkpointPreset === "custom" && !value) {
             checkpointError = "Please enter a checkpoint value";
+            return;
+        }
+        if (checkpointPreset === "datetime" && !value) {
+            checkpointError = "Please pick a valid date and time";
             return;
         }
 
@@ -244,6 +264,8 @@
                                 Start from Now
                             {:else if checkpointPreset === 'beginning'}
                                 From the Beginning of Time
+                            {:else if checkpointPreset === 'datetime'}
+                                Pick date &amp; time
                             {:else}
                                 Custom Value
                             {/if}
@@ -251,10 +273,39 @@
                         <Select.Content>
                             <Select.Item value="now">Start from Now</Select.Item>
                             <Select.Item value="beginning">From the Beginning of Time</Select.Item>
+                            <Select.Item value="datetime">Pick date &amp; time</Select.Item>
                             <Select.Item value="custom">Custom Value</Select.Item>
                         </Select.Content>
                     </Select.Root>
                 </div>
+
+                <!-- Date + Time Picker -->
+                {#if checkpointPreset === 'datetime'}
+                    <div class="flex flex-col gap-3">
+                        <Calendar
+                            type="single"
+                            bind:value={selectedDate}
+                            class="rounded-md border bg-transparent p-2 w-fit self-center"
+                            captionLayout="dropdown"
+                        />
+                        <div class="flex flex-col gap-2">
+                            <Label for="checkpoint-time">Time (UTC)</Label>
+                            <div class="relative flex items-center">
+                                <Clock2Icon class="text-muted-foreground pointer-events-none absolute left-2.5 size-4" />
+                                <Input
+                                    id="checkpoint-time"
+                                    type="time"
+                                    step="1"
+                                    bind:value={selectedTime}
+                                    class="pl-8 font-mono text-sm appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
+                                />
+                            </div>
+                        </div>
+                        <p class="text-xs text-muted-foreground font-mono break-all">
+                            {computeCheckpointValue() || 'Select a date and time'}
+                        </p>
+                    </div>
+                {/if}
 
                 <!-- Custom Checkpoint Input -->
                 {#if checkpointPreset === 'custom'}

@@ -39,8 +39,11 @@ export function evaluateBotStatus(
     status = 'rogue';
   }
 
-  // 2. Check if bot is BLOCKED (has current errors)
-  if (hasCurrentErrors(stats)) {
+  // 2. Check if bot is BLOCKED (has current errors).
+  //    Rogue is the more severe error state and already implies errors > 0,
+  //    so only fall back to BLOCKED when the bot isn't rogue — otherwise the
+  //    rogue status set above would always be clobbered here.
+  else if (hasCurrentErrors(stats)) {
     status = 'blocked';
   }
 
