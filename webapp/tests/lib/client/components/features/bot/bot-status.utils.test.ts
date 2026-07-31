@@ -87,8 +87,34 @@ describe('evaluateBotStatus', () => {
             const result = evaluateBotStatus(bot({ errorCount: 0 }), statsWithReadErrors(0));
             expect(result.status).toBe('running');
         });
+    });
 
-        it('returns running defaults when there are no stats', () => {
+    // Regression for the bug the playground pass caught: a rogue bot with NO stats in the
+    // window used to short-circuit to 'running'. Rogue/paused/archived must be derived from
+    // the record even when there are no window stats.
+    describe('no-stats path derives status from the record', () => {
+        it('reports rogue from the persisted count when there are no stats', () => {
+            const result = evaluateBotStatus(bot({ errorCount: 25 }), undefined);
+            expect(result.rogue).toBe(true);
+            expect(result.status).toBe('rogue');
+        });
+
+        it('rogue wins over paused with no stats', () => {
+            const result = evaluateBotStatus(bot({ paused: true, errorCount: 25 }), undefined);
+            expect(result.status).toBe('rogue');
+        });
+
+        it('reports paused (not running) for a non-rogue paused bot with no stats', () => {
+            const result = evaluateBotStatus(bot({ paused: true, errorCount: 0 }), undefined);
+            expect(result.status).toBe('paused');
+        });
+
+        it('reports archived with no stats', () => {
+            const result = evaluateBotStatus(bot({ archived: true, errorCount: 25 }), undefined);
+            expect(result.status).toBe('archived');
+        });
+
+        it('reports running defaults for a healthy bot with no stats', () => {
             const result = evaluateBotStatus(bot({ errorCount: 0 }), undefined);
             expect(result.status).toBe('running');
             expect(result.rogue).toBe(false);

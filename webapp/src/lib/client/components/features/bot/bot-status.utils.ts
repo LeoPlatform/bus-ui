@@ -17,11 +17,27 @@ export function evaluateBotStatus(
   let status: BotStatus = 'running';
   let isAlarmed = false;
   let alarms: BotAlarms = {};
-  let rogue = false;
 
-  // If no stats available, return default values
+  // 1. Check if bot is ROGUE.
+  //    Match the legacy bus-ui behavior (old_ui/lib/stats.js): rogue is driven by the
+  //    persisted consecutive-error counter on the cron record (reset to 0 on force-run /
+  //    success), NOT by errors summed over the currently-viewed stats window. This keeps
+  //    rogue a sticky "needs intervention until cleared" state that doesn't disappear when
+  //    the operator narrows the time range — or when the bot has no stats in the window.
+  //    Evaluate it BEFORE the no-stats short-circuit so a quiet rogue bot still shows rogue.
+  const persistedErrorCount = bot.errorCount ?? 0;
+  const rogue = persistedErrorCount > BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD;
+  if (rogue) {
+    status = 'rogue';
+  }
+
+  // If no stats available, we can't compute lag/error-rate alarms, but the record alone
+  // still tells us rogue / paused / archived — apply those and return.
   if (!stats) {
-    return { status, isAlarmed, alarms, rogue, errorCount: 0, errorRate: 0, writeLag: 0, sourceLag: 0 };
+    return {
+      status: applyManualStates(bot, status, rogue, isAlarmed),
+      isAlarmed, alarms, rogue, errorCount: 0, errorRate: 0, writeLag: 0, sourceLag: 0,
+    };
   }
 
   // Calculate error statistics from raw stats
@@ -33,22 +49,10 @@ export function evaluateBotStatus(
   const writeLag = calculateWriteLag(stats);
   const sourceLag = calculateSourceLag(stats);
 
-  // 1. Check if bot is ROGUE.
-  //    Match the legacy bus-ui behavior (old_ui/lib/stats.js): rogue is driven by the
-  //    persisted consecutive-error counter on the cron record (reset to 0 on force-run /
-  //    success), NOT by errors summed over the currently-viewed stats window. This keeps
-  //    rogue a sticky "needs intervention until cleared" state that doesn't disappear when
-  //    the operator narrows the time range.
-  const persistedErrorCount = bot.errorCount ?? 0;
-  if (persistedErrorCount > BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD) {
-    rogue = true;
-    status = 'rogue';
-  }
-
   // 2. Check if bot is BLOCKED (has current errors).
   //    Rogue is the more severe error state, so only fall back to BLOCKED when the bot
   //    isn't rogue — otherwise the rogue status set above would be clobbered here.
-  else if (hasCurrentErrors(stats)) {
+  if (!rogue && hasCurrentErrors(stats)) {
     status = 'blocked';
   }
 
@@ -84,18 +88,8 @@ export function evaluateBotStatus(
     };
   }
 
-  // 4. Override with manual states.
-  //    A rogue bot stays 'rogue' even when paused — the legacy UI surfaced rogue over a
-  //    paused state so operators can still see a paused bot that went bad. Archived is the
-  //    one exception (an archived bot is intentionally decommissioned; the old UI didn't
-  //    process archived bots for rogue at all).
-  if (bot.archived) {
-    status = 'archived';
-  } else if (bot.paused && !rogue) {
-    status = 'paused';
-  } else if (isAlarmed && (status === 'running' || status === 'paused')) {
-    status = 'danger';
-  }
+  // 4. Override with manual states (archived / paused / danger).
+  status = applyManualStates(bot, status, rogue, isAlarmed);
 
   return {
     status,
@@ -107,6 +101,27 @@ export function evaluateBotStatus(
     writeLag,
     sourceLag,
   };
+}
+
+/**
+ * Apply the manual/terminal status overrides (archived / paused / danger) on top of the
+ * error-derived status. Shared by the no-stats path and the full evaluation so the two
+ * can't drift.
+ *
+ * Precedence matches legacy bus-ui (old_ui/stores/dataStore.js): archived wins outright;
+ * a rogue bot stays rogue even when paused (so a paused bot that went bad is still visible);
+ * a non-rogue paused bot shows paused; and an alarmed running/paused bot escalates to danger.
+ */
+function applyManualStates(
+  bot: BotSettings,
+  status: BotStatus,
+  rogue: boolean,
+  isAlarmed: boolean,
+): BotStatus {
+  if (bot.archived) return 'archived';
+  if (bot.paused && !rogue) return 'paused';
+  if (isAlarmed && (status === 'running' || status === 'paused')) return 'danger';
+  return status;
 }
 
 // Helper functions to extract values from raw stats
