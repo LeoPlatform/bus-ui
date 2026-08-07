@@ -5,7 +5,7 @@ import { type SystemSettings, type AwsCreds, type BotSettings, type QueueSetting
 import type { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import type { RequestHandler } from './$types';
 import * as async from 'async';
-import { parallelScan } from '$lib/server/services/dynamoService';
+import { parallelScan } from '$lib/server/services/bus-data';
 import { env } from '$env/dynamic/private';
 const LEO_CRON_TABLE = () => env.LEO_CRON_TABLE ?? process.env.LEO_CRON_TABLE ?? '';
 const LEO_EVENT_TABLE = () => env.LEO_EVENT_TABLE ?? process.env.LEO_EVENT_TABLE ?? '';

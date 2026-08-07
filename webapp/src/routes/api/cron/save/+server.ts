@@ -1,7 +1,7 @@
 import { getSession } from '$lib/server/utils';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { saveCron } from '$lib/server/services/dynamoService';
+import { saveCron } from '$lib/server/services/bus-data';
 
 export const POST: RequestHandler = async ({ locals, request }) => {
     const session = await getSession(locals);

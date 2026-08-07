@@ -1,4 +1,4 @@
-import { getDashboardStats, getQueueDashboardStats } from '$lib/server/services/dynamoService';
+import { getDashboardStats, getQueueDashboardStats } from '$lib/server/services/bus-data';
 import { getSession } from '$lib/server/utils';
 import type { DashboardStatsApiResponse, DashboardStatsRequest } from '$lib/types';
 import { json } from '@sveltejs/kit';
