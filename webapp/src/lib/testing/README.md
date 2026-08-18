@@ -46,9 +46,17 @@ npm run dev:mock
 ```
 
 This sets `MOCK_BUS=1` (plus dummy AWS/auth env vars) and starts `vite dev`. The single seam
-`src/lib/server/services/bus-data.ts` then routes every API call to
+`src/lib/server/services/bus-data.ts` then routes the DynamoDB-backed API calls to
 `src/lib/server/services/mock/mock-dynamo-service.ts` instead of DynamoDB. The mock keeps an
 in-memory store so settings/checkpoint saves read back immediately (ES-3461 issue 2).
+
+**What mock mode does not cover.** The seam sits in front of `dynamoService` only, so the six
+routes that read the cron/event/stats tables are mocked: `api/resources`, `api/cron/save`,
+`api/dashboard/details`, `api/dashboard/settings`, `api/workflow/relationships`,
+`api/workflow/stats`. Routes that bypass `dynamoService` still need real AWS: `api/eventTrace`
+and `api/queue/event-search` read RStreams directly (event payloads, trace, queue search), and
+`api/dashboard/schema` reads S3 through `schemaService`. Expect those pages to error under
+`dev:mock`.
 
 **The mock only works under `vite dev`.** `bus-data.ts` gates it on `dev` from
 `$app/environment`, which is statically `false` in a production build, so the mock branch is
