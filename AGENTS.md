@@ -70,9 +70,25 @@ npm run dev         # Vite dev server (localhost:5173)
 npm run check       # svelte-check type check
 npm run lint        # ESLint
 npm test            # Vitest
+npm run dev:mock    # Vite dev server against the in-memory mock bus (no AWS)
 ```
 
 Setup: `cp providers.config.example.json providers.config.json` then `npm run create-env-test-cup` to generate `.env.local`.
+
+`npm test` runs two Vitest projects (`vitest.workspace.ts`): `botmon` for node logic tests under
+`tests/`, and `storybook` for `*.stories.svelte` executed in real chromium via
+`@storybook/experimental-addon-test`. The browser project needs `npx playwright install` and both
+`.storybook/preview.ts` and `.storybook/vitest.setup.ts` — the setup file is named in
+`vitest.workspace.ts`, and if it is missing every story suite fails with `Failed to fetch
+dynamically imported module` rather than a readable error. For node-only logic tests, skip the
+browser entirely with `npx vitest run --project botmon`.
+
+`@storybook/addon-svelte-csf` resolves to a Storybook-9 prerelease (`^5.0.0-next.0`, locked at
+`5.0.0-next.28`) while the rest of Storybook is on 8.6. That prerelease reads
+`parameters.__svelteCsf.rawCode` under the Vitest runner and throws when it is absent;
+`.storybook/preview.ts` supplies a `__svelteCsf: {}` default to work around it. Aligning the addon
+with Storybook 8.6 is the real fix. Mock bots and the dev-only mock bus are documented in
+`webapp/src/lib/testing/README.md`.
 
 ## Key Patterns
 

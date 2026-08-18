@@ -1,18 +1,26 @@
+<!--
+  CopyButton — renders a value as monospace text with a copy-to-clipboard affordance.
+
+  The value is taken as a plain `value` prop rather than as a snippet whose rendered text is
+  scraped out of a hidden element. The scrape version could not react to its own content: the
+  extraction ran inside an $effect whose only dependency was the `children` snippet reference,
+  which is stable across updates, so the text was captured once on mount. Any caller whose value
+  changed in place — the dashboard header after a checkpoint save (ES-3461 issue 2) — kept
+  displaying the mount-time value until a full page reload.
+-->
 <script lang="ts">
     import { Check, Copy } from "@lucide/svelte";
     import { Button } from "$ui/button";
-    import { tick, type Snippet } from "svelte";
 
     type CopyButtonProps = {
-        children?: Snippet<[]>;
+        /** Text to display and to place on the clipboard. Reactive — updates in place. */
+        value: string | undefined;
         truncate?: boolean;
         maxLength?: number;
     }
 
-    let {children, truncate = false, maxLength = 30}: CopyButtonProps = $props();
+    let {value, truncate = false, maxLength = 30}: CopyButtonProps = $props();
 
-    let hiddenRef: HTMLElement;
-    let value: string | undefined = $state(undefined);
     let displayValue: string | undefined = $derived.by(() => {
         if (!value) return undefined;
         if (truncate && value.length > maxLength) {
@@ -21,27 +29,6 @@
         return value;
     });
     let showCheckmark = $state(false);
-
-    $effect(() => {
-        if (children) {
-            extractText().catch((e) => {
-                throw new Error(
-                    `Failed to extract value: ${e instanceof Error ? e.message + ' ' + e.stack : String(e)}`
-                );
-            });
-        }
-    });
-
-    async function extractText() {
-        await tick();
-        if(hiddenRef) {
-            value = (hiddenRef.textContent || '').trim();
-        }
-
-        if(!value) {
-            throw new Error('Did not find any text in the hidden container of ValueToCopy');
-        }
-    }
 
     function copy() {
         if (!value) {
@@ -68,20 +55,15 @@
 
 </script>
 
-<pre
-    class="hidden-container"
-    bind:this={hiddenRef}
-    style="display: none; position: absolute; left: -9999px;">{#if children}{@render children()}{/if}</pre>
-
-    <span class="inline-flex w-fit items-center gap-1">
-        <span class="text-sm font-mono text-muted-foreground" title={truncate ? value : undefined}>{displayValue}</span>
-        <span class="w-6 h-6 flex items-center justify-center">
-            {#if showCheckmark}
-                <Check class="w-3.5 h-3.5 text-green-500" />
-            {:else}
-                <Button variant="ghost" class="h-full w-full min-h-0 p-0 rounded-none hover:bg-transparent" onclick={copy} disabled={!value}>
-                    <Copy class="w-3.5 h-3.5 text-gray-400 hover:text-foreground transition-colors" />
-                </Button>
-            {/if}
-        </span>
+<span class="inline-flex w-fit items-center gap-1">
+    <span class="text-sm font-mono text-muted-foreground" title={truncate ? value : undefined}>{displayValue}</span>
+    <span class="w-6 h-6 flex items-center justify-center">
+        {#if showCheckmark}
+            <Check class="w-3.5 h-3.5 text-green-500" />
+        {:else}
+            <Button variant="ghost" class="h-full w-full min-h-0 p-0 rounded-none hover:bg-transparent" onclick={copy} disabled={!value}>
+                <Copy class="w-3.5 h-3.5 text-gray-400 hover:text-foreground transition-colors" />
+            </Button>
+        {/if}
     </span>
+</span>

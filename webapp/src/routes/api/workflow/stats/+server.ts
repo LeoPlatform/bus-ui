@@ -1,4 +1,4 @@
-import { getStats } from "$lib/server/services/dynamoService";
+import { getStats } from "$lib/server/services/bus-data";
 import { getSession } from "$lib/server/utils";
 import type { StatsApiResponse, StatsQueryRequest } from "$lib/types";
 import { json, type RequestHandler } from "@sveltejs/kit";

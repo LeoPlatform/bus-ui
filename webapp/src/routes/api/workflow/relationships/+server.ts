@@ -2,7 +2,7 @@ import {
   getRelationShips,
   scanLeoEventQueues,
   scanLeoSystems,
-} from "$lib/server/services/dynamoService";
+} from "$lib/server/services/bus-data";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSession } from "$lib/server/utils";

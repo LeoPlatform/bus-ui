@@ -2,7 +2,7 @@ import { getSession } from '$lib/server/utils';
 import type { GetSettingsRequest } from '$lib/types';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSettings, saveBotSettings, saveQueueSettings, saveSystemSettings } from '$lib/server/services/dynamoService';
+import { getSettings, saveBotSettings, saveQueueSettings, saveSystemSettings } from '$lib/server/services/bus-data';
 import { perf } from '$lib/server/perf';
 
 export const POST: RequestHandler = async ({locals, request}) => {
