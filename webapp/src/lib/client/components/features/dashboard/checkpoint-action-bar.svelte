@@ -181,7 +181,7 @@
                 <Zap class="h-4 w-4 text-blue-600 fill-blue-600" />
 
                 {#if currentCheckpoint}
-                    <CopyButton truncate={true} maxLength={50}>{currentCheckpoint}</CopyButton>
+                    <CopyButton truncate={true} maxLength={50} value={currentCheckpoint} />
                 {:else}
                     <Badge variant="outline" class="bg-background text-muted-foreground border-border font-mono text-sm px-3 py-1">
                         No checkpoint available
