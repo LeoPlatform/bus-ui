@@ -3,6 +3,7 @@
   import { AnnotationLine, AreaChart } from "layerchart";
   import { scaleTime, scaleLinear, scaleLog } from "d3-scale";
   import { onMount } from "svelte";
+  import { humanize } from "$lib/utils";
   import type { DashboardStatsValue } from "$lib/types";
   import { chartYBaseline, logClamp, logFloor } from "./y-axis";
 
@@ -19,9 +20,11 @@
     rangeStart: number;
     checkPointValue?: number;
     showLogarithmic?: boolean;
+    /** Values are durations in ms — humanize the y-axis and tooltip (like GenericLineChart). */
+    dataIsTimeBased?: boolean;
   }
 
-  let { data, chartLabel, start, end, lastBucket, rangeStart, checkPointValue, showLogarithmic = false }: Props = $props();
+  let { data, chartLabel, start, end, lastBucket, rangeStart, checkPointValue, showLogarithmic = false, dataIsTimeBased = false }: Props = $props();
 
   /** If wall clock is far past the query end, don't stretch the x-axis to "now". */
   const STALE_QUERY_MS = 90_000;
@@ -75,7 +78,8 @@
 
   const formatTime = (value: Date | number) =>
     new Date(value).toLocaleTimeString(undefined, { hourCycle: "h23", hour: "2-digit", minute: "2-digit" });
-  const formatValue = (value: number) => value.toLocaleString();
+  const formatValue = (value: number) =>
+    dataIsTimeBased ? humanize(value) : value.toLocaleString();
 </script>
 
 <Chart.Container {config} class="h-full w-full">

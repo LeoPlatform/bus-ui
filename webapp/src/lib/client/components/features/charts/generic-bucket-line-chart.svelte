@@ -30,6 +30,8 @@
     overrideCountInBucket?: number;
     /** When false, hide the chart’s own title row (e.g. card already has a title). */
     showTitle?: boolean;
+    /** Values are durations in ms — humanize the y-axis and tooltip (like GenericLineChart). */
+    dataIsTimeBased?: boolean;
   }
 
   let {
@@ -46,6 +48,7 @@
     overrideCountInLastBucket,
     overrideCountInBucket,
     showTitle = true,
+    dataIsTimeBased = false,
   }: Props = $props();
 
   let rangeData = $derived(
@@ -100,6 +103,7 @@
     rangeStart: number;
     checkPointValue?: number;
     showLogarithmic?: boolean;
+    dataIsTimeBased?: boolean;
   }> | null = $state(null);
 
   $effect(() => {
@@ -164,6 +168,7 @@
           rangeStart={effectiveRangeStart}
           {checkPointValue}
           {showLogarithmic}
+          {dataIsTimeBased}
         />
       {/if}
     </div>
