@@ -309,6 +309,10 @@ function updateContainerDimensions() {
             }
           }
           await appState.botState.fetchBotStats();
+          // Also refresh cron-record settings (persisted errorCount drives ROGUE; legacy
+          // re-scanned every 10s — without this, rogue is frozen at page-load state).
+          // fetchBotSettings has its own staleness guard, so this is cheap.
+          await appState.botState.fetchBotSettings();
 
           if(isActive) {
             initializeLinkStats(botStats, linkStats);
@@ -377,28 +381,42 @@ function updateContainerDimensions() {
     renderVisualization();
   }
 
-  function getLinkStats(parentId: string, childId: string): LinkStats {
+  function getLinkStats(sourceId: string, targetId: string, direction: "left" | "right"): LinkStats {
 
-    // console.log(linkStats);
     // Simply remove all prefixes
-    const cleanParentId = parentId.replace(/^(bot:|queue:|system:)/, '');
-    const cleanChildId = childId.replace(/^(bot:|queue:|system:)/, '');
-    
-    const key = `${cleanParentId}-${cleanChildId}`;
+    const cleanSourceId = sourceId.replace(/^(bot:|queue:|system:)/, '');
+    const cleanTargetId = targetId.replace(/^(bot:|queue:|system:)/, '');
 
-    // console.log('getLinkStats key: ', key);
+    // linkStats keys are downstream-first (see initializeLinkStats: read = `${bot}-${sourceQueue}`,
+    // write = `${destQueue}-${bot}`). D3 links always run hierarchy parent → child, so on the
+    // left (parents) tree the target is upstream, while on the right (children) tree the
+    // target is downstream — flip the key order accordingly.
+    const key = direction === "right"
+      ? `${cleanTargetId}-${cleanSourceId}`
+      : `${cleanSourceId}-${cleanTargetId}`;
+
     const linkStat = linkStats.get(key);
-    
+
     if (linkStat) {
       return linkStat;
     }
-    
-    // Fallback logic (existing code for when no stats found)
-    const botData = appState.botState.botSettings.find(bot => bot.id === cleanParentId || bot.id === cleanChildId);
-    const type = botData?.id == cleanParentId ? 'write' : 'read';
-    const endedTimestamp = botData?.checkpoints?.[type]?.[cleanChildId]?.ended_timestamp;
-    
-    return { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type };
+
+    // Fallback when there are no stats in the window: seed the time from the bot's LeoCron
+    // checkpoint, like legacy botmon (lib/stats.js) — so a zero-event edge still shows a time.
+    const upstreamId = direction === "right" ? cleanSourceId : cleanTargetId;
+    const downstreamId = direction === "right" ? cleanTargetId : cleanSourceId;
+    const botData = appState.botState.botSettings.find(bot => bot.id === upstreamId || bot.id === downstreamId);
+    // Bot upstream of the edge → it writes to the other end; bot downstream → it reads from it.
+    const type = botData?.id == upstreamId ? 'write' : 'read';
+    const otherId = botData?.id == upstreamId ? downstreamId : upstreamId;
+    // Checkpoint maps are keyed by full refId (`queue:foo`); tolerate unprefixed too.
+    const checkpoints = botData?.checkpoints?.[type];
+    const endedTimestamp =
+      checkpoints?.[`queue:${otherId}`]?.ended_timestamp ??
+      checkpoints?.[`system:${otherId}`]?.ended_timestamp ??
+      checkpoints?.[otherId]?.ended_timestamp;
+
+    return { eventCount: 0, lastWrite: endedTimestamp ?? 0, linkType: type };
   }
 
   function isNodeExpanded(nodeId: string): boolean {
@@ -430,7 +448,9 @@ function updateContainerDimensions() {
 
 
   function getLowerText(stat: LinkStats): string {
-    if(Date.now() - stat.lastWrite == 0 && stat.eventCount == 0) {
+    // No timestamp at all (no stats in window, no checkpoint) → N/A, matching legacy's
+    // "last_write null/undefined" case.
+    if(!stat.lastWrite && stat.eventCount == 0) {
       return 'N/A';
     } else if(stat.linkType === 'read') {
       if (Date.now() - stat.lastWrite < appState.botState.staleTime / 2) {
@@ -780,7 +800,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       } else {
         linkTargetId = d.target.data.originalId || d.target.data.id;
       }
-      const stats = getLinkStats(linkSourceId, linkTargetId);
+      const stats = getLinkStats(linkSourceId, linkTargetId, d.target.data.direction);
       t.text(stats.eventCount.toLocaleString());
     });
 
@@ -807,7 +827,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       } else {
         linkTargetId = d.target.data.originalId || d.target.data.id;
       }
-      const stats = getLinkStats(linkSourceId, linkTargetId);
+      const stats = getLinkStats(linkSourceId, linkTargetId, d.target.data.direction);
       t.text(getLowerText(stats));
     });
 

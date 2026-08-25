@@ -124,41 +124,16 @@ function applyManualStates(
   return status;
 }
 
-// Helper functions to extract values from raw stats
+// Helper functions to extract values from raw stats.
+// Errors and executions live on the execution sub-record (legacy lib/stats.js reads
+// current.execution.errors/units) — the Leo stats table's read/write sub-records carry
+// no `errors` field, so summing those always produced 0 and blocked/danger never fired.
 function calculateErrorCount(stats: MergedStatsRecord): number {
-  let errorCount = 0;
-  
-  if (stats.read) {
-    Object.values(stats.read).forEach(readStat => {
-      errorCount += readStat.errors || 0;
-    });
-  }
-  
-  if (stats.write) {
-    Object.values(stats.write).forEach(writeStat => {
-      errorCount += writeStat.errors || 0;
-    });
-  }
-  
-  return errorCount;
+  return stats.execution?.errors || 0;
 }
 
 function calculateExecutions(stats: MergedStatsRecord): number {
-  let executions = 0;
-  
-  if (stats.read) {
-    Object.values(stats.read).forEach(readStat => {
-      executions += readStat.units || 0;
-    });
-  }
-  
-  if (stats.write) {
-    Object.values(stats.write).forEach(writeStat => {
-      executions += writeStat.units || 0;
-    });
-  }
-  
-  return executions;
+  return stats.execution?.units || 0;
 }
 
 function calculateWriteLag(stats: MergedStatsRecord): number {

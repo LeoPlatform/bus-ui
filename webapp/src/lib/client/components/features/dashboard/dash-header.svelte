@@ -33,6 +33,8 @@
     let botEntry = $derived(appState.botState.botSettings.find((b) => b.id === id));
     let isAlarmed = $derived(botEntry?.isAlarmed ?? false);
     let alarms = $derived(botEntry?.alarms);
+    let isRogue = $derived(botEntry?.rogue ?? false);
+    let isBlocked = $derived(botEntry?.status === 'blocked');
     
     let awsUrl = $derived.by(() => {
         if (lambdaName && lambdaRegion) {
@@ -92,6 +94,24 @@
             <div class="text-2xl font-bold text-foreground">
                 {name}
             </div>
+            {#if isRogue}
+                <Tooltip.Provider>
+                    <Tooltip.Root>
+                        <Tooltip.Trigger>
+                            <Badge variant="outline" class="border-red-500/50 bg-red-500/15 text-red-400 text-xs font-semibold uppercase tracking-wider">
+                                Rogue
+                            </Badge>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content class="max-w-xs">
+                            <span class="text-xs">Consecutive-error count exceeded the rogue threshold; the scheduler stops running this bot until it is cleared (force-run or a successful run).</span>
+                        </Tooltip.Content>
+                    </Tooltip.Root>
+                </Tooltip.Provider>
+            {:else if isBlocked}
+                <Badge variant="outline" class="border-red-500/50 bg-red-500/15 text-red-400 text-xs font-semibold uppercase tracking-wider">
+                    Blocked
+                </Badge>
+            {/if}
             {#if isPaused}
                 <Badge variant="outline" class="border-amber-500/50 bg-amber-500/15 text-amber-400 text-xs font-semibold uppercase tracking-wider">
                     Paused

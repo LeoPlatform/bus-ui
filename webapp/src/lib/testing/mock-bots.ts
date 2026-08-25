@@ -20,6 +20,7 @@
 import type {
   BotSettings,
   Checkpoints,
+  ExecutionStats,
   MergedStatsRecord,
   ReadWriteStats,
 } from '$lib/types';
@@ -68,7 +69,23 @@ function readStat(overrides: Partial<ReadWriteStats> = {}): ReadWriteStats {
     timestamp: now,
     source_timestamp: now,
     units: 1000,
+    ...overrides,
+  };
+}
+
+/**
+ * An execution-stat entry — the ONLY place the Leo stats table records errors
+ * (current.execution.errors). Mirrors the real record shape so fixtures can't
+ * re-teach status code to read errors off read/write entries (ES-4034).
+ */
+function executionStat(overrides: Partial<ExecutionStats> = {}): ExecutionStats {
+  return {
+    completions: 1000,
+    duration: 1000,
     errors: 0,
+    max_duration: 10,
+    min_duration: 1,
+    units: 1000,
     ...overrides,
   };
 }
@@ -76,11 +93,13 @@ function readStat(overrides: Partial<ReadWriteStats> = {}): ReadWriteStats {
 /**
  * Stats that carry current-window errors but a LOW error-rate — drives BLOCKED
  * (hasCurrentErrors) without tripping the error-rate alarm (which would escalate to danger).
+ * Errors live on the execution record, matching the live bus shape.
  */
 export function makeErrorStats(id: string, errors = 5, units = 1000): MergedStatsRecord {
   return makeMockStats({
     id,
-    read: { [MOCK_SOURCE_QUEUE]: readStat({ errors, units }) },
+    execution: executionStat({ errors, units, completions: units - errors }),
+    read: { [MOCK_SOURCE_QUEUE]: readStat({ units }) },
   });
 }
 
@@ -94,7 +113,6 @@ export function makeAlarmStats(id: string): MergedStatsRecord {
     id,
     read: {
       [MOCK_SOURCE_QUEUE]: readStat({
-        errors: 0,
         // source event is 10 minutes old → source_lag ~10min >> 2.5min threshold
         source_timestamp: now - 10 * MINUTE,
         timestamp: now,

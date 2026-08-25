@@ -207,7 +207,17 @@ export class BotState {
         body: JSON.stringify(this.#timePickerState?.createStatsQueryRequest(Array.from(staleIds)))
       });
 
+      if (!res.ok) {
+        // Leave the ids unmarked so the next poll retries them.
+        console.error('Failed to fetch bot stats:', res.status, res.statusText);
+        return;
+      }
+
       const data = (await res.json()) as StatsApiResponse;
+      if (!data || !Array.isArray(data.stats)) {
+        console.warn('Invalid bot stats response:', data);
+        return;
+      }
 
       staleIds.forEach((id) => {
         this.#fetchedStats.set(id, now);
@@ -488,6 +498,12 @@ export class BotState {
 
     // Rebuild catalog so the home table picks up updated status/lag/error values
     this.rebuildCatalog();
+
+    // The relationship tree snapshots status/rogue by value when built — rebuild it so a
+    // status change (e.g. a bot going rogue) shows up without re-selecting the bot.
+    if (this.#selectedBotId) {
+      this.buildRelationShipTree();
+    }
   }
   
 }

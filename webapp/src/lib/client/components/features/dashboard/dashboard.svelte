@@ -166,6 +166,9 @@
             // Re-fetch bot stats so alarm badges (source lag, write lag, errors) update
             if (dashTypeVal === NodeType.Bot) {
                 appState.botState.fetchBotStats().catch(() => {});
+                // Refresh cron-record settings too — the persisted errorCount drives ROGUE
+                // and is otherwise frozen at page-load state (own staleness guard, cheap).
+                appState.botState.fetchBotSettings().catch(() => {});
             }
         }, 45_000);
         return () => clearInterval(t);
