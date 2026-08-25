@@ -13,11 +13,13 @@
     tooltipLabel: string;
     dataIsTimeBased?: boolean;
     showLogarithmic?: boolean;
+    /** Current read-checkpoint timestamp; when set, a red cutoff line is drawn at it. */
+    checkPointValue?: number;
   }
 
-  let { data, dataSetLabel, tooltipLabel, dataIsTimeBased = false, showLogarithmic = false }: Props = $props();
+  let { data, dataSetLabel, tooltipLabel, dataIsTimeBased = false, showLogarithmic = false, checkPointValue }: Props = $props();
 
-  // Auto-refresh the "now" line every 30s, matching the previous Chart.js behavior.
+  // Refresh wall clock every 30s so the x-domain keeps tracking a live window.
   let now = $state(new Date());
   onMount(() => {
     const id = setInterval(() => (now = new Date()), 30_000);
@@ -29,7 +31,7 @@
     return data.map((d) => ({ time: new Date(d.time), value: logClamp(d.value || 0, showLogarithmic, floor) }));
   });
 
-  // Extend the x domain to include "now" so the now-line is always visible.
+  // Extend the x domain to "now" so a live window renders up to the current moment.
   const xDomain = $derived.by(() => {
     if (!chartData.length) return undefined;
     let minMs = Infinity;
@@ -72,10 +74,14 @@
     }}
   >
     {#snippet aboveMarks()}
-      <AnnotationLine
-        x={now}
-        props={{ line: { style: "stroke: #ef4444; stroke-width: 2;" } }}
-      />
+      <!-- Red line marks the current read checkpoint (legacy botmon's read-cutoff xgrid),
+           so it only renders on charts that can lag — callers that pass no checkpoint get no line. -->
+      {#if checkPointValue != null && Number.isFinite(checkPointValue) && checkPointValue > 0}
+        <AnnotationLine
+          x={new Date(checkPointValue)}
+          props={{ line: { style: "stroke: #ef4444; stroke-width: 2;" } }}
+        />
+      {/if}
     {/snippet}
     {#snippet tooltip()}
       <Chart.Tooltip

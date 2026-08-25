@@ -7,7 +7,8 @@
     data: DashboardStatsValue[];
     color?: string;
     label?: string;
-    /** When set, draws a red "read cutoff" vertical line at this timestamp instead of the "now" line. */
+    /** Read-checkpoint timestamp. When set, draws the red "read cutoff" vertical line at it;
+     * without it (e.g. write-side sparklines, which can't lag) no line is drawn. */
     lastRead?: number;
   }
 

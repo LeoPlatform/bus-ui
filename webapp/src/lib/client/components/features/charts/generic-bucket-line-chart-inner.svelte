@@ -26,7 +26,7 @@
   /** If wall clock is far past the query end, don't stretch the x-axis to "now". */
   const STALE_QUERY_MS = 90_000;
 
-  // Refresh the "now" line periodically while mounted (matches prior Chart.js behavior).
+  // Refresh wall clock periodically while mounted so the x-domain keeps tracking a live window.
   let now = $state(new Date());
   onMount(() => {
     const id = setInterval(() => (now = new Date()), 30_000);
@@ -100,13 +100,12 @@
     }}
   >
     {#snippet aboveMarks()}
-      {#if !queryStale}
-        <AnnotationLine x={now} props={{ line: { style: "stroke: rgba(239, 68, 68, 0.95); stroke-width: 2;" } }} />
-      {/if}
-      {#if checkPointValue != null && Number.isFinite(checkPointValue)}
+      <!-- Red line marks the current read checkpoint (legacy botmon's read-cutoff xgrid),
+           so it only renders on charts that can lag — callers that pass no checkpoint get no line. -->
+      {#if checkPointValue != null && Number.isFinite(checkPointValue) && checkPointValue > 0}
         <AnnotationLine
           x={new Date(checkPointValue)}
-          props={{ line: { style: "stroke: rgba(248, 113, 113, 0.7); stroke-width: 1; stroke-dasharray: 4 4;" } }}
+          props={{ line: { style: "stroke: rgba(239, 68, 68, 0.95); stroke-width: 2;" } }}
         />
       {/if}
     {/snippet}

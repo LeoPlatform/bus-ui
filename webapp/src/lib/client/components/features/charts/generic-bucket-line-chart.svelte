@@ -129,7 +129,7 @@
       <div class="flex flex-col justify-between h-full">
         <div class="flex items-center justify-center gap-2 h-full">
           <div class="text-lg text-blue-500 font-bold">{formatTotal ? formatTotal(totalCount) : totalCount.toLocaleString()}</div>
-          <HelpTooltip helpText="Total for the query window shown (start–end). The red “now” line only appears while stats are fresh; the dashboard refetches periodically so the window stays current." help={true} />
+          <HelpTooltip helpText="Total for the query window shown (start–end). On charts that can lag, the red line marks the current read checkpoint's position in time." help={true} />
         </div>
         <div class="flex items-center justify-center">
           <div class="text-[10px] text-muted-foreground font-medium">{humanRangeStart}–{humanEnd}</div>
