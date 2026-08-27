@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateBotStatus } from '$comps/features/bot/bot-status.utils';
+import { evaluateBotStatus, isSameBotId, resolveHeaderBotStatus } from '$comps/features/bot/bot-status.utils';
 import { BOT_STATUS_DEFAULTS } from '$comps/features/bot/bot-status.constants';
 import type { BotSettings, MergedStatsRecord, ReadWriteStats } from '$lib/types';
 
@@ -85,6 +85,55 @@ describe('evaluateBotStatus', () => {
             const result = evaluateBotStatus(bot({ errorCount: 0 }), statsWithWindowErrors(15, 10000));
             expect(result.errorCount).toBe(15);
             expect(result.status).toBe('blocked');
+        });
+    });
+
+    describe('dashboard header status (ES-4034)', () => {
+        // Regression: a rogue bot showed rogue in the workflow tree but its dashboard header
+        // looked healthy, because the header read ONLY the shared catalog entry.
+        it('reports rogue from the page settings record when the catalog has not loaded', () => {
+            const result = resolveHeaderBotStatus({ settingsErrorCount: 29, catalogEntry: undefined });
+            expect(result.isRogue).toBe(true);
+            expect(result.errorCount).toBe(29);
+        });
+
+        it('falls back to the catalog entry when the settings record has no count', () => {
+            const result = resolveHeaderBotStatus({
+                settingsErrorCount: undefined,
+                catalogEntry: { errorCount: 25, status: 'rogue' },
+            });
+            expect(result.isRogue).toBe(true);
+            expect(result.errorCount).toBe(25);
+        });
+
+        it('prefers the (fresher) settings count over a stale catalog count', () => {
+            const result = resolveHeaderBotStatus({
+                settingsErrorCount: 40,
+                catalogEntry: { errorCount: 0, status: 'running' },
+            });
+            expect(result.isRogue).toBe(true);
+            expect(result.errorCount).toBe(40);
+        });
+
+        it('is not rogue at or below the threshold, and never shows blocked while rogue', () => {
+            expect(resolveHeaderBotStatus({ settingsErrorCount: ROGUE }).isRogue).toBe(false);
+            expect(
+                resolveHeaderBotStatus({ settingsErrorCount: 50, catalogEntry: { status: 'blocked' } }).isBlocked
+            ).toBe(false);
+        });
+
+        it('surfaces blocked from the catalog when the bot is not rogue', () => {
+            const result = resolveHeaderBotStatus({ settingsErrorCount: 0, catalogEntry: { status: 'blocked' } });
+            expect(result.isRogue).toBe(false);
+            expect(result.isBlocked).toBe(true);
+        });
+
+        it('matches bot ids across the optional bot: prefix', () => {
+            expect(isSameBotId('bot:my-bot', 'my-bot')).toBe(true);
+            expect(isSameBotId('my-bot', 'my-bot')).toBe(true);
+            expect(isSameBotId('bot:my-bot', 'bot:my-bot')).toBe(true);
+            expect(isSameBotId('my-bot', 'other-bot')).toBe(false);
+            expect(isSameBotId(undefined, 'my-bot')).toBe(false);
         });
     });
 

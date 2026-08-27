@@ -104,6 +104,37 @@ export function evaluateBotStatus(
 }
 
 /**
+ * Status for a single bot's dashboard header.
+ *
+ * Prefers the persisted error count from the page's OWN settings record — a strongly
+ * consistent per-page read — over the shared catalog entry, which may not have arrived yet
+ * (the catalog fetch is fire-and-forget and takes 10s+ on a large bus) or may be keyed by a
+ * differently-prefixed id. Reading only the catalog is why a bot could show rogue in the
+ * workflow tree while its dashboard looked healthy (ES-4034).
+ */
+export function resolveHeaderBotStatus(args: {
+  /** errorCount from this page's settings record (LeoCron, ConsistentRead). */
+  settingsErrorCount?: number;
+  /** Matching entry from the shared catalog, when it has loaded. */
+  catalogEntry?: Pick<BotSettings, 'errorCount' | 'status'>;
+}): { isRogue: boolean; isBlocked: boolean; errorCount: number } {
+  const errorCount = args.settingsErrorCount ?? args.catalogEntry?.errorCount ?? 0;
+  const isRogue = errorCount > BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD;
+  return {
+    isRogue,
+    // Rogue is the more severe state; never show both.
+    isBlocked: !isRogue && args.catalogEntry?.status === 'blocked',
+    errorCount,
+  };
+}
+
+/** Compare bot ids ignoring an optional `bot:` prefix (the cron table stores them bare). */
+export function isSameBotId(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  return a.replace(/^bot:/, '') === b.replace(/^bot:/, '');
+}
+
+/**
  * Apply the manual/terminal status overrides (archived / paused / danger) on top of the
  * error-derived status. Shared by the no-stats path and the full evaluation so the two
  * can't drift.

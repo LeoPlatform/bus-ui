@@ -41,7 +41,7 @@ describe('mergeStatsResults', () => {
         { id: 'bot:writer', bucket: 'b1', current: { execution: execStat(0), write: { 'queue:out': rwStat(10) } } },
       ])
     );
-    expect(merged.write['queue:out'].units).toBe(10);
+    expect(merged.write!['queue:out'].units).toBe(10);
     expect(merged.read).toEqual({});
   });
 
@@ -51,7 +51,7 @@ describe('mergeStatsResults', () => {
         { id: 'bot:reader', bucket: 'b1', current: { execution: execStat(0), read: { 'queue:in': rwStat(4) } } },
       ])
     );
-    expect(merged.read['queue:in'].units).toBe(4);
+    expect(merged.read!['queue:in'].units).toBe(4);
     expect(merged.write).toEqual({});
   });
 
@@ -67,11 +67,11 @@ describe('mergeStatsResults', () => {
         },
       ])
     );
-    expect(merged.write['queue:a'].units).toBe(5);
-    expect(merged.write['queue:b'].units).toBe(7);
-    expect(merged.write['queue:a'].timestamp).toBe(1000);
-    expect(merged.write['queue:b'].timestamp).toBe(2000);
-    expect(merged.write['queue:a']).not.toBe(merged.write['queue:b']);
+    expect(merged.write!['queue:a'].units).toBe(5);
+    expect(merged.write!['queue:b'].units).toBe(7);
+    expect(merged.write!['queue:a'].timestamp).toBe(1000);
+    expect(merged.write!['queue:b'].timestamp).toBe(2000);
+    expect(merged.write!['queue:a']).not.toBe(merged.write!['queue:b']);
   });
 
   it('sums units and execution errors across buckets and keeps the max timestamp', () => {
@@ -82,7 +82,7 @@ describe('mergeStatsResults', () => {
       ])
     );
     expect(merged.execution?.errors).toBe(7);
-    expect(merged.read['queue:in'].units).toBe(30);
-    expect(merged.read['queue:in'].timestamp).toBe(3000);
+    expect(merged.read!['queue:in'].units).toBe(30);
+    expect(merged.read!['queue:in'].timestamp).toBe(3000);
   });
 });

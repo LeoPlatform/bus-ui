@@ -169,6 +169,26 @@
     }
   }
 
+  /**
+   * Error states tint their fill and carry a heavier stroke. A rogue/blocked node is a dark
+   * shape with a dark-red outline against a dark canvas, which reads as less urgent than the
+   * healthy green rings around it — the tint is what makes it findable at a glance.
+   */
+  function getNodeFillColor(status: string | undefined) {
+    if (status === 'rogue' || status === 'blocked' || status === 'error') {
+      return 'color-mix(in oklab, var(--status-error) 22%, var(--color-background))';
+    }
+    if (status === 'danger') {
+      return 'color-mix(in oklab, var(--status-danger) 18%, var(--color-background))';
+    }
+    return 'var(--color-background)';
+  }
+
+  function getNodeStrokeWidth(status: string | undefined, depth: number) {
+    if (depth === 0) return 8;
+    return status === 'rogue' || status === 'blocked' || status === 'error' || status === 'danger' ? 3.5 : 2;
+  }
+
   let nodesNeedingFilters = $derived.by(() => {
     if (!relationShipTree) return new Set<string>();
     
@@ -452,15 +472,12 @@ function updateContainerDimensions() {
     // "last_write null/undefined" case.
     if(!stat.lastWrite && stat.eventCount == 0) {
       return 'N/A';
-    } else if(stat.linkType === 'read') {
-      if (Date.now() - stat.lastWrite < appState.botState.staleTime / 2) {
-            return '-'
-          } else {
-            return 'lag:' + humanize(Date.now() - stat.lastWrite);
-          }
-    } else {
-      return humanize(Date.now() - stat.lastWrite) + ' ago';
     }
+    const age = Date.now() - (stat.lastWrite ?? 0);
+    if(stat.linkType === 'read') {
+      return age < appState.botState.staleTime / 2 ? '-' : 'lag:' + humanize(age);
+    }
+    return humanize(age) + ' ago';
   }
 
   function handleFilterChange(nodeId: string, direction: 'children' | 'parents', newOptions: FilterOptions) {
@@ -915,9 +932,9 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         .append("path")
         .attr("class", "node-shape")
         .attr("d", getNodeShapePath(status, nodeWidth! / 2))
-        .style("fill", "var(--color-background)")
+        .style("fill", getNodeFillColor(status))
         .style("stroke", getNodeStrokeColor(status))
-        .style("stroke-width", d.data.depth === 0 ? 8 : 2);
+        .style("stroke-width", getNodeStrokeWidth(status, d.data.depth));
 
       
       let expandCircleGroup = element.insert('g', ':first-child').attr('class', createGoodIdentifier('unexpanded-circle-group-',d.data.id));
@@ -1370,8 +1387,9 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       element
         .select(".node-shape")
         .attr("d", getNodeShapePath(status, nodeWidth! / 2))
-        .style("fill", "var(--color-background)")
-        .style("stroke", getNodeStrokeColor(status));
+        .style("fill", getNodeFillColor(status))
+        .style("stroke", getNodeStrokeColor(status))
+        .style("stroke-width", getNodeStrokeWidth(status, d.data.depth));
 
       // Update bot image if needed
       if (d.data.type === "bot") {
