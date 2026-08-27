@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { AppState } from "$lib/client/appstate.svelte";
   import type { DashboardStats, RelationshipTree, TreeNode } from "$lib/types";
-  import { humanize } from "$lib/utils";
   import { assets, base } from "$app/paths";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats } from "./types";
-  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, isCaughtUp, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { getLinkLabel } from "./link-label";
   import { createLucideIconComponent, createLucideIconFromComponent, createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
   import { generateSmartCurve } from "./link-utils.svelte";
   import RelationshipFilterControls from "./relationship-filter-controls.svelte";
@@ -45,6 +45,8 @@
 
   //TODO: will need to also track status, errors
   let linkStats: Map<string, LinkStats> = $state(new Map());
+  /** Newest checkpoint per queue, from the same pass that builds linkStats. */
+  let latestCheckpoints: Map<string, string> = $state(new Map());
 
   let svg: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
   let zoomHandler: d3.ZoomBehavior<Element, unknown>;
@@ -231,7 +233,7 @@
             dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.sourceId);
           }
         }
-        initializeLinkStats(botStats, linkStats);
+        latestCheckpoints = initializeLinkStats(botStats, linkStats);
         renderVisualization();
       }
     });
@@ -272,7 +274,7 @@
 
 
     initializeVisualization();
-    initializeLinkStats(botStats, linkStats);
+    latestCheckpoints = initializeLinkStats(botStats, linkStats);
 
     return () => {
       resizeObserver.disconnect();
@@ -335,7 +337,7 @@ function updateContainerDimensions() {
           await appState.botState.fetchBotSettings();
 
           if(isActive) {
-            initializeLinkStats(botStats, linkStats);
+            latestCheckpoints = initializeLinkStats(botStats, linkStats);
             renderVisualization();
           }
         } catch (error) {
@@ -361,7 +363,7 @@ function updateContainerDimensions() {
 
     untrack( async () => {
       await appState.botState.fetchBotStats();
-      initializeLinkStats(botStats, linkStats);
+      latestCheckpoints = initializeLinkStats(botStats, linkStats);
       renderVisualization();
     })
   })
@@ -421,8 +423,11 @@ function updateContainerDimensions() {
       return linkStat;
     }
 
-    // Fallback when there are no stats in the window: seed the time from the bot's LeoCron
-    // checkpoint, like legacy botmon (lib/stats.js) — so a zero-event edge still shows a time.
+    // Fallback when there are no stats in the window: seed from the bot's LeoCron checkpoint,
+    // like legacy botmon (lib/stats.js), which seeds last_read/last_write, the source timestamp
+    // and the checkpoint from the same record. Seeding only a time would make an edge report
+    // freshness it hasn't earned; without a source timestamp a read edge stays "N/A" as it does
+    // in legacy, rather than inventing a lag.
     const upstreamId = direction === "right" ? cleanSourceId : cleanTargetId;
     const downstreamId = direction === "right" ? cleanTargetId : cleanSourceId;
     const botData = appState.botState.botSettings.find(bot => bot.id === upstreamId || bot.id === downstreamId);
@@ -431,12 +436,24 @@ function updateContainerDimensions() {
     const otherId = botData?.id == upstreamId ? downstreamId : upstreamId;
     // Checkpoint maps are keyed by full refId (`queue:foo`); tolerate unprefixed too.
     const checkpoints = botData?.checkpoints?.[type];
-    const endedTimestamp =
-      checkpoints?.[`queue:${otherId}`]?.ended_timestamp ??
-      checkpoints?.[`system:${otherId}`]?.ended_timestamp ??
-      checkpoints?.[otherId]?.ended_timestamp;
+    const cp =
+      checkpoints?.[`queue:${otherId}`] ??
+      checkpoints?.[`system:${otherId}`] ??
+      checkpoints?.[otherId];
 
-    return { eventCount: 0, lastWrite: endedTimestamp ?? 0, linkType: type };
+    const seeded: LinkStats = {
+      eventCount: 0,
+      sourceTimestamp: cp?.source_timestamp,
+      checkpoint: cp?.checkpoint,
+      linkType: type,
+    };
+    if (type === 'read') {
+      seeded.lastRead = cp?.ended_timestamp;
+      seeded.caughtUp = isCaughtUp(cp?.checkpoint, latestCheckpoints.get(otherId));
+    } else {
+      seeded.lastWrite = cp?.ended_timestamp;
+    }
+    return seeded;
   }
 
   function isNodeExpanded(nodeId: string): boolean {
@@ -468,16 +485,7 @@ function updateContainerDimensions() {
 
 
   function getLowerText(stat: LinkStats): string {
-    // No timestamp at all (no stats in window, no checkpoint) → N/A, matching legacy's
-    // "last_write null/undefined" case.
-    if(!stat.lastWrite && stat.eventCount == 0) {
-      return 'N/A';
-    }
-    const age = Date.now() - (stat.lastWrite ?? 0);
-    if(stat.linkType === 'read') {
-      return age < appState.botState.staleTime / 2 ? '-' : 'lag:' + humanize(age);
-    }
-    return humanize(age) + ' ago';
+    return getLinkLabel(stat, appState.botState.compareTimestamp);
   }
 
   function handleFilterChange(nodeId: string, direction: 'children' | 'parents', newOptions: FilterOptions) {

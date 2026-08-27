@@ -156,6 +156,18 @@ export class BotState {
     return this.#visibleIds;
   }
 
+  /**
+   * The instant lag is measured against: the end of the viewed window, or now in live mode.
+   * Legacy botmon calls this `compare_timestamp` — using wall clock on a historical window
+   * would inflate every lag by however long ago that window was.
+   */
+  get compareTimestamp(): number {
+    const end = this.#timePickerState?.endTime;
+    const now = Date.now();
+    if (!end) return now;
+    return end < now ? end : now;
+  }
+
   get staleTime() {
     return this.#staleTime;
   }

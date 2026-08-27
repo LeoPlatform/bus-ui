@@ -124,50 +124,70 @@ export function processTree(
   return node;
 }
 
+/**
+ * Build the per-link stats map. Returns the newest checkpoint seen per queue so callers can
+ * answer "is this reader caught up?" for links that have no stats in the window.
+ */
 export function initializeLinkStats(
   botStats: MergedStatsRecord[],
   linkStats: Map<string, LinkStats>
-) {
-  console.log("initializeLinkStats called, botStats length:", botStats.length);
-  console.log("botStats:", botStats);
+): Map<string, string> {
   if (!botStats || botStats.length === 0) {
-    // console.log("botStats is empty or undefined");
-    return;
+    return new Map();
   }
 
   // Convert the botStats proxy object into an array
   const statsArray = botStats;
-  console.log("botStats to array:", statsArray);
 
   if (statsArray.length === 0) {
-    return;
+    return new Map();
   }
 
   linkStats.clear();
 
+  // Pass 1: the newest checkpoint written to each queue. A reader whose own checkpoint has
+  // reached this has consumed everything the queue holds, so its lag is zero regardless of
+  // how long ago it last ran. Legacy computes the same value (lib/stats.js `latest_checkpoint`).
+  const latestCheckpointByQueue = new Map<string, string>();
+  statsArray.forEach((stat: MergedStatsRecord) => {
+    if (!stat.write) return;
+    Object.entries(stat.write).forEach(([queueId, writeStat]) => {
+      const q = queueId.replace(/^(bot:|queue:|system:)/, '');
+      const current = latestCheckpointByQueue.get(q);
+      if (writeStat.checkpoint && (!current || current.localeCompare(writeStat.checkpoint) <= 0)) {
+        latestCheckpointByQueue.set(q, writeStat.checkpoint);
+      }
+    });
+  });
+
+  // Pass 2: one entry per link, keyed downstream-first.
   statsArray.forEach((stat: MergedStatsRecord) => {
     $state.snapshot(stat);
     let idKey = stat.id.replace(/^(bot:|queue:|system:)/, ''); // Remove prefixes
     if (stat.read) {
-      // console.log('found read stats');
       Object.entries(stat.read).forEach(([childId, readStat]) => {
         let cleanChildId = childId.replace(/^(bot:|queue:|system:)/, '');
         let key = `${idKey}-${cleanChildId}`;
+        const latest = latestCheckpointByQueue.get(cleanChildId);
         linkStats.set(key, {
           eventCount: readStat.units,
-          lastWrite: new Date(readStat.timestamp).getTime(),
+          lastRead: new Date(readStat.timestamp).getTime(),
+          sourceTimestamp: readStat.source_timestamp,
+          checkpoint: readStat.checkpoint,
+          caughtUp: isCaughtUp(readStat.checkpoint, latest),
           linkType: "read",
         });
       });
     }
     if (stat.write) {
-      // console.log('found write stats');
       Object.entries(stat.write).forEach(([parentId, writeStat]) => {
         let cleanParentId = parentId.replace(/^(bot:|queue:|system:)/, '');
         let key = `${cleanParentId}-${idKey}`;
         linkStats.set(key, {
           eventCount: writeStat.units,
           lastWrite: new Date(writeStat.timestamp).getTime(),
+          sourceTimestamp: writeStat.source_timestamp,
+          checkpoint: writeStat.checkpoint,
           linkType: "write",
         });
       });
@@ -175,6 +195,13 @@ export function initializeLinkStats(
   });
 
   linkStats = new Map(linkStats);
+  return latestCheckpointByQueue;
+}
+
+/** A reader is caught up once its checkpoint is at or past the queue's newest write. */
+export function isCaughtUp(linkCheckpoint?: string, queueLatest?: string): boolean {
+  if (!linkCheckpoint || !queueLatest) return false;
+  return linkCheckpoint.localeCompare(queueLatest) >= 0;
 }
 
 export function findOriginalData(tree: RelationshipTree, nodeId: string): RelationshipTree | null {
