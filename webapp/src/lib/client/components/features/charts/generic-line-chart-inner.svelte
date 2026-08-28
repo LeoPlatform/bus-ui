@@ -1,6 +1,6 @@
 <script lang="ts">
   import * as Chart from "$lib/client/components/ui/chart/index";
-  import { AnnotationLine, LineChart } from "layerchart";
+  import { LineChart } from "layerchart";
   import { scaleTime, scaleLinear, scaleLog } from "d3-scale";
   import { onMount } from "svelte";
   import { humanize } from "$lib/utils";
@@ -13,11 +13,14 @@
     tooltipLabel: string;
     dataIsTimeBased?: boolean;
     showLogarithmic?: boolean;
-    /** Current read-checkpoint timestamp; when set, a red cutoff line is drawn at it. */
-    checkPointValue?: number;
   }
 
-  let { data, dataSetLabel, tooltipLabel, dataIsTimeBased = false, showLogarithmic = false, checkPointValue }: Props = $props();
+  // No checkpoint line here by design: this chart backs execution count, error count,
+  // execution time, events written and write lag — none of which can lag behind a read
+  // checkpoint. Legacy botmon draws its red read-cutoff line only on Events In Queue
+  // (GenericBucketLineChart) and the read-side sparklines, which take the checkpoint
+  // explicitly. See ES-4034 decision AD-003.
+  let { data, dataSetLabel, tooltipLabel, dataIsTimeBased = false, showLogarithmic = false }: Props = $props();
 
   // Refresh wall clock every 30s so the x-domain keeps tracking a live window.
   let now = $state(new Date());
@@ -73,16 +76,6 @@
       grid: { class: "stroke-border/40" },
     }}
   >
-    {#snippet aboveMarks()}
-      <!-- Red line marks the current read checkpoint (legacy botmon's read-cutoff xgrid),
-           so it only renders on charts that can lag — callers that pass no checkpoint get no line. -->
-      {#if checkPointValue != null && Number.isFinite(checkPointValue) && checkPointValue > 0}
-        <AnnotationLine
-          x={new Date(checkPointValue)}
-          props={{ line: { style: "stroke: #ef4444; stroke-width: 2;" } }}
-        />
-      {/if}
-    {/snippet}
     {#snippet tooltip()}
       <Chart.Tooltip
         labelFormatter={(_v, payload) =>

@@ -58,8 +58,11 @@ export function evaluateBotStatus(
 
   // 3. Check ALARM conditions
   
-  // Error Rate Alarm
-  if (errorCount >= 1 && errorRate >= config.error_limit && !bot.archived) {
+  // Error Rate Alarm. Compare against the count, not the rate: legacy bus-ui alarms on
+  // `errors >= executions * limit` (old_ui/lib/stats.js), which still fires when a bot
+  // recorded errors but no successful executions. Testing `errorRate >= limit` instead
+  // silently drops that case, because errorRate is forced to 0 at zero executions.
+  if (errorCount >= 1 && errorCount >= executions * config.error_limit && !bot.archived) {
     isAlarmed = true;
     alarms.errors = {
       value: errorCount,

@@ -6,7 +6,7 @@
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats } from "./types";
-  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, isCaughtUp, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, isCaughtUp, linkStatsKey, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
   import { getLinkLabel } from "./link-label";
   import { createLucideIconComponent, createLucideIconFromComponent, createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
   import { generateSmartCurve } from "./link-utils.svelte";
@@ -409,13 +409,9 @@ function updateContainerDimensions() {
     const cleanSourceId = sourceId.replace(/^(bot:|queue:|system:)/, '');
     const cleanTargetId = targetId.replace(/^(bot:|queue:|system:)/, '');
 
-    // linkStats keys are downstream-first (see initializeLinkStats: read = `${bot}-${sourceQueue}`,
-    // write = `${destQueue}-${bot}`). D3 links always run hierarchy parent → child, so on the
-    // left (parents) tree the target is upstream, while on the right (children) tree the
-    // target is downstream — flip the key order accordingly.
-    const key = direction === "right"
-      ? `${cleanTargetId}-${cleanSourceId}`
-      : `${cleanSourceId}-${cleanTargetId}`;
+    // D3 links always run hierarchy parent → child; `linkStatsKey` owns the downstream-first
+    // convention so this and calculateRelationshipImportance can't drift apart again.
+    const key = linkStatsKey(cleanSourceId, cleanTargetId, direction === "right" ? 'children' : 'parents');
 
     const linkStat = linkStats.get(key);
 

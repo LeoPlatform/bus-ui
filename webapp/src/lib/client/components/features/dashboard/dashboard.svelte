@@ -160,14 +160,20 @@
         if (!currentId) return;
         const dashTypeVal = compState.dashType;
         const t = setInterval(() => {
-            compState.getDashStats().catch((err) => {
-                console.error('Dashboard stats refresh failed:', err);
+            // Re-read this page's own settings record alongside the stats. The persisted
+            // errorCount that drives the header's ROGUE badge lives on that record and is
+            // otherwise fixed at whatever it was when the page loaded — the header prefers
+            // it over the catalog, so refreshing the catalog alone leaves the badge stale.
+            Promise.all([
+                compState.getSettings(),
+                compState.getDashStats()
+            ]).catch((err) => {
+                console.error('Dashboard refresh failed:', err);
             });
-            // Re-fetch bot stats so alarm badges (source lag, write lag, errors) update
+            // Re-fetch bot stats and the catalog so the alarm badges (source lag, write
+            // lag, errors) and the catalog-derived BLOCKED state update too.
             if (dashTypeVal === NodeType.Bot) {
                 appState.botState.fetchBotStats().catch(() => {});
-                // Refresh cron-record settings too — the persisted errorCount drives ROGUE
-                // and is otherwise frozen at page-load state (own staleness guard, cheap).
                 appState.botState.fetchBotSettings().catch(() => {});
             }
         }, 45_000);

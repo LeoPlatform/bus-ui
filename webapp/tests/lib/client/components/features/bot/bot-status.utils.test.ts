@@ -86,6 +86,16 @@ describe('evaluateBotStatus', () => {
             expect(result.errorCount).toBe(15);
             expect(result.status).toBe('blocked');
         });
+
+        it('alarms on errors recorded with no successful executions', () => {
+            // Legacy alarms on `errors >= executions * limit` (old_ui/lib/stats.js), which
+            // fires at zero executions. Comparing a computed error RATE instead loses that
+            // case entirely, because the rate is forced to 0 when executions is 0.
+            const result = evaluateBotStatus(bot({ errorCount: 0 }), statsWithWindowErrors(3, 0));
+            expect(result.errorRate).toBe(0);
+            expect(result.isAlarmed).toBe(true);
+            expect(result.alarms.errors?.value).toBe(3);
+        });
     });
 
     describe('dashboard header status (ES-4034)', () => {

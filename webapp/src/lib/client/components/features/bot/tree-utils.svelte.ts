@@ -198,6 +198,26 @@ export function initializeLinkStats(
   return latestCheckpointByQueue;
 }
 
+/**
+ * Build a lookup key for `linkStats` from a hierarchy edge.
+ *
+ * `initializeLinkStats` keys every link DOWNSTREAM-FIRST (read = `${bot}-${sourceQueue}`,
+ * write = `${destQueue}-${bot}`). A hierarchy edge always runs parent → child, so on the
+ * `children` side the child is downstream and on the `parents` side the parent is — flip
+ * the order accordingly. Ids in the tree carry `bot:`/`queue:`/`system:` prefixes; the
+ * keys never do.
+ */
+export function linkStatsKey(
+  parentId: string,
+  childId: string,
+  direction: 'children' | 'parents'
+): string {
+  const strip = (id: string) => id.replace(/^(bot:|queue:|system:)/, '');
+  const parent = strip(parentId);
+  const child = strip(childId);
+  return direction === 'children' ? `${child}-${parent}` : `${parent}-${child}`;
+}
+
 /** A reader is caught up once its checkpoint is at or past the queue's newest write. */
 export function isCaughtUp(linkCheckpoint?: string, queueLatest?: string): boolean {
   if (!linkCheckpoint || !queueLatest) return false;
@@ -529,15 +549,14 @@ export function calculateRelationshipImportance(
   direction: 'children' | 'parents'
 ): RelationshipScore {
   const childId = relationship.id;
-  const key = direction === 'children' ? `${parentId}-${childId}` : `${childId}-${parentId}`;
+  const key = linkStatsKey(parentId, childId, direction);
   const stats = linkStats.get(key) || { eventCount: 0, lastWrite: undefined, lastRead: undefined, linkType: direction === 'children' ? 'read' : 'write' };
-  // if(!stats) {
-  //   throw new Error(`no stats found for relationship: ${key} | ${direction}`);
-  // }
-  
+
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
-  const timeSinceLastActivity = now - (stats.lastWrite! || stats.lastRead!);
+  // `|| 0` matters: on a miss both timestamps are undefined, and `now - undefined` is NaN,
+  // which poisons every downstream weight and makes the sort comparators no-ops.
+  const timeSinceLastActivity = now - (stats.lastWrite || stats.lastRead || 0);
 
   // console.log('timeSinceLastActivity:', timeSinceLastActivity, 'stats.lastWrite:', stats.lastWrite, 'stats.lastRead:', stats.lastRead);
   
