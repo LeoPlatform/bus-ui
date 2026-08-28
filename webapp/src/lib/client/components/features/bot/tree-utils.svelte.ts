@@ -148,14 +148,18 @@ export function initializeLinkStats(
   // Pass 1: the newest checkpoint written to each queue. A reader whose own checkpoint has
   // reached this has consumed everything the queue holds, so its lag is zero regardless of
   // how long ago it last ran. Legacy computes the same value (lib/stats.js `latest_checkpoint`).
+  // A write always lands IN a queue, so the queue is the map key on a bot record and the
+  // record itself on a queue record.
   const latestCheckpointByQueue = new Map<string, string>();
   statsArray.forEach((stat: MergedStatsRecord) => {
     if (!stat.write) return;
-    Object.entries(stat.write).forEach(([queueId, writeStat]) => {
-      const q = queueId.replace(/^(bot:|queue:|system:)/, '');
-      const current = latestCheckpointByQueue.get(q);
+    const fromBot = isBotStatsRecord(stat.id);
+    const self = stripRefPrefix(stat.id);
+    Object.entries(stat.write).forEach(([otherId, writeStat]) => {
+      const queue = fromBot ? stripRefPrefix(otherId) : self;
+      const current = latestCheckpointByQueue.get(queue);
       if (writeStat.checkpoint && (!current || current.localeCompare(writeStat.checkpoint) <= 0)) {
-        latestCheckpointByQueue.set(q, writeStat.checkpoint);
+        latestCheckpointByQueue.set(queue, writeStat.checkpoint);
       }
     });
   });
@@ -163,27 +167,32 @@ export function initializeLinkStats(
   // Pass 2: one entry per link, keyed downstream-first.
   statsArray.forEach((stat: MergedStatsRecord) => {
     $state.snapshot(stat);
-    let idKey = stat.id.replace(/^(bot:|queue:|system:)/, ''); // Remove prefixes
+    const fromBot = isBotStatsRecord(stat.id);
+    const self = stripRefPrefix(stat.id);
+
     if (stat.read) {
-      Object.entries(stat.read).forEach(([childId, readStat]) => {
-        let cleanChildId = childId.replace(/^(bot:|queue:|system:)/, '');
-        let key = `${idKey}-${cleanChildId}`;
-        const latest = latestCheckpointByQueue.get(cleanChildId);
-        linkStats.set(key, {
+      Object.entries(stat.read).forEach(([otherId, readStat]) => {
+        // A read edge always runs queue → bot, so it keys `${bot}-${queue}`.
+        const other = stripRefPrefix(otherId);
+        const bot = fromBot ? self : other;
+        const queue = fromBot ? other : self;
+        linkStats.set(`${bot}-${queue}`, {
           eventCount: readStat.units,
           lastRead: new Date(readStat.timestamp).getTime(),
           sourceTimestamp: readStat.source_timestamp,
           checkpoint: readStat.checkpoint,
-          caughtUp: isCaughtUp(readStat.checkpoint, latest),
+          caughtUp: isCaughtUp(readStat.checkpoint, latestCheckpointByQueue.get(queue)),
           linkType: "read",
         });
       });
     }
     if (stat.write) {
-      Object.entries(stat.write).forEach(([parentId, writeStat]) => {
-        let cleanParentId = parentId.replace(/^(bot:|queue:|system:)/, '');
-        let key = `${cleanParentId}-${idKey}`;
-        linkStats.set(key, {
+      Object.entries(stat.write).forEach(([otherId, writeStat]) => {
+        // A write edge always runs bot → queue, so it keys `${queue}-${bot}`.
+        const other = stripRefPrefix(otherId);
+        const bot = fromBot ? self : other;
+        const queue = fromBot ? other : self;
+        linkStats.set(`${queue}-${bot}`, {
           eventCount: writeStat.units,
           lastWrite: new Date(writeStat.timestamp).getTime(),
           sourceTimestamp: writeStat.source_timestamp,
@@ -216,6 +225,25 @@ export function linkStatsKey(
   const parent = strip(parentId);
   const child = strip(childId);
   return direction === 'children' ? `${child}-${parent}` : `${parent}-${child}`;
+}
+
+const stripRefPrefix = (id: string) => id.replace(/^(bot:|queue:|system:)/, '');
+
+/**
+ * Which side of a link a stats record describes.
+ *
+ * The shape inverts by record type: a BOT record's `read`/`write` maps are keyed by the
+ * QUEUES it reads and writes, while a QUEUE record's are keyed by the BOTS reading and
+ * writing it. Verified against LeoStats — `id: "queue:modified-order"` has
+ * `current.read` keyed `bot:order-test-modified-order-to-dim`.
+ *
+ * Queue ids do reach the stats fetch (`visibleIds` carries `queue:foo` for non-bot nodes),
+ * so treating every record as a bot record filed the queue's own checkpoint under the
+ * writer bot's name — losing the one value the caught-up test needs — and emitted read
+ * entries under the write edge's key, where a re-queue bot's two links collided (ES-4142).
+ */
+function isBotStatsRecord(id: string): boolean {
+  return !/^(queue:|system:)/.test(id);
 }
 
 /** A reader is caught up once its checkpoint is at or past the queue's newest write. */
