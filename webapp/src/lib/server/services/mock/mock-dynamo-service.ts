@@ -1,11 +1,10 @@
 /**
- * mock-dynamo-service — a drop-in, in-memory replacement for dynamoService (ES-3461).
+ * A drop-in, in-memory replacement for dynamoService.
  *
  * Exposes the SAME function names the SvelteKit API routes import, backed by the committed
- * mock-bots fixture plus a module-level in-memory store. The store makes read-after-write
- * work (ES-3461 issue 2): saveCron / saveBotSettings mutate it, and the next getSettings /
- * getRelationShips reflects the change — exactly like the real ConsistentRead path, but with
- * no AWS.
+ * mock-bots fixture plus a module-level store. That store is what makes read-after-write
+ * work: saveCron / saveBotSettings mutate it and the next read reflects the change, matching
+ * the real ConsistentRead path without AWS.
  *
  * Every function takes the same `creds` first argument as dynamoService and ignores it.
  * This module is only ever loaded through `bus-data.ts` behind the `dev && MOCK_BUS=1` gate,
