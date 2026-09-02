@@ -54,6 +54,35 @@ function catalogRowFromSystem(s: SystemSettings): CatalogRow {
   };
 }
 
+/**
+ * One catalog row for a bot. Sibling of `catalogRowFromQueue` / `catalogRowFromSystem`,
+ * exported so the column-value rules can be pinned by unit test.
+ */
+export function catalogRowFromBot(b: BotSettings): CatalogRow {
+  return {
+    kind: "bot",
+    id: b.id,
+    name: b.name ?? b.lambdaName,
+    tags: b.tags,
+    archived: b.archived,
+    // Lag describes the viewed window, so it prefers the window-derived value.
+    health: {
+      ...b.health,
+      source_lag: (b as any).computedSourceLag || b.health?.source_lag,
+      write_lag: (b as any).computedWriteLag || b.health?.write_lag,
+    },
+    // Errors is the opposite: it shows the PERSISTED consecutive-error count from the cron
+    // record, the same counter that drives rogue. A window-derived count reads 0 for every
+    // rogue bot — leo-cron stops scheduling one, so it has no executions in the window —
+    // which is precisely when the number matters, and it made this column contradict the
+    // bot's own dashboard header. See ES-4034 decision AD-012.
+    errorCount: b.errorCount,
+    lambdaName: b.lambdaName,
+    status: b.status,
+    isAlarmed: b.isAlarmed,
+  };
+}
+
 export class BotState {
   #fetch: GlobalFetch;
   #loading = $state(true);
@@ -95,22 +124,7 @@ export class BotState {
   private rebuildCatalog() {
     const rows: CatalogRow[] = [];
     for (const b of this.#botSettings) {
-      rows.push({
-        kind: "bot",
-        id: b.id,
-        name: b.name ?? b.lambdaName,
-        tags: b.tags,
-        archived: b.archived,
-        health: {
-          ...b.health,
-          source_lag: (b as any).computedSourceLag || b.health?.source_lag,
-          write_lag: (b as any).computedWriteLag || b.health?.write_lag,
-        },
-        errorCount: (b as any).computedErrorCount ?? b.errorCount,
-        lambdaName: b.lambdaName,
-        status: b.status,
-        isAlarmed: b.isAlarmed,
-      });
+      rows.push(catalogRowFromBot(b));
     }
     for (const q of this.#queueRows) {
       const r = catalogRowFromQueue(q);
@@ -499,11 +513,11 @@ export class BotState {
       bot.alarms = statusEvaluation.alarms;
       bot.rogue = statusEvaluation.rogue;
       bot.alarmed = statusEvaluation.isAlarmed;
-      // Store window-derived values on `computed*` fields (mirrors the lag values below)
-      // rather than overwriting the persisted `bot.errorCount`. Rogue is driven by the
-      // persisted counter, and a stats-only refresh re-runs this without re-fetching bot
-      // settings — clobbering bot.errorCount here would corrupt the rogue signal.
-      (bot as any).computedErrorCount = statusEvaluation.errorCount;
+      // Window-derived lag goes on `computed*` fields rather than overwriting the persisted
+      // values. Never assign the window error count onto `bot.errorCount`: rogue is driven
+      // by the persisted counter, and a stats-only refresh re-runs this without re-fetching
+      // bot settings, so clobbering it here would corrupt the rogue signal. The catalog's
+      // Errors column reads the persisted count directly (see catalogRowFromBot).
       (bot as any).computedSourceLag = statusEvaluation.sourceLag;
       (bot as any).computedWriteLag = statusEvaluation.writeLag;
     }
