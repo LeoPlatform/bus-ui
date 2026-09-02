@@ -543,10 +543,8 @@ async function getBotState(creds: AwsCreds, id: string): Promise<BotSettings> {
     const command = new GetCommand({
         TableName: LEO_CRON_TABLE(),
         Key: { id: id.replace(/^bot:/, "") },
-        // Strongly consistent read: saveCron/saveBotSettings write with PutCommand and the
-        // UI re-reads settings immediately after. A default (eventually-consistent) read can
-        // race the write and return the old checkpoint, so the header shows a stale value
-        // even though the just-saved change took effect (ES-3461).
+        // The UI re-reads settings immediately after a save, and an eventually-consistent
+        // read can race the write and return the old checkpoint.
         ConsistentRead: true,
     });
     const response = await docClient.send(command);
