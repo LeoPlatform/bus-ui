@@ -731,7 +731,6 @@ export async function saveCron(
         delete updated.invokeTime;
     }
 
-    // Change checkpoint: merge new checkpoint values into existing read checkpoints
     if (params.checkpoint) {
         if (!updated.checkpoints) {
             updated.checkpoints = { read: {}, write: {} };
