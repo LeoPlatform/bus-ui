@@ -103,8 +103,23 @@ describe('isCaughtUp', () => {
     expect(isCaughtUp(older, newer)).toBe(false);
   });
 
-  it('is false when either checkpoint is unknown', () => {
+  it('is false when the reader has no checkpoint but the queue has writes', () => {
     expect(isCaughtUp(undefined, newer)).toBe(false);
-    expect(isCaughtUp(newer, undefined)).toBe(false);
+  });
+
+  /**
+   * A quiet queue — no writes in the viewed window, or a writer that isn't in the fetched
+   * set — yields no queue latest. Legacy seeds `latest_checkpoint: ''` and then tests
+   * `link.checkpoint >= queue.latest_checkpoint` (lib/stats.js), so any real checkpoint
+   * compares as caught up and the edge reads `-`.
+   *
+   * Treating an unknown latest as "behind" instead makes every such read edge report
+   * `compare - source_timestamp`, which is the false lag on an infrequently-written queue
+   * that this work set out to remove. The previous assertion here pinned the
+   * implementation rather than legacy.
+   */
+  it('is true when the queue has no known latest write, as legacy does', () => {
+    expect(isCaughtUp(newer, undefined)).toBe(true);
+    expect(isCaughtUp(undefined, undefined)).toBe(true);
   });
 });

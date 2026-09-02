@@ -246,10 +246,22 @@ function isBotStatsRecord(id: string): boolean {
   return !/^(queue:|system:)/.test(id);
 }
 
-/** A reader is caught up once its checkpoint is at or past the queue's newest write. */
+/**
+ * A reader is caught up once its checkpoint is at or past the queue's newest write.
+ *
+ * Missing values compare as the empty string, which is how legacy behaves: it seeds
+ * `latest_checkpoint: ''` and tests `link.checkpoint >= queue.latest_checkpoint`
+ * (lib/stats.js). So a queue with no known latest write — nothing written in the viewed
+ * window, or a writer outside the fetched set — reads as caught up rather than as behind.
+ *
+ * The distinction matters because the two unknowns are not symmetric. Treating an unknown
+ * QUEUE latest as "behind" makes every read edge on a quiet queue report
+ * `compare - source_timestamp`, which is exactly the false lag on an infrequently-written
+ * queue that this work set out to remove. An unknown READER checkpoint against a queue that
+ * has writes is genuinely behind, and still returns false.
+ */
 export function isCaughtUp(linkCheckpoint?: string, queueLatest?: string): boolean {
-  if (!linkCheckpoint || !queueLatest) return false;
-  return linkCheckpoint.localeCompare(queueLatest) >= 0;
+  return (linkCheckpoint ?? '').localeCompare(queueLatest ?? '') >= 0;
 }
 
 export function findOriginalData(tree: RelationshipTree, nodeId: string): RelationshipTree | null {

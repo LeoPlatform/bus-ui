@@ -2,7 +2,7 @@
     import { getContext, untrack } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
   import { NodeType } from "$lib/types";
-  import { type DashboardTab, DashboardTabType, parseDashboardTags } from "./types";
+  import { type DashboardTab, DashboardTabType, mayRefreshSettings, parseDashboardTags } from "./types";
   import DashHeader from "./dash-header.svelte";
   import * as Tabs from "$lib/client/components/ui/tabs/index";
   import BotDashboardTab from "./bot-dashboard-tab.svelte";
@@ -164,10 +164,14 @@
             // errorCount that drives the header's ROGUE badge lives on that record and is
             // otherwise fixed at whatever it was when the page loaded — the header prefers
             // it over the catalog, so refreshing the catalog alone leaves the badge stale.
-            Promise.all([
-                compState.getSettings(),
-                compState.getDashStats()
-            ]).catch((err) => {
+            //
+            // NOT while the Settings tab is open: those tabs seed their form fields from
+            // this record in an $effect, so replacing it mid-edit resets whatever the
+            // operator is typing. Monitoring wants a live record, editing wants a stable
+            // one; the read-only surfaces are the ones that need the refresh.
+            const refreshes = [compState.getDashStats()];
+            if (mayRefreshSettings(untrack(() => activeTab))) refreshes.push(compState.getSettings());
+            Promise.all(refreshes).catch((err) => {
                 console.error('Dashboard refresh failed:', err);
             });
             // Re-fetch bot stats and the catalog so the alarm badges (source lag, write
