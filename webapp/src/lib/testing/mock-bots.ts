@@ -123,10 +123,8 @@ export function makeMockCheckpoint(
   return { read: { [queue]: { checkpoint: token } }, write: {} };
 }
 
-// ---------------------------------------------------------------------------
-// Named preset factories — one per UI state. Factories (not shared constants)
-// so tests/stories/the mock store each get their own mutable copy.
-// ---------------------------------------------------------------------------
+// Factories rather than shared constants, so tests, stories and the mock store each get
+// their own mutable copy.
 
 /** Running / healthy — no errors, no stats needed. */
 export const mockHealthy = (): BotSettings => makeMockBot({ id: 'mock-healthy' });
