@@ -11,23 +11,12 @@ export enum DashboardTabType {
     Schema = 'schema',
 }
 
-/**
- * System types legacy required connection settings for before it would save
- * (host/database, `ui/js/components/tabs/systemSettings.jsx`). The botmonAlpha tab has no
- * inputs for them.
- */
+/** Types legacy refuses to save without host/database; this tab has no inputs for either. */
 export const TYPES_NEEDING_CONNECTION_SETTINGS = ['Elastic Search', 'MongoDB'];
 
 /**
- * Why the System Settings form must refuse to save, or null when saving is safe (ES-4286).
- *
- * Two ways a save destroys a record. Saving after a failed load writes whatever the form
- * happens to hold — historically the previously viewed node's values — over the real item.
- * And setting a type that needs connection settings this tab cannot supply leaves a system
- * configured for a backend it has no host or database for.
- *
- * Changing away from such a type is fine, and so is editing the label or icon of a system
- * already set to one; only a change INTO one is blocked.
+ * Why the System Settings form must refuse to save, or null when saving is safe.
+ * Only a change INTO a connection-settings type is blocked; editing or leaving one is fine.
  */
 export function systemSaveBlockedReason(args: {
     settingsError: string | null;

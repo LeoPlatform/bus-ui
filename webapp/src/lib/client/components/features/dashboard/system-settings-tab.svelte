@@ -27,9 +27,7 @@
             iconUrl = (settings as any).icon || '';
             systemType = (settings as any).settings?.system || 'Custom';
         } else {
-            // No settings loaded — blank the form rather than leaving the previous node's
-            // values under this node's name (ES-4286). Save is blocked in this state too,
-            // but the form should not misrepresent the record either way.
+            // Settings survive an id change, so leaving these shows the previous node's values.
             label = '';
             iconUrl = '';
             systemType = 'Custom';

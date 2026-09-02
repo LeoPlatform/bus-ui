@@ -26,11 +26,7 @@ export class DashboardState {
 
     /**
      * Why the last settings load failed, or null when it succeeded.
-     *
-     * Settings are deliberately not cleared when the id changes (clearing triggers the
-     * skeleton, which remounts the tabs and doubles the API calls), so a failed load used to
-     * leave the PREVIOUS node's values sitting in the settings form — and a Save then wrote
-     * them onto this node's record. Editors must refuse to save while this is set (ES-4286).
+     * Editors must refuse to save while this is set — the form reflects no stored record.
      */
     get settingsError() {
         return this.#settingsError;
@@ -118,10 +114,8 @@ export class DashboardState {
                 throw new Error('Invalid API response structure');
             }
         } catch (error) {
-            // Drop whatever was loaded before. Keeping it means the settings form shows the
-            // previous node's values under this node's name, and a Save writes them onto
-            // this node's record — the data loss in ES-4286. An empty form that refuses to
-            // save is the safe failure.
+            // Settings survive an id change, so a stale record would otherwise sit in the
+            // form under the new node's name and be saved onto it.
             this.#settings = undefined;
             this.#settingsError = error instanceof Error ? error.message : String(error);
             throw error;

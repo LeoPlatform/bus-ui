@@ -467,11 +467,8 @@ export async function getQueueDashboardStats(creds: AwsCreds, params: DashboardS
 
 export async function getSettings(creds: AwsCreds, id: string): Promise<DashboardSettings> {
 
-    // A system's config lives in LeoSystem, which is also where saveSystemSettings writes it.
-    // Routing system: ids down the queue path read LeoEvent instead — a table that holds no
-    // row for any real system — so the read threw, the form fell back to whatever was loaded
-    // last, and Save wrote that over the record (ES-4286). Read and write must address one
-    // table; legacy does the same (api/system/get/index.js).
+    // Systems live in LeoSystem, the table saveSystemSettings writes. The queue path reads
+    // LeoEvent, which holds no row for any system.
     if (id.startsWith('system:')) {
         return await getSystemSettings(creds, id) as DashboardSettings;
     }
@@ -561,12 +558,7 @@ async function getBotState(creds: AwsCreds, id: string): Promise<BotSettings> {
     return response.Item as BotSettings;
 }
 
-/**
- * Read a system's config from LeoSystem — the same table `saveSystemSettings` writes.
- *
- * Keyed by `id` (the bare system id), matching the write path and legacy's
- * `dynamodb.get(SYSTEM_TABLE, id, ...)`.
- */
+/** Reads LeoSystem keyed by `id` — the same table and key `saveSystemSettings` writes. */
 async function getSystemSettings(creds: AwsCreds, id: string): Promise<SystemSettings> {
     const client = createDynamoClient(creds);
     const docClient = DynamoDBDocumentClient.from(client);
@@ -678,11 +670,7 @@ export async function saveSystemSettings(creds: AwsCreds, id: string, updates: R
     const current = existing.Item ?? { id: sysId };
     const updated: Record<string, any> = { ...current };
     for (const [k, v] of Object.entries(updates)) {
-        // A null/undefined value means "the form had nothing here", not "clear the record".
-        // The form sends icon: null for an empty input, and blanking a real icon because a
-        // field was left empty is the destructive half of ES-4286. Legacy defaulted the icon
-        // per system type rather than writing an empty one. To clear a field deliberately,
-        // send an empty string.
+        // The forms send null for an empty input; null means "unchanged". Send "" to clear.
         if (v === null || v === undefined) {
             continue;
         }
