@@ -76,7 +76,7 @@
   let showLogarithmic = $state<boolean>(false);
 
   // Aggregation for the three "total" rows. Lib-agnostic and unit-tested in
-  // bucket-totals.test.ts (ES-3031) so the migration can't silently change the numbers.
+  // bucket-totals.test.ts so a chart-library change cannot silently move the numbers.
   const totals = $derived(
     computeBucketTotals({
       data,

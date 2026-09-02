@@ -1,13 +1,8 @@
 /**
- * mock-bots — the canonical, injectable botmon test fixture (ES-3461).
+ * The canonical, injectable botmon test fixture: deterministic bot/stats records covering
+ * every UI status state, typed against `$lib/types`.
  *
- * During ES-3461 we discovered several botmon status bugs (rogue detection, the no-stats
- * short-circuit, stale checkpoints after save) that only a live "mock bus" harness surfaced.
- * That harness used to be ad-hoc and was thrown away. This module is the PERMANENT
- * reconstruction: a small set of deterministic bot/stats fixtures that describe every UI
- * state we care about, in one place, fully typed against `$lib/types`.
- *
- * It is framework-free on purpose — NO svelte/browser imports — so it can be imported from:
+ * Framework-free on purpose — NO svelte/browser imports — so it can be imported from:
  *   - the server mock data-service (`$lib/server/services/mock/mock-dynamo-service`) that
  *     backs `npm run dev:mock`,
  *   - the node-environment logic test (`tests/.../bot-status.presets.test.ts`),
@@ -74,9 +69,8 @@ function readStat(overrides: Partial<ReadWriteStats> = {}): ReadWriteStats {
 }
 
 /**
- * An execution-stat entry — the ONLY place the Leo stats table records errors
- * (current.execution.errors). Mirrors the real record shape so fixtures can't
- * re-teach status code to read errors off read/write entries (ES-4034).
+ * An execution-stat entry — the only place the Leo stats table records errors. Mirrors the
+ * real record shape so fixtures cannot teach status code to read them off read/write entries.
  */
 function executionStat(overrides: Partial<ExecutionStats> = {}): ExecutionStats {
   return {
@@ -166,10 +160,9 @@ export const mockCheckpoint = (): BotSettings =>
   });
 
 /**
- * The home / catalog fixture, matching research/ES-3461/playground-verify/01-catalog.png:
- * healthy, rogue, rogue-paused, paused, archived-rogue, checkpoint. These are the six bots
- * that render in the catalog table; each hits the no-stats path (getStats → []) so the
- * status derives from the record alone — the exact case the ES-3461 fix addressed.
+ * The home / catalog fixture: healthy, rogue, rogue-paused, paused, archived-rogue,
+ * checkpoint. Each hits the no-stats path (getStats → []), so status derives from the
+ * record alone.
  */
 export const MOCK_BOTS: BotSettings[] = [
   mockHealthy(),
