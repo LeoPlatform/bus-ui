@@ -104,6 +104,28 @@ describe('saveSystemSettings — writes the table it read', () => {
     expect(put.Item.label).toBe('renamed');
   });
 
+  it('is a no-op on the record when the form is saved untouched', async () => {
+    // Criterion 4. Verified here rather than against a real system: the whole ticket is that
+    // a Save can destroy a record, so proving "Save changes nothing" by saving on a live
+    // record is the one experiment not worth running. The form sends back exactly what it
+    // loaded — with icon: null for an untouched empty field — so the Put must equal the item
+    // that was read.
+    const original = {
+      id: 'hubspot',
+      event: 'hubspot',
+      label: 'hubspot',
+      icon: 'https://example/icon.png',
+      settings: { system: 'hubspot' }
+    };
+    await saveSystemSettings(creds, 'system:hubspot', {
+      label: original.label,
+      icon: original.icon,
+      settings: { system: original.settings.system }
+    });
+    const put = sent.find((s) => s.type === 'PutCommand');
+    expect(put.Item).toEqual(original);
+  });
+
   it('does not write null over an existing icon', async () => {
     // The form sends `icon: null` for an empty input. Blanking a record because a field was
     // left empty is the destructive half of this bug, so a null icon is treated as "no
