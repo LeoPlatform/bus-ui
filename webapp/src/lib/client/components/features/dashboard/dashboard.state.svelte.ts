@@ -14,6 +14,7 @@ export class DashboardState {
     #id: string = $state('');
     #isPaused: boolean | undefined = $derived(this.#settings?.paused);
     #loading: boolean = $state(false);
+    #settingsError: string | null = $state(null);
 
     constructor(fetch: GlobalFetch) {
         this.#fetch = fetch;
@@ -21,6 +22,18 @@ export class DashboardState {
 
     get settings() {
         return this.#settings;
+    }
+
+    /**
+     * Why the last settings load failed, or null when it succeeded.
+     *
+     * Settings are deliberately not cleared when the id changes (clearing triggers the
+     * skeleton, which remounts the tabs and doubles the API calls), so a failed load used to
+     * leave the PREVIOUS node's values sitting in the settings form — and a Save then wrote
+     * them onto this node's record. Editors must refuse to save while this is set (ES-4286).
+     */
+    get settingsError() {
+        return this.#settingsError;
     }
 
     get stats() {
@@ -99,11 +112,18 @@ export class DashboardState {
             // The API returns {settings: ...} so we need to extract the settings
             if (data && typeof data === 'object' && 'settings' in data) {
                 this.#settings = data.settings;
+                this.#settingsError = null;
             } else {
                 console.error('Unexpected API response structure:', data);
                 throw new Error('Invalid API response structure');
             }
         } catch (error) {
+            // Drop whatever was loaded before. Keeping it means the settings form shows the
+            // previous node's values under this node's name, and a Save writes them onto
+            // this node's record — the data loss in ES-4286. An empty form that refuses to
+            // save is the safe failure.
+            this.#settings = undefined;
+            this.#settingsError = error instanceof Error ? error.message : String(error);
             throw error;
         } finally {
             this.#loading = false;

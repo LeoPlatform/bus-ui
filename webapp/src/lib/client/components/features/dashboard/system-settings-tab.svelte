@@ -6,6 +6,7 @@
     import { Input } from "$lib/client/components/ui/input/index";
     import { Button } from "$lib/client/components/ui/button/index";
     import * as Select from "$lib/client/components/ui/select/index";
+    import { systemSaveBlockedReason } from "./types";
 
     let { id }: { id: string } = $props();
     const appState = getContext<AppState>("appState");
@@ -25,6 +26,13 @@
             label = (settings as any).label || '';
             iconUrl = (settings as any).icon || '';
             systemType = (settings as any).settings?.system || 'Custom';
+        } else {
+            // No settings loaded — blank the form rather than leaving the previous node's
+            // values under this node's name (ES-4286). Save is blocked in this state too,
+            // but the form should not misrepresent the record either way.
+            label = '';
+            iconUrl = '';
+            systemType = 'Custom';
         }
     });
 
@@ -36,13 +44,26 @@
         { value: 'Custom', label: 'Custom' }
     ];
 
+    let blockedReason = $derived(
+        systemSaveBlockedReason({
+            settingsError: compState.settingsError,
+            systemType,
+            originalType: (settings as any)?.settings?.system ?? 'Custom'
+        })
+    );
+
     async function saveSettings() {
+        if (blockedReason) {
+            saveError = blockedReason;
+            return;
+        }
         saving = true;
         saveError = null;
         saveSuccess = false;
         try {
             await compState.saveSettings({
                 label,
+                // An empty field means "unchanged", not "clear it" — the server skips nulls.
                 icon: iconUrl.trim() || null,
                 settings: { system: systemType },
             });
@@ -93,7 +114,10 @@
                 <Input id="iconUrl" bind:value={iconUrl} placeholder="Custom Icon URL" />
             </div>
 
-            {#if saveError}
+            {#if blockedReason}
+                <p class="text-sm text-destructive">{blockedReason}</p>
+            {/if}
+            {#if saveError && saveError !== blockedReason}
                 <p class="text-sm text-destructive">{saveError}</p>
             {/if}
             {#if saveSuccess}
@@ -102,7 +126,7 @@
         </CardContent>
         <CardFooter class="flex justify-end gap-2">
             <Button variant="outline" onclick={resetForm} disabled={saving}>Reset</Button>
-            <Button onclick={saveSettings} disabled={saving}>
+            <Button onclick={saveSettings} disabled={saving || blockedReason !== null}>
                 {saving ? 'Saving…' : 'Save Settings'}
             </Button>
         </CardFooter>
