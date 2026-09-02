@@ -1,5 +1,5 @@
 <!--
-  Test-only harness for copy-button.svelte (ES-3461).
+  Test-only harness for copy-button.svelte.
 
   CopyButton is rendered with a value that changes after mount, which is exactly what the
   dashboard header does when a checkpoint is saved. The button swaps the value so a story's

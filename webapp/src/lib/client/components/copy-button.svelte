@@ -1,12 +1,9 @@
 <!--
   CopyButton — renders a value as monospace text with a copy-to-clipboard affordance.
 
-  The value is taken as a plain `value` prop rather than as a snippet whose rendered text is
-  scraped out of a hidden element. The scrape version could not react to its own content: the
-  extraction ran inside an $effect whose only dependency was the `children` snippet reference,
-  which is stable across updates, so the text was captured once on mount. Any caller whose value
-  changed in place — the dashboard header after a checkpoint save (ES-3461 issue 2) — kept
-  displaying the mount-time value until a full page reload.
+  The value is a plain prop, not a snippet whose rendered text gets scraped: an $effect
+  keyed on a snippet reference never re-runs, since the reference is stable across updates,
+  so a value that changes in place would display its mount-time text forever.
 -->
 <script lang="ts">
     import { Check, Copy } from "@lucide/svelte";

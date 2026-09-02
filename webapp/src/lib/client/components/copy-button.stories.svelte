@@ -1,11 +1,7 @@
 <!--
-  copy-button.stories — regression coverage for ES-3461 issue 2.
-
-  The dashboard header renders the current read checkpoint through CopyButton. Saving a new
-  checkpoint changes that value in place, so CopyButton must re-render the new text. It did
-  not: the component scraped its text out of a hidden <pre> inside an $effect whose only
-  dependency was the `children` snippet reference, which never changes — so the first value
-  was captured on mount and the header kept showing the pre-save token until a full reload.
+  The dashboard header renders the read checkpoint through CopyButton, and saving a new one
+  changes that value in place — so the displayed text must follow a value that changes after
+  mount.
 
   The `play` functions run as browser tests via the Storybook vitest project.
 -->
