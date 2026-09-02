@@ -172,9 +172,8 @@
   }
 
   /**
-   * Error states tint their fill and carry a heavier stroke. A rogue/blocked node is a dark
-   * shape with a dark-red outline against a dark canvas, which reads as less urgent than the
-   * healthy green rings around it — the tint is what makes it findable at a glance.
+   * Error states tint their fill and carry a heavier stroke: a dark-red outline on a dark
+   * canvas reads as less urgent than the healthy green rings around it.
    */
   function getNodeFillColor(status: string | undefined) {
     if (status === 'rogue' || status === 'blocked' || status === 'error') {
@@ -331,9 +330,8 @@ function updateContainerDimensions() {
             }
           }
           await appState.botState.fetchBotStats();
-          // Also refresh cron-record settings (persisted errorCount drives ROGUE; legacy
-          // re-scanned every 10s — without this, rogue is frozen at page-load state).
-          // fetchBotSettings has its own staleness guard, so this is cheap.
+          // The persisted errorCount that drives ROGUE lives on the cron record; without
+          // this it stays at page-load state. fetchBotSettings has its own staleness guard.
           await appState.botState.fetchBotSettings();
 
           if(isActive) {
@@ -409,8 +407,7 @@ function updateContainerDimensions() {
     const cleanSourceId = sourceId.replace(/^(bot:|queue:|system:)/, '');
     const cleanTargetId = targetId.replace(/^(bot:|queue:|system:)/, '');
 
-    // D3 links always run hierarchy parent → child; `linkStatsKey` owns the downstream-first
-    // convention so this and calculateRelationshipImportance can't drift apart again.
+    // `linkStatsKey` owns the downstream-first convention; D3 links run parent → child.
     const key = linkStatsKey(cleanSourceId, cleanTargetId, direction === "right" ? 'children' : 'parents');
 
     const linkStat = linkStats.get(key);
@@ -419,11 +416,9 @@ function updateContainerDimensions() {
       return linkStat;
     }
 
-    // Fallback when there are no stats in the window: seed from the bot's LeoCron checkpoint,
-    // like legacy botmon (lib/stats.js), which seeds last_read/last_write, the source timestamp
-    // and the checkpoint from the same record. Seeding only a time would make an edge report
-    // freshness it hasn't earned; without a source timestamp a read edge stays "N/A" as it does
-    // in legacy, rather than inventing a lag.
+    // With no stats in the window, legacy seeds last_read/last_write, the source timestamp
+    // and the checkpoint from one LeoCron record. Seeding only a time would report freshness
+    // the edge has not earned; with no source timestamp a read edge stays "N/A".
     const upstreamId = direction === "right" ? cleanSourceId : cleanTargetId;
     const downstreamId = direction === "right" ? cleanTargetId : cleanSourceId;
     const botData = appState.botState.botSettings.find(bot => bot.id === upstreamId || bot.id === downstreamId);

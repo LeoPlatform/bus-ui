@@ -12,12 +12,9 @@ export enum DashboardTabType {
 }
 
 /**
- * Whether the periodic refresh may re-read the page's settings record.
- *
- * The header's ROGUE badge needs a live record, so the 45s timer re-fetches it — but the
- * Settings tabs seed their form fields from that same record in an `$effect`, so replacing
- * it mid-edit resets whatever the operator is typing. Monitoring wants a fresh record;
- * editing wants a stable one. Stats keep refreshing either way.
+ * Whether the periodic refresh may re-read the page's settings record. The Settings tabs seed
+ * their form fields from it in an `$effect`, so replacing it mid-edit resets the operator's
+ * input. Stats keep refreshing either way.
  */
 export function mayRefreshSettings(activeTab: DashboardTabType | string): boolean {
     return activeTab !== DashboardTabType.Settings;

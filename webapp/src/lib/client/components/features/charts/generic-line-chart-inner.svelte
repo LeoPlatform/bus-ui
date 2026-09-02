@@ -15,11 +15,9 @@
     showLogarithmic?: boolean;
   }
 
-  // No checkpoint line here by design: this chart backs execution count, error count,
-  // execution time, events written and write lag — none of which can lag behind a read
-  // checkpoint. Legacy botmon draws its red read-cutoff line only on Events In Queue
-  // (GenericBucketLineChart) and the read-side sparklines, which take the checkpoint
-  // explicitly. See ES-4034 decision AD-003.
+  // No checkpoint line: this chart backs execution count, error count, execution time,
+  // events written and write lag, none of which can lag behind a read checkpoint. Legacy
+  // draws its read-cutoff line only on Events In Queue and the read-side sparklines.
   let { data, dataSetLabel, tooltipLabel, dataIsTimeBased = false, showLogarithmic = false }: Props = $props();
 
   // Refresh wall clock every 30s so the x-domain keeps tracking a live window.

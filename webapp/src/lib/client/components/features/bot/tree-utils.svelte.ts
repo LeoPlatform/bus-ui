@@ -125,8 +125,8 @@ export function processTree(
 }
 
 /**
- * Build the per-link stats map. Returns the newest checkpoint seen per queue so callers can
- * answer "is this reader caught up?" for links that have no stats in the window.
+ * Build the per-link stats map. Returns the newest checkpoint per queue, which is what
+ * answers "is this reader caught up?" for links with no stats in the window.
  */
 export function initializeLinkStats(
   botStats: MergedStatsRecord[],
@@ -145,11 +145,9 @@ export function initializeLinkStats(
 
   linkStats.clear();
 
-  // Pass 1: the newest checkpoint written to each queue. A reader whose own checkpoint has
-  // reached this has consumed everything the queue holds, so its lag is zero regardless of
-  // how long ago it last ran. Legacy computes the same value (lib/stats.js `latest_checkpoint`).
-  // A write always lands IN a queue, so the queue is the map key on a bot record and the
-  // record itself on a queue record.
+  // A reader that has reached the queue's newest write has consumed everything it holds,
+  // whenever it last ran. A write always lands IN a queue, so the queue is the map key on a
+  // bot record and the record itself on a queue record.
   const latestCheckpointByQueue = new Map<string, string>();
   statsArray.forEach((stat: MergedStatsRecord) => {
     if (!stat.write) return;
@@ -208,13 +206,8 @@ export function initializeLinkStats(
 }
 
 /**
- * Build a lookup key for `linkStats` from a hierarchy edge.
- *
- * `initializeLinkStats` keys every link DOWNSTREAM-FIRST (read = `${bot}-${sourceQueue}`,
- * write = `${destQueue}-${bot}`). A hierarchy edge always runs parent → child, so on the
- * `children` side the child is downstream and on the `parents` side the parent is — flip
- * the order accordingly. Ids in the tree carry `bot:`/`queue:`/`system:` prefixes; the
- * keys never do.
+ * Keys are downstream-first: on the `children` side the child is downstream, on the
+ * `parents` side the parent is. Tree ids carry type prefixes; keys never do.
  */
 export function linkStatsKey(
   parentId: string,
@@ -233,14 +226,8 @@ const stripRefPrefix = (id: string) => id.replace(/^(bot:|queue:|system:)/, '');
  * Which side of a link a stats record describes.
  *
  * The shape inverts by record type: a BOT record's `read`/`write` maps are keyed by the
- * QUEUES it reads and writes, while a QUEUE record's are keyed by the BOTS reading and
- * writing it. Verified against LeoStats — `id: "queue:modified-order"` has
- * `current.read` keyed `bot:order-test-modified-order-to-dim`.
- *
- * Queue ids do reach the stats fetch (`visibleIds` carries `queue:foo` for non-bot nodes),
- * so treating every record as a bot record filed the queue's own checkpoint under the
- * writer bot's name — losing the one value the caught-up test needs — and emitted read
- * entries under the write edge's key, where a re-queue bot's two links collided (ES-4142).
+ * QUEUES it reads and writes, a QUEUE record's by the BOTS reading and writing it. Queue
+ * ids do reach the stats fetch — `visibleIds` carries `queue:foo` for non-bot nodes.
  */
 function isBotStatsRecord(id: string): boolean {
   return !/^(queue:|system:)/.test(id);
@@ -249,16 +236,9 @@ function isBotStatsRecord(id: string): boolean {
 /**
  * A reader is caught up once its checkpoint is at or past the queue's newest write.
  *
- * Missing values compare as the empty string, which is how legacy behaves: it seeds
- * `latest_checkpoint: ''` and tests `link.checkpoint >= queue.latest_checkpoint`
- * (lib/stats.js). So a queue with no known latest write — nothing written in the viewed
- * window, or a writer outside the fetched set — reads as caught up rather than as behind.
- *
- * The distinction matters because the two unknowns are not symmetric. Treating an unknown
- * QUEUE latest as "behind" makes every read edge on a quiet queue report
- * `compare - source_timestamp`, which is exactly the false lag on an infrequently-written
- * queue that this work set out to remove. An unknown READER checkpoint against a queue that
- * has writes is genuinely behind, and still returns false.
+ * Missing values compare as the empty string, matching legacy's `latest_checkpoint: ''`
+ * seed (lib/stats.js). An unknown QUEUE latest therefore reads as caught up, while an
+ * unknown READER checkpoint against a queue that has writes reads as behind.
  */
 export function isCaughtUp(linkCheckpoint?: string, queueLatest?: string): boolean {
   return (linkCheckpoint ?? '').localeCompare(queueLatest ?? '') >= 0;
@@ -594,8 +574,8 @@ export function calculateRelationshipImportance(
 
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
-  // `|| 0` matters: on a miss both timestamps are undefined, and `now - undefined` is NaN,
-  // which poisons every downstream weight and makes the sort comparators no-ops.
+  // On a miss both timestamps are undefined; `now - undefined` is NaN, which propagates
+  // into every weight below and makes the sort comparators no-ops.
   const timeSinceLastActivity = now - (stats.lastWrite || stats.lastRead || 0);
 
   // console.log('timeSinceLastActivity:', timeSinceLastActivity, 'stats.lastWrite:', stats.lastWrite, 'stats.lastRead:', stats.lastRead);

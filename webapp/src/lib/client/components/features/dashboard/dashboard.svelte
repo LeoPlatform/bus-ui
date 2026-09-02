@@ -160,22 +160,14 @@
         if (!currentId) return;
         const dashTypeVal = compState.dashType;
         const t = setInterval(() => {
-            // Re-read this page's own settings record alongside the stats. The persisted
-            // errorCount that drives the header's ROGUE badge lives on that record and is
-            // otherwise fixed at whatever it was when the page loaded — the header prefers
-            // it over the catalog, so refreshing the catalog alone leaves the badge stale.
-            //
-            // NOT while the Settings tab is open: those tabs seed their form fields from
-            // this record in an $effect, so replacing it mid-edit resets whatever the
-            // operator is typing. Monitoring wants a live record, editing wants a stable
-            // one; the read-only surfaces are the ones that need the refresh.
+            // The header's ROGUE badge reads errorCount off this record, and prefers it
+            // over the catalog, so the catalog alone cannot keep it current.
             const refreshes = [compState.getDashStats()];
             if (mayRefreshSettings(untrack(() => activeTab))) refreshes.push(compState.getSettings());
             Promise.all(refreshes).catch((err) => {
                 console.error('Dashboard refresh failed:', err);
             });
-            // Re-fetch bot stats and the catalog so the alarm badges (source lag, write
-            // lag, errors) and the catalog-derived BLOCKED state update too.
+            // The catalog carries the alarm badges and the BLOCKED state.
             if (dashTypeVal === NodeType.Bot) {
                 appState.botState.fetchBotStats().catch(() => {});
                 appState.botState.fetchBotSettings().catch(() => {});

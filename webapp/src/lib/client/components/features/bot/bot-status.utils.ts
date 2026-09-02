@@ -58,10 +58,8 @@ export function evaluateBotStatus(
 
   // 3. Check ALARM conditions
   
-  // Error Rate Alarm. Compare against the count, not the rate: legacy bus-ui alarms on
-  // `errors >= executions * limit` (old_ui/lib/stats.js), which still fires when a bot
-  // recorded errors but no successful executions. Testing `errorRate >= limit` instead
-  // silently drops that case, because errorRate is forced to 0 at zero executions.
+  // Legacy alarms on `errors >= executions * limit` (old_ui/lib/stats.js), which fires at
+  // zero executions; a rate comparison cannot, since the rate is forced to 0 there.
   if (errorCount >= 1 && errorCount >= executions * config.error_limit && !bot.archived) {
     isAlarmed = true;
     alarms.errors = {
@@ -109,11 +107,8 @@ export function evaluateBotStatus(
 /**
  * Status for a single bot's dashboard header.
  *
- * Prefers the persisted error count from the page's OWN settings record — a strongly
- * consistent per-page read — over the shared catalog entry, which may not have arrived yet
- * (the catalog fetch is fire-and-forget and takes 10s+ on a large bus) or may be keyed by a
- * differently-prefixed id. Reading only the catalog is why a bot could show rogue in the
- * workflow tree while its dashboard looked healthy (ES-4034).
+ * Prefers the page's own settings record over the shared catalog entry: the catalog fetch is
+ * fire-and-forget, takes 10s+ on a large bus, and may be keyed by a differently-prefixed id.
  */
 export function resolveHeaderBotStatus(args: {
   /** errorCount from this page's settings record (LeoCron, ConsistentRead). */
@@ -158,10 +153,8 @@ function applyManualStates(
   return status;
 }
 
-// Helper functions to extract values from raw stats.
-// Errors and executions live on the execution sub-record (legacy lib/stats.js reads
-// current.execution.errors/units) — the Leo stats table's read/write sub-records carry
-// no `errors` field, so summing those always produced 0 and blocked/danger never fired.
+// The Leo stats table records errors only on the execution sub-record; read/write entries
+// carry no `errors` field at all.
 function calculateErrorCount(stats: MergedStatsRecord): number {
   return stats.execution?.errors || 0;
 }

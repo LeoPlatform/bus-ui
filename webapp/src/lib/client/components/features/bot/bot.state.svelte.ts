@@ -65,17 +65,14 @@ export function catalogRowFromBot(b: BotSettings): CatalogRow {
     name: b.name ?? b.lambdaName,
     tags: b.tags,
     archived: b.archived,
-    // Lag describes the viewed window, so it prefers the window-derived value.
+    // Lag describes the viewed window; Errors is the persisted cron counter that drives
+    // rogue. leo-cron stops scheduling a rogue bot, so a window-derived count reads 0 for
+    // exactly the bots this column exists to surface.
     health: {
       ...b.health,
       source_lag: (b as any).computedSourceLag || b.health?.source_lag,
       write_lag: (b as any).computedWriteLag || b.health?.write_lag,
     },
-    // Errors is the opposite: it shows the PERSISTED consecutive-error count from the cron
-    // record, the same counter that drives rogue. A window-derived count reads 0 for every
-    // rogue bot — leo-cron stops scheduling one, so it has no executions in the window —
-    // which is precisely when the number matters, and it made this column contradict the
-    // bot's own dashboard header. See ES-4034 decision AD-012.
     errorCount: b.errorCount,
     lambdaName: b.lambdaName,
     status: b.status,
@@ -513,11 +510,8 @@ export class BotState {
       bot.alarms = statusEvaluation.alarms;
       bot.rogue = statusEvaluation.rogue;
       bot.alarmed = statusEvaluation.isAlarmed;
-      // Window-derived lag goes on `computed*` fields rather than overwriting the persisted
-      // values. Never assign the window error count onto `bot.errorCount`: rogue is driven
-      // by the persisted counter, and a stats-only refresh re-runs this without re-fetching
-      // bot settings, so clobbering it here would corrupt the rogue signal. The catalog's
-      // Errors column reads the persisted count directly (see catalogRowFromBot).
+      // Never assign the window error count onto `bot.errorCount`: a stats-only refresh
+      // re-runs this without re-fetching settings, which would corrupt the rogue counter.
       (bot as any).computedSourceLag = statusEvaluation.sourceLag;
       (bot as any).computedWriteLag = statusEvaluation.writeLag;
     }
