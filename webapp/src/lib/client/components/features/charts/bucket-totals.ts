@@ -3,10 +3,8 @@ import type { DashboardStatsValue } from "$lib/types";
 /**
  * Pure aggregation behind the bucket line chart's three "total" rows.
  *
- * Extracted from generic-bucket-line-chart.svelte during the Chart.js -> LayerChart
- * migration (ES-3031) so the numbers shown to users can be regression-tested without
- * rendering. The rendering library changed; these sums must NOT. Boundary rules and
- * override precedence are preserved exactly from the original inline logic.
+ * Kept out of the component so the numbers can be regression-tested without rendering: the
+ * chart library may change, these sums must not.
  */
 export interface BucketTotalsInput {
   data: DashboardStatsValue[] | null;

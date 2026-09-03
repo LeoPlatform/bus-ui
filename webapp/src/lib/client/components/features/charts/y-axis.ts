@@ -1,5 +1,5 @@
 /**
- * Y-axis baseline helper for the LayerChart line/area charts (ES-3031).
+ * Y-axis baseline helper for the LayerChart line/area charts.
  *
  * LayerChart's LineChart/AreaChart anchor the y-domain at 0 by default
  * (`yBaseline={0}`), so the domain becomes `[min(0, ...values), max(...)]`.

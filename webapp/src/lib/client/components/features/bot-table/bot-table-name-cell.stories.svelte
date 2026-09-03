@@ -1,10 +1,7 @@
 <!--
-  bot-table-name-cell.stories — the visual half of the ES-3461 test infrastructure.
-
-  One story per mock-bot preset. Each story computes the bot's status through the SAME
-  evaluateBotStatus logic the app uses, then renders the catalog name cell. The `play`
-  functions turn each story into a browser test (via the Storybook vitest project) that
-  asserts the status ring the cell paints on the icon <img>.
+  One story per mock-bot preset, each computing status through the same evaluateBotStatus
+  the app uses. The `play` functions run as browser tests (Storybook vitest project) and
+  assert the status ring the cell paints on the icon <img>.
 -->
 <script module lang="ts">
   import { defineMeta, setTemplate, type Args } from '@storybook/addon-svelte-csf';
