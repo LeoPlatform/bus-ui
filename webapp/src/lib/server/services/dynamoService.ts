@@ -467,7 +467,13 @@ export async function getQueueDashboardStats(creds: AwsCreds, params: DashboardS
 
 export async function getSettings(creds: AwsCreds, id: string): Promise<DashboardSettings> {
 
-    if (id.startsWith('queue:') || id.startsWith('system:')) {
+    // Systems live in LeoSystem, the table saveSystemSettings writes. The queue path reads
+    // LeoEvent, which holds no row for any system.
+    if (id.startsWith('system:')) {
+        return await getSystemSettings(creds, id) as DashboardSettings;
+    }
+
+    if (id.startsWith('queue:')) {
         return await getQueueSettings(creds, id) as DashboardSettings;
     }
 
@@ -537,10 +543,8 @@ async function getBotState(creds: AwsCreds, id: string): Promise<BotSettings> {
     const command = new GetCommand({
         TableName: LEO_CRON_TABLE(),
         Key: { id: id.replace(/^bot:/, "") },
-        // Strongly consistent read: saveCron/saveBotSettings write with PutCommand and the
-        // UI re-reads settings immediately after. A default (eventually-consistent) read can
-        // race the write and return the old checkpoint, so the header shows a stale value
-        // even though the just-saved change took effect (ES-3461).
+        // The UI re-reads settings immediately after a save, and an eventually-consistent
+        // read can race the write and return the old checkpoint.
         ConsistentRead: true,
     });
     const response = await docClient.send(command);
@@ -550,6 +554,24 @@ async function getBotState(creds: AwsCreds, id: string): Promise<BotSettings> {
     }
 
     return response.Item as BotSettings;
+}
+
+/** Reads LeoSystem keyed by `id` — the same table and key `saveSystemSettings` writes. */
+async function getSystemSettings(creds: AwsCreds, id: string): Promise<SystemSettings> {
+    const client = createDynamoClient(creds);
+    const docClient = DynamoDBDocumentClient.from(client);
+    const sysId = id.replace(/^system:/, "");
+    const command = new GetCommand({
+        TableName: LEO_SYSTEM_TABLE(),
+        Key: { id: sysId }
+    });
+    const response = await docClient.send(command);
+
+    if (!response.Item) {
+        throw new Error(`System ${id} not found in the system table`);
+    }
+
+    return response.Item as SystemSettings;
 }
 
 async function getQueueSettings(creds: AwsCreds, id: string): Promise<QueueSettings> {
@@ -646,7 +668,11 @@ export async function saveSystemSettings(creds: AwsCreds, id: string, updates: R
     const current = existing.Item ?? { id: sysId };
     const updated: Record<string, any> = { ...current };
     for (const [k, v] of Object.entries(updates)) {
-        if (k === 'settings' && v && typeof v === 'object') {
+        // The forms send null for an empty input; null means "unchanged". Send "" to clear.
+        if (v === null || v === undefined) {
+            continue;
+        }
+        if (k === 'settings' && typeof v === 'object') {
             updated.settings = { ...(current.settings ?? {}), ...v };
         } else {
             updated[k] = v;
@@ -705,7 +731,6 @@ export async function saveCron(
         delete updated.invokeTime;
     }
 
-    // Change checkpoint: merge new checkpoint values into existing read checkpoints
     if (params.checkpoint) {
         if (!updated.checkpoints) {
             updated.checkpoints = { read: {}, write: {} };

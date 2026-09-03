@@ -14,6 +14,7 @@ export class DashboardState {
     #id: string = $state('');
     #isPaused: boolean | undefined = $derived(this.#settings?.paused);
     #loading: boolean = $state(false);
+    #settingsError: string | null = $state(null);
 
     constructor(fetch: GlobalFetch) {
         this.#fetch = fetch;
@@ -21,6 +22,14 @@ export class DashboardState {
 
     get settings() {
         return this.#settings;
+    }
+
+    /**
+     * Why the last settings load failed, or null when it succeeded.
+     * Editors must refuse to save while this is set — the form reflects no stored record.
+     */
+    get settingsError() {
+        return this.#settingsError;
     }
 
     get stats() {
@@ -99,11 +108,16 @@ export class DashboardState {
             // The API returns {settings: ...} so we need to extract the settings
             if (data && typeof data === 'object' && 'settings' in data) {
                 this.#settings = data.settings;
+                this.#settingsError = null;
             } else {
                 console.error('Unexpected API response structure:', data);
                 throw new Error('Invalid API response structure');
             }
         } catch (error) {
+            // Settings survive an id change, so a stale record would otherwise sit in the
+            // form under the new node's name and be saved onto it.
+            this.#settings = undefined;
+            this.#settingsError = error instanceof Error ? error.message : String(error);
             throw error;
         } finally {
             this.#loading = false;

@@ -11,6 +11,30 @@ export enum DashboardTabType {
     Schema = 'schema',
 }
 
+/** Types legacy refuses to save without host/database; this tab has no inputs for either. */
+export const TYPES_NEEDING_CONNECTION_SETTINGS = ['Elastic Search', 'MongoDB'];
+
+/**
+ * Why the System Settings form must refuse to save, or null when saving is safe.
+ * Only a change INTO a connection-settings type is blocked; editing or leaving one is fine.
+ */
+export function systemSaveBlockedReason(args: {
+    settingsError: string | null;
+    systemType: string;
+    originalType: string;
+}): string | null {
+    if (args.settingsError !== null) {
+        return `This system's settings could not be loaded, so the form does not reflect the saved record. Saving now would overwrite it. (${args.settingsError})`;
+    }
+    if (
+        args.systemType !== args.originalType &&
+        TYPES_NEEDING_CONNECTION_SETTINGS.includes(args.systemType)
+    ) {
+        return `${args.systemType} needs connection settings (host, database) that this tab cannot edit yet. Set this type in legacy botmon instead.`;
+    }
+    return null;
+}
+
 /**
  * Whether the periodic refresh may re-read the page's settings record. The Settings tabs seed
  * their form fields from it in an `$effect`, so replacing it mid-edit resets the operator's
