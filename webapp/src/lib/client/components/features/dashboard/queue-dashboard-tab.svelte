@@ -202,6 +202,7 @@
                             rangeStart={data?.start}
                             showTitle={false}
                             formatTotal={(val) => humanize(val)}
+                            dataIsTimeBased={true}
                         />
                     {:else}
                         <div class="flex items-center justify-center h-full text-muted-foreground">No data</div>

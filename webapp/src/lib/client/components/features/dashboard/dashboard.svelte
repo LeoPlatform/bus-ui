@@ -2,7 +2,7 @@
     import { getContext, untrack } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
   import { NodeType } from "$lib/types";
-  import { type DashboardTab, DashboardTabType, parseDashboardTags } from "./types";
+  import { type DashboardTab, DashboardTabType, mayRefreshSettings, parseDashboardTags } from "./types";
   import DashHeader from "./dash-header.svelte";
   import * as Tabs from "$lib/client/components/ui/tabs/index";
   import BotDashboardTab from "./bot-dashboard-tab.svelte";
@@ -160,12 +160,17 @@
         if (!currentId) return;
         const dashTypeVal = compState.dashType;
         const t = setInterval(() => {
-            compState.getDashStats().catch((err) => {
-                console.error('Dashboard stats refresh failed:', err);
+            // The header's ROGUE badge reads errorCount off this record, and prefers it
+            // over the catalog, so the catalog alone cannot keep it current.
+            const refreshes = [compState.getDashStats()];
+            if (mayRefreshSettings(untrack(() => activeTab))) refreshes.push(compState.getSettings());
+            Promise.all(refreshes).catch((err) => {
+                console.error('Dashboard refresh failed:', err);
             });
-            // Re-fetch bot stats so alarm badges (source lag, write lag, errors) update
+            // The catalog carries the alarm badges and the BLOCKED state.
             if (dashTypeVal === NodeType.Bot) {
                 appState.botState.fetchBotStats().catch(() => {});
+                appState.botState.fetchBotSettings().catch(() => {});
             }
         }, 45_000);
         return () => clearInterval(t);
@@ -176,7 +181,7 @@
 <div class="flex flex-col h-full p-4 lg:p-6">
     <!-- Header Section -->
     <div class="flex flex-row justify-between items-center w-full"> 
-        <DashHeader name={name || id} id={id} type={dashType} currentCheckpoint={currentCheckpoint} lambdaName={lambdaName} lambdaRegion={lambdaRegion} tags={tags} isPaused={compState.isPaused} />
+        <DashHeader name={name || id} id={id} type={dashType} currentCheckpoint={currentCheckpoint} lambdaName={lambdaName} lambdaRegion={lambdaRegion} tags={tags} isPaused={compState.isPaused} errorCount={settings?.errorCount} />
     </div>
     
     {#if !compState.settings && !compState.stats}

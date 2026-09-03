@@ -1,6 +1,6 @@
 <script lang="ts">
   import { NodeType } from "$lib/types";
-  import { getLogicalId, getNodeTypeLink } from "$lib/utils";
+  import { cn, getLogicalId, getNodeTypeLink } from "$lib/utils";
   import { assets, base } from "$app/paths";
   import { Button } from "../../ui/button";
   import ListTree from '@lucide/svelte/icons/list-tree';
@@ -13,6 +13,9 @@
   import { getContext } from "svelte";
   import type { AppState } from "$lib/client/appstate.svelte";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import { BOT_STATUS_DEFAULTS } from "../bot/bot-status.constants";
+  import { isSameBotId, resolveHeaderBotStatus } from "../bot/bot-status.utils";
+  import OctagonAlert from "@lucide/svelte/icons/octagon-alert";
 
     type DashHeaderProps = {
         name: string;
@@ -23,16 +26,25 @@
         lambdaRegion?: string;
         tags?: DashboardTag;
         isPaused?: boolean;
+        /** Persisted consecutive-error count from this page's own cron record. */
+        errorCount?: number;
     }
 
-    let {name, id, type, currentCheckpoint, lambdaName, lambdaRegion = 'us-east-1', tags, isPaused}: DashHeaderProps = $props();
+    let {name, id, type, currentCheckpoint, lambdaName, lambdaRegion = 'us-east-1', tags, isPaused, errorCount}: DashHeaderProps = $props();
 
     const appState = getContext<AppState>("appState");
 
-    // Look up alarm status from BotState (populated by fetchBotStats)
-    let botEntry = $derived(appState.botState.botSettings.find((b) => b.id === id));
+    // Look up alarm status from BotState (populated by fetchBotStats). The catalog stores
+    // bot ids unprefixed while ids reaching this page can carry `bot:` — compare stripped.
+    let botEntry = $derived(appState.botState.botSettings.find((b) => isSameBotId(b.id, id)));
     let isAlarmed = $derived(botEntry?.isAlarmed ?? false);
     let alarms = $derived(botEntry?.alarms);
+    let headerStatus = $derived(
+        resolveHeaderBotStatus({ settingsErrorCount: errorCount, catalogEntry: botEntry })
+    );
+    let isRogue = $derived(headerStatus.isRogue);
+    let isBlocked = $derived(headerStatus.isBlocked);
+    let rogueErrorCount = $derived(headerStatus.errorCount);
     
     let awsUrl = $derived.by(() => {
         if (lambdaName && lambdaRegion) {
@@ -79,7 +91,7 @@
 
 
 <div class="flex flex-row overflow-hidden w-full items-start">
-    <div class="relative shrink-0 mr-4">
+    <div class={cn("relative shrink-0 mr-4", isRogue && "rounded-full bg-red-500/10 ring-2 ring-red-500")}>
         <img src={getNodeTypeLink(type)} alt={type} class="w-16 h-16 object-contain" class:opacity-40={isPaused} class:grayscale={isPaused} />
         {#if isPaused}
             <div class="absolute inset-0 flex items-center justify-center">
@@ -92,6 +104,26 @@
             <div class="text-2xl font-bold text-foreground">
                 {name}
             </div>
+            {#if isRogue}
+                <Tooltip.Provider>
+                    <Tooltip.Root>
+                        <Tooltip.Trigger>
+                            <Badge class="gap-1.5 border-transparent bg-red-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm hover:bg-red-600">
+                                <OctagonAlert class="size-3.5 shrink-0" />
+                                Rogue
+                                <span class="font-semibold normal-case opacity-90">{rogueErrorCount.toLocaleString()} errors</span>
+                            </Badge>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content class="max-w-xs">
+                            <span class="text-xs">Consecutive-error count ({rogueErrorCount.toLocaleString()}) exceeded the rogue threshold ({BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD}); the scheduler stops running this bot until it is cleared (force-run or a successful run).</span>
+                        </Tooltip.Content>
+                    </Tooltip.Root>
+                </Tooltip.Provider>
+            {:else if isBlocked}
+                <Badge variant="outline" class="border-red-500/50 bg-red-500/15 text-red-400 text-xs font-semibold uppercase tracking-wider">
+                    Blocked
+                </Badge>
+            {/if}
             {#if isPaused}
                 <Badge variant="outline" class="border-amber-500/50 bg-amber-500/15 text-amber-400 text-xs font-semibold uppercase tracking-wider">
                     Paused

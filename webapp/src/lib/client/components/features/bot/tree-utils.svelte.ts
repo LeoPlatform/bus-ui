@@ -124,50 +124,77 @@ export function processTree(
   return node;
 }
 
+/**
+ * Build the per-link stats map. Returns the newest checkpoint per queue, which is what
+ * answers "is this reader caught up?" for links with no stats in the window.
+ */
 export function initializeLinkStats(
   botStats: MergedStatsRecord[],
   linkStats: Map<string, LinkStats>
-) {
-  console.log("initializeLinkStats called, botStats length:", botStats.length);
-  console.log("botStats:", botStats);
+): Map<string, string> {
   if (!botStats || botStats.length === 0) {
-    // console.log("botStats is empty or undefined");
-    return;
+    return new Map();
   }
 
   // Convert the botStats proxy object into an array
   const statsArray = botStats;
-  console.log("botStats to array:", statsArray);
 
   if (statsArray.length === 0) {
-    return;
+    return new Map();
   }
 
   linkStats.clear();
 
+  // A reader that has reached the queue's newest write has consumed everything it holds,
+  // whenever it last ran. A write always lands IN a queue, so the queue is the map key on a
+  // bot record and the record itself on a queue record.
+  const latestCheckpointByQueue = new Map<string, string>();
+  statsArray.forEach((stat: MergedStatsRecord) => {
+    if (!stat.write) return;
+    const fromBot = isBotStatsRecord(stat.id);
+    const self = stripRefPrefix(stat.id);
+    Object.entries(stat.write).forEach(([otherId, writeStat]) => {
+      const queue = fromBot ? stripRefPrefix(otherId) : self;
+      const current = latestCheckpointByQueue.get(queue);
+      if (writeStat.checkpoint && (!current || current.localeCompare(writeStat.checkpoint) <= 0)) {
+        latestCheckpointByQueue.set(queue, writeStat.checkpoint);
+      }
+    });
+  });
+
+  // Pass 2: one entry per link, keyed downstream-first.
   statsArray.forEach((stat: MergedStatsRecord) => {
     $state.snapshot(stat);
-    let idKey = stat.id.replace(/^(bot:|queue:|system:)/, ''); // Remove prefixes
+    const fromBot = isBotStatsRecord(stat.id);
+    const self = stripRefPrefix(stat.id);
+
     if (stat.read) {
-      // console.log('found read stats');
-      Object.entries(stat.read).forEach(([childId, readStat]) => {
-        let cleanChildId = childId.replace(/^(bot:|queue:|system:)/, '');
-        let key = `${idKey}-${cleanChildId}`;
-        linkStats.set(key, {
+      Object.entries(stat.read).forEach(([otherId, readStat]) => {
+        // A read edge always runs queue → bot, so it keys `${bot}-${queue}`.
+        const other = stripRefPrefix(otherId);
+        const bot = fromBot ? self : other;
+        const queue = fromBot ? other : self;
+        linkStats.set(`${bot}-${queue}`, {
           eventCount: readStat.units,
-          lastWrite: new Date(readStat.timestamp).getTime(),
+          lastRead: new Date(readStat.timestamp).getTime(),
+          sourceTimestamp: readStat.source_timestamp,
+          checkpoint: readStat.checkpoint,
+          caughtUp: isCaughtUp(readStat.checkpoint, latestCheckpointByQueue.get(queue)),
           linkType: "read",
         });
       });
     }
     if (stat.write) {
-      // console.log('found write stats');
-      Object.entries(stat.write).forEach(([parentId, writeStat]) => {
-        let cleanParentId = parentId.replace(/^(bot:|queue:|system:)/, '');
-        let key = `${cleanParentId}-${idKey}`;
-        linkStats.set(key, {
+      Object.entries(stat.write).forEach(([otherId, writeStat]) => {
+        // A write edge always runs bot → queue, so it keys `${queue}-${bot}`.
+        const other = stripRefPrefix(otherId);
+        const bot = fromBot ? self : other;
+        const queue = fromBot ? other : self;
+        linkStats.set(`${queue}-${bot}`, {
           eventCount: writeStat.units,
           lastWrite: new Date(writeStat.timestamp).getTime(),
+          sourceTimestamp: writeStat.source_timestamp,
+          checkpoint: writeStat.checkpoint,
           linkType: "write",
         });
       });
@@ -175,6 +202,46 @@ export function initializeLinkStats(
   });
 
   linkStats = new Map(linkStats);
+  return latestCheckpointByQueue;
+}
+
+/**
+ * Keys are downstream-first: on the `children` side the child is downstream, on the
+ * `parents` side the parent is. Tree ids carry type prefixes; keys never do.
+ */
+export function linkStatsKey(
+  parentId: string,
+  childId: string,
+  direction: 'children' | 'parents'
+): string {
+  const strip = (id: string) => id.replace(/^(bot:|queue:|system:)/, '');
+  const parent = strip(parentId);
+  const child = strip(childId);
+  return direction === 'children' ? `${child}-${parent}` : `${parent}-${child}`;
+}
+
+const stripRefPrefix = (id: string) => id.replace(/^(bot:|queue:|system:)/, '');
+
+/**
+ * Which side of a link a stats record describes.
+ *
+ * The shape inverts by record type: a BOT record's `read`/`write` maps are keyed by the
+ * QUEUES it reads and writes, a QUEUE record's by the BOTS reading and writing it. Queue
+ * ids do reach the stats fetch — `visibleIds` carries `queue:foo` for non-bot nodes.
+ */
+function isBotStatsRecord(id: string): boolean {
+  return !/^(queue:|system:)/.test(id);
+}
+
+/**
+ * A reader is caught up once its checkpoint is at or past the queue's newest write.
+ *
+ * Missing values compare as the empty string, matching legacy's `latest_checkpoint: ''`
+ * seed (lib/stats.js). An unknown QUEUE latest therefore reads as caught up, while an
+ * unknown READER checkpoint against a queue that has writes reads as behind.
+ */
+export function isCaughtUp(linkCheckpoint?: string, queueLatest?: string): boolean {
+  return (linkCheckpoint ?? '').localeCompare(queueLatest ?? '') >= 0;
 }
 
 export function findOriginalData(tree: RelationshipTree, nodeId: string): RelationshipTree | null {
@@ -502,15 +569,14 @@ export function calculateRelationshipImportance(
   direction: 'children' | 'parents'
 ): RelationshipScore {
   const childId = relationship.id;
-  const key = direction === 'children' ? `${parentId}-${childId}` : `${childId}-${parentId}`;
+  const key = linkStatsKey(parentId, childId, direction);
   const stats = linkStats.get(key) || { eventCount: 0, lastWrite: undefined, lastRead: undefined, linkType: direction === 'children' ? 'read' : 'write' };
-  // if(!stats) {
-  //   throw new Error(`no stats found for relationship: ${key} | ${direction}`);
-  // }
-  
+
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
-  const timeSinceLastActivity = now - (stats.lastWrite! || stats.lastRead!);
+  // On a miss both timestamps are undefined; `now - undefined` is NaN, which propagates
+  // into every weight below and makes the sort comparators no-ops.
+  const timeSinceLastActivity = now - (stats.lastWrite || stats.lastRead || 0);
 
   // console.log('timeSinceLastActivity:', timeSinceLastActivity, 'stats.lastWrite:', stats.lastWrite, 'stats.lastRead:', stats.lastRead);
   
