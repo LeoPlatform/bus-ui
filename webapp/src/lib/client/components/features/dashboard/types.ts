@@ -35,6 +35,15 @@ export function systemSaveBlockedReason(args: {
     return null;
 }
 
+/**
+ * Whether the periodic refresh may re-read the page's settings record. The Settings tabs seed
+ * their form fields from it in an `$effect`, so replacing it mid-edit resets the operator's
+ * input. Stats keep refreshing either way.
+ */
+export function mayRefreshSettings(activeTab: DashboardTabType | string): boolean {
+    return activeTab !== DashboardTabType.Settings;
+}
+
 export type DashboardTag = {
     repo?: string;
 } & Record<string, string>;

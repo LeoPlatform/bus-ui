@@ -54,6 +54,32 @@ function catalogRowFromSystem(s: SystemSettings): CatalogRow {
   };
 }
 
+/**
+ * One catalog row for a bot. Sibling of `catalogRowFromQueue` / `catalogRowFromSystem`,
+ * exported so the column-value rules can be pinned by unit test.
+ */
+export function catalogRowFromBot(b: BotSettings): CatalogRow {
+  return {
+    kind: "bot",
+    id: b.id,
+    name: b.name ?? b.lambdaName,
+    tags: b.tags,
+    archived: b.archived,
+    // Lag describes the viewed window; Errors is the persisted cron counter that drives
+    // rogue. leo-cron stops scheduling a rogue bot, so a window-derived count reads 0 for
+    // exactly the bots this column exists to surface.
+    health: {
+      ...b.health,
+      source_lag: (b as any).computedSourceLag || b.health?.source_lag,
+      write_lag: (b as any).computedWriteLag || b.health?.write_lag,
+    },
+    errorCount: b.errorCount,
+    lambdaName: b.lambdaName,
+    status: b.status,
+    isAlarmed: b.isAlarmed,
+  };
+}
+
 export class BotState {
   #fetch: GlobalFetch;
   #loading = $state(true);
@@ -95,22 +121,7 @@ export class BotState {
   private rebuildCatalog() {
     const rows: CatalogRow[] = [];
     for (const b of this.#botSettings) {
-      rows.push({
-        kind: "bot",
-        id: b.id,
-        name: b.name ?? b.lambdaName,
-        tags: b.tags,
-        archived: b.archived,
-        health: {
-          ...b.health,
-          source_lag: (b as any).computedSourceLag || b.health?.source_lag,
-          write_lag: (b as any).computedWriteLag || b.health?.write_lag,
-        },
-        errorCount: (b as any).computedErrorCount ?? b.errorCount,
-        lambdaName: b.lambdaName,
-        status: b.status,
-        isAlarmed: b.isAlarmed,
-      });
+      rows.push(catalogRowFromBot(b));
     }
     for (const q of this.#queueRows) {
       const r = catalogRowFromQueue(q);
@@ -154,6 +165,18 @@ export class BotState {
 
   get visibleIds() {
     return this.#visibleIds;
+  }
+
+  /**
+   * The instant lag is measured against: the end of the viewed window, or now in live mode.
+   * Legacy botmon calls this `compare_timestamp` — using wall clock on a historical window
+   * would inflate every lag by however long ago that window was.
+   */
+  get compareTimestamp(): number {
+    const end = this.#timePickerState?.endTime;
+    const now = Date.now();
+    if (!end) return now;
+    return end < now ? end : now;
   }
 
   get staleTime() {
@@ -207,7 +230,17 @@ export class BotState {
         body: JSON.stringify(this.#timePickerState?.createStatsQueryRequest(Array.from(staleIds)))
       });
 
+      if (!res.ok) {
+        // Leave the ids unmarked so the next poll retries them.
+        console.error('Failed to fetch bot stats:', res.status, res.statusText);
+        return;
+      }
+
       const data = (await res.json()) as StatsApiResponse;
+      if (!data || !Array.isArray(data.stats)) {
+        console.warn('Invalid bot stats response:', data);
+        return;
+      }
 
       staleIds.forEach((id) => {
         this.#fetchedStats.set(id, now);
@@ -477,17 +510,20 @@ export class BotState {
       bot.alarms = statusEvaluation.alarms;
       bot.rogue = statusEvaluation.rogue;
       bot.alarmed = statusEvaluation.isAlarmed;
-      // Store window-derived values on `computed*` fields (mirrors the lag values below)
-      // rather than overwriting the persisted `bot.errorCount`. Rogue is driven by the
-      // persisted counter, and a stats-only refresh re-runs this without re-fetching bot
-      // settings — clobbering bot.errorCount here would corrupt the rogue signal.
-      (bot as any).computedErrorCount = statusEvaluation.errorCount;
+      // Never assign the window error count onto `bot.errorCount`: a stats-only refresh
+      // re-runs this without re-fetching settings, which would corrupt the rogue counter.
       (bot as any).computedSourceLag = statusEvaluation.sourceLag;
       (bot as any).computedWriteLag = statusEvaluation.writeLag;
     }
 
     // Rebuild catalog so the home table picks up updated status/lag/error values
     this.rebuildCatalog();
+
+    // The relationship tree snapshots status/rogue by value when built — rebuild it so a
+    // status change (e.g. a bot going rogue) shows up without re-selecting the bot.
+    if (this.#selectedBotId) {
+      this.buildRelationShipTree();
+    }
   }
   
 }

@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { AppState } from "$lib/client/appstate.svelte";
   import type { DashboardStats, RelationshipTree, TreeNode } from "$lib/types";
-  import { humanize } from "$lib/utils";
   import { assets, base } from "$app/paths";
   import { error } from "@sveltejs/kit";
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats } from "./types";
-  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, isCaughtUp, linkStatsKey, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { getLinkLabel } from "./link-label";
   import { createLucideIconComponent, createLucideIconFromComponent, createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
   import { generateSmartCurve } from "./link-utils.svelte";
   import RelationshipFilterControls from "./relationship-filter-controls.svelte";
@@ -45,6 +45,8 @@
 
   //TODO: will need to also track status, errors
   let linkStats: Map<string, LinkStats> = $state(new Map());
+  /** Newest checkpoint per queue, from the same pass that builds linkStats. */
+  let latestCheckpoints: Map<string, string> = $state(new Map());
 
   let svg: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
   let zoomHandler: d3.ZoomBehavior<Element, unknown>;
@@ -169,6 +171,25 @@
     }
   }
 
+  /**
+   * Error states tint their fill and carry a heavier stroke: a dark-red outline on a dark
+   * canvas reads as less urgent than the healthy green rings around it.
+   */
+  function getNodeFillColor(status: string | undefined) {
+    if (status === 'rogue' || status === 'blocked' || status === 'error') {
+      return 'color-mix(in oklab, var(--status-error) 22%, var(--color-background))';
+    }
+    if (status === 'danger') {
+      return 'color-mix(in oklab, var(--status-danger) 18%, var(--color-background))';
+    }
+    return 'var(--color-background)';
+  }
+
+  function getNodeStrokeWidth(status: string | undefined, depth: number) {
+    if (depth === 0) return 8;
+    return status === 'rogue' || status === 'blocked' || status === 'error' || status === 'danger' ? 3.5 : 2;
+  }
+
   let nodesNeedingFilters = $derived.by(() => {
     if (!relationShipTree) return new Set<string>();
     
@@ -211,7 +232,7 @@
             dashboardStats = await appState.botState.fetchDashboardStats('bot:' + selectedLink.sourceId);
           }
         }
-        initializeLinkStats(botStats, linkStats);
+        latestCheckpoints = initializeLinkStats(botStats, linkStats);
         renderVisualization();
       }
     });
@@ -252,7 +273,7 @@
 
 
     initializeVisualization();
-    initializeLinkStats(botStats, linkStats);
+    latestCheckpoints = initializeLinkStats(botStats, linkStats);
 
     return () => {
       resizeObserver.disconnect();
@@ -309,9 +330,12 @@ function updateContainerDimensions() {
             }
           }
           await appState.botState.fetchBotStats();
+          // The persisted errorCount that drives ROGUE lives on the cron record; without
+          // this it stays at page-load state. fetchBotSettings has its own staleness guard.
+          await appState.botState.fetchBotSettings();
 
           if(isActive) {
-            initializeLinkStats(botStats, linkStats);
+            latestCheckpoints = initializeLinkStats(botStats, linkStats);
             renderVisualization();
           }
         } catch (error) {
@@ -337,7 +361,7 @@ function updateContainerDimensions() {
 
     untrack( async () => {
       await appState.botState.fetchBotStats();
-      initializeLinkStats(botStats, linkStats);
+      latestCheckpoints = initializeLinkStats(botStats, linkStats);
       renderVisualization();
     })
   })
@@ -377,28 +401,50 @@ function updateContainerDimensions() {
     renderVisualization();
   }
 
-  function getLinkStats(parentId: string, childId: string): LinkStats {
+  function getLinkStats(sourceId: string, targetId: string, direction: "left" | "right"): LinkStats {
 
-    // console.log(linkStats);
     // Simply remove all prefixes
-    const cleanParentId = parentId.replace(/^(bot:|queue:|system:)/, '');
-    const cleanChildId = childId.replace(/^(bot:|queue:|system:)/, '');
-    
-    const key = `${cleanParentId}-${cleanChildId}`;
+    const cleanSourceId = sourceId.replace(/^(bot:|queue:|system:)/, '');
+    const cleanTargetId = targetId.replace(/^(bot:|queue:|system:)/, '');
 
-    // console.log('getLinkStats key: ', key);
+    // `linkStatsKey` owns the downstream-first convention; D3 links run parent → child.
+    const key = linkStatsKey(cleanSourceId, cleanTargetId, direction === "right" ? 'children' : 'parents');
+
     const linkStat = linkStats.get(key);
-    
+
     if (linkStat) {
       return linkStat;
     }
-    
-    // Fallback logic (existing code for when no stats found)
-    const botData = appState.botState.botSettings.find(bot => bot.id === cleanParentId || bot.id === cleanChildId);
-    const type = botData?.id == cleanParentId ? 'write' : 'read';
-    const endedTimestamp = botData?.checkpoints?.[type]?.[cleanChildId]?.ended_timestamp;
-    
-    return { eventCount: 0, lastWrite: endedTimestamp ?? Date.now(), linkType: type };
+
+    // With no stats in the window, legacy seeds last_read/last_write, the source timestamp
+    // and the checkpoint from one LeoCron record. Seeding only a time would report freshness
+    // the edge has not earned; with no source timestamp a read edge stays "N/A".
+    const upstreamId = direction === "right" ? cleanSourceId : cleanTargetId;
+    const downstreamId = direction === "right" ? cleanTargetId : cleanSourceId;
+    const botData = appState.botState.botSettings.find(bot => bot.id === upstreamId || bot.id === downstreamId);
+    // Bot upstream of the edge → it writes to the other end; bot downstream → it reads from it.
+    const type = botData?.id == upstreamId ? 'write' : 'read';
+    const otherId = botData?.id == upstreamId ? downstreamId : upstreamId;
+    // Checkpoint maps are keyed by full refId (`queue:foo`); tolerate unprefixed too.
+    const checkpoints = botData?.checkpoints?.[type];
+    const cp =
+      checkpoints?.[`queue:${otherId}`] ??
+      checkpoints?.[`system:${otherId}`] ??
+      checkpoints?.[otherId];
+
+    const seeded: LinkStats = {
+      eventCount: 0,
+      sourceTimestamp: cp?.source_timestamp,
+      checkpoint: cp?.checkpoint,
+      linkType: type,
+    };
+    if (type === 'read') {
+      seeded.lastRead = cp?.ended_timestamp;
+      seeded.caughtUp = isCaughtUp(cp?.checkpoint, latestCheckpoints.get(otherId));
+    } else {
+      seeded.lastWrite = cp?.ended_timestamp;
+    }
+    return seeded;
   }
 
   function isNodeExpanded(nodeId: string): boolean {
@@ -430,17 +476,7 @@ function updateContainerDimensions() {
 
 
   function getLowerText(stat: LinkStats): string {
-    if(Date.now() - stat.lastWrite == 0 && stat.eventCount == 0) {
-      return 'N/A';
-    } else if(stat.linkType === 'read') {
-      if (Date.now() - stat.lastWrite < appState.botState.staleTime / 2) {
-            return '-'
-          } else {
-            return 'lag:' + humanize(Date.now() - stat.lastWrite);
-          }
-    } else {
-      return humanize(Date.now() - stat.lastWrite) + ' ago';
-    }
+    return getLinkLabel(stat, appState.botState.compareTimestamp);
   }
 
   function handleFilterChange(nodeId: string, direction: 'children' | 'parents', newOptions: FilterOptions) {
@@ -780,7 +816,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       } else {
         linkTargetId = d.target.data.originalId || d.target.data.id;
       }
-      const stats = getLinkStats(linkSourceId, linkTargetId);
+      const stats = getLinkStats(linkSourceId, linkTargetId, d.target.data.direction);
       t.text(stats.eventCount.toLocaleString());
     });
 
@@ -807,7 +843,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       } else {
         linkTargetId = d.target.data.originalId || d.target.data.id;
       }
-      const stats = getLinkStats(linkSourceId, linkTargetId);
+      const stats = getLinkStats(linkSourceId, linkTargetId, d.target.data.direction);
       t.text(getLowerText(stats));
     });
 
@@ -895,9 +931,9 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         .append("path")
         .attr("class", "node-shape")
         .attr("d", getNodeShapePath(status, nodeWidth! / 2))
-        .style("fill", "var(--color-background)")
+        .style("fill", getNodeFillColor(status))
         .style("stroke", getNodeStrokeColor(status))
-        .style("stroke-width", d.data.depth === 0 ? 8 : 2);
+        .style("stroke-width", getNodeStrokeWidth(status, d.data.depth));
 
       
       let expandCircleGroup = element.insert('g', ':first-child').attr('class', createGoodIdentifier('unexpanded-circle-group-',d.data.id));
@@ -1350,8 +1386,9 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       element
         .select(".node-shape")
         .attr("d", getNodeShapePath(status, nodeWidth! / 2))
-        .style("fill", "var(--color-background)")
-        .style("stroke", getNodeStrokeColor(status));
+        .style("fill", getNodeFillColor(status))
+        .style("stroke", getNodeStrokeColor(status))
+        .style("stroke-width", getNodeStrokeWidth(status, d.data.depth));
 
       // Update bot image if needed
       if (d.data.type === "bot") {

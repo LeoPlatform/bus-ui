@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { parseDashboardTags, type DashboardTag } from '$comps/features/dashboard/types';
+import {
+  DashboardTabType,
+  mayRefreshSettings,
+  parseDashboardTags,
+  type DashboardTag
+} from '$comps/features/dashboard/types';
 
 describe('parseDashboardTags', () => {
   describe('normal operation', () => {
@@ -226,5 +231,28 @@ describe('parseDashboardTags', () => {
       expect(result.customKey).toBe('customValue');
       expect(result.anotherKey).toBe('anotherValue');
     });
+  });
+});
+
+describe('mayRefreshSettings', () => {
+  /**
+   * ES-4034: the 45s refresh was extended to re-read the page's settings record so the
+   * header's ROGUE badge stops going stale. The Settings tabs seed their form fields from
+   * that record in an `$effect`, so polling it while someone is editing resets their
+   * in-progress input every tick — the fix for a stale badge became a regression in the
+   * form. Stats keep refreshing on every tab either way.
+   */
+  it('does not refresh settings while the Settings tab is open', () => {
+    expect(mayRefreshSettings(DashboardTabType.Settings)).toBe(false);
+  });
+
+  it('refreshes settings on the read-only tabs', () => {
+    expect(mayRefreshSettings(DashboardTabType.Dashboard)).toBe(true);
+    expect(mayRefreshSettings(DashboardTabType.Events)).toBe(true);
+    expect(mayRefreshSettings(DashboardTabType.Schema)).toBe(true);
+  });
+
+  it('refreshes for an unrecognised tab rather than silently going stale', () => {
+    expect(mayRefreshSettings('something-new')).toBe(true);
   });
 });

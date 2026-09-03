@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "dev:mock": "LOCAL=true MOCK_BUS=1 AUTH_SECRET=dev-mock-secret AWS_ACCESS_KEY_ID=mock AWS_SECRET_ACCESS_KEY=mock AWS_REGION=us-east-1 vite dev",
+    "dev:mock": "LOCAL=true MOCK_BUS=1 AUTH_SECRET=dev-mock-secret-not-a-real-key AWS_ACCESS_KEY_ID=mock AWS_SECRET_ACCESS_KEY=mock AWS_REGION=us-east-1 vite dev",
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",

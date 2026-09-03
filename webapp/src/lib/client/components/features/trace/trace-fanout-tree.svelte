@@ -4,17 +4,20 @@
      * with click + keyboard navigation and zoom/pan.
      */
     import { calendarFormat } from '$lib/client/event-viewer/event-search-utils';
-    import { base } from '$app/paths';
+    import { assets, base } from '$app/paths';
     import * as d3 from 'd3';
     import { onMount } from 'svelte';
     import GitBranch from '@lucide/svelte/icons/git-branch';
     import TraceNodeTooltip from './trace-node-tooltip.svelte';
 
     function nodeImageHref(n: TraceNode): string {
+        // Static PNGs are served from CloudFront (`assets`), not through the API Gateway
+        // base path — a bare base-prefixed URL 404s in deployed stages (svelte.config.js paths).
+        const prefix = assets || base;
         const t = nodeType(n);
-        if (t === 'queue') return `${base}/queue.png`;
-        if (t === 'system') return `${base}/system.png`;
-        return `${base}/bot.png`;
+        if (t === 'queue') return `${prefix}/queue.png`;
+        if (t === 'system') return `${prefix}/system.png`;
+        return `${prefix}/bot.png`;
     }
 
     type TraceNode = Record<string, unknown>;

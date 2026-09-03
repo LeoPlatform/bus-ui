@@ -1,13 +1,8 @@
 /**
- * mock-bots — the canonical, injectable botmon test fixture (ES-3461).
+ * The canonical, injectable botmon test fixture: deterministic bot/stats records covering
+ * every UI status state, typed against `$lib/types`.
  *
- * During ES-3461 we discovered several botmon status bugs (rogue detection, the no-stats
- * short-circuit, stale checkpoints after save) that only a live "mock bus" harness surfaced.
- * That harness used to be ad-hoc and was thrown away. This module is the PERMANENT
- * reconstruction: a small set of deterministic bot/stats fixtures that describe every UI
- * state we care about, in one place, fully typed against `$lib/types`.
- *
- * It is framework-free on purpose — NO svelte/browser imports — so it can be imported from:
+ * Framework-free on purpose — NO svelte/browser imports — so it can be imported from:
  *   - the server mock data-service (`$lib/server/services/mock/mock-dynamo-service`) that
  *     backs `npm run dev:mock`,
  *   - the node-environment logic test (`tests/.../bot-status.presets.test.ts`),
@@ -20,6 +15,7 @@
 import type {
   BotSettings,
   Checkpoints,
+  ExecutionStats,
   MergedStatsRecord,
   ReadWriteStats,
 } from '$lib/types';
@@ -68,7 +64,22 @@ function readStat(overrides: Partial<ReadWriteStats> = {}): ReadWriteStats {
     timestamp: now,
     source_timestamp: now,
     units: 1000,
+    ...overrides,
+  };
+}
+
+/**
+ * An execution-stat entry — the only place the Leo stats table records errors. Mirrors the
+ * real record shape so fixtures cannot teach status code to read them off read/write entries.
+ */
+function executionStat(overrides: Partial<ExecutionStats> = {}): ExecutionStats {
+  return {
+    completions: 1000,
+    duration: 1000,
     errors: 0,
+    max_duration: 10,
+    min_duration: 1,
+    units: 1000,
     ...overrides,
   };
 }
@@ -76,11 +87,13 @@ function readStat(overrides: Partial<ReadWriteStats> = {}): ReadWriteStats {
 /**
  * Stats that carry current-window errors but a LOW error-rate — drives BLOCKED
  * (hasCurrentErrors) without tripping the error-rate alarm (which would escalate to danger).
+ * Errors live on the execution record, matching the live bus shape.
  */
 export function makeErrorStats(id: string, errors = 5, units = 1000): MergedStatsRecord {
   return makeMockStats({
     id,
-    read: { [MOCK_SOURCE_QUEUE]: readStat({ errors, units }) },
+    execution: executionStat({ errors, units, completions: units - errors }),
+    read: { [MOCK_SOURCE_QUEUE]: readStat({ units }) },
   });
 }
 
@@ -94,7 +107,6 @@ export function makeAlarmStats(id: string): MergedStatsRecord {
     id,
     read: {
       [MOCK_SOURCE_QUEUE]: readStat({
-        errors: 0,
         // source event is 10 minutes old → source_lag ~10min >> 2.5min threshold
         source_timestamp: now - 10 * MINUTE,
         timestamp: now,
@@ -111,10 +123,8 @@ export function makeMockCheckpoint(
   return { read: { [queue]: { checkpoint: token } }, write: {} };
 }
 
-// ---------------------------------------------------------------------------
-// Named preset factories — one per UI state. Factories (not shared constants)
-// so tests/stories/the mock store each get their own mutable copy.
-// ---------------------------------------------------------------------------
+// Factories rather than shared constants, so tests, stories and the mock store each get
+// their own mutable copy.
 
 /** Running / healthy — no errors, no stats needed. */
 export const mockHealthy = (): BotSettings => makeMockBot({ id: 'mock-healthy' });
@@ -148,10 +158,9 @@ export const mockCheckpoint = (): BotSettings =>
   });
 
 /**
- * The home / catalog fixture, matching research/ES-3461/playground-verify/01-catalog.png:
- * healthy, rogue, rogue-paused, paused, archived-rogue, checkpoint. These are the six bots
- * that render in the catalog table; each hits the no-stats path (getStats → []) so the
- * status derives from the record alone — the exact case the ES-3461 fix addressed.
+ * The home / catalog fixture: healthy, rogue, rogue-paused, paused, archived-rogue,
+ * checkpoint. Each hits the no-stats path (getStats → []), so status derives from the
+ * record alone.
  */
 export const MOCK_BOTS: BotSettings[] = [
   mockHealthy(),

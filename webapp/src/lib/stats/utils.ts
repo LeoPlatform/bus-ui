@@ -53,13 +53,17 @@ export function mergeStatsResults(stats: QueryOutput): MergedStatsRecord {
 
         }
         ['read', 'write'].map((type: CheckpointType) => {
-            Object.entries(stat.current![type as CheckpointType])
+            // A record can lack `read` or `write` entirely (write-only bots, queue records) —
+            // legacy guards this too (lib/stats.js: `stat.current[type] || {}`).
+            Object.entries(stat.current![type as CheckpointType] ?? {})
                 .map(([queueId, rwStat]: [string, ReadWriteStats]) => {
                     if(!mergedStats[type][queueId]) {
-                        mergedStats[type][queueId] = defaultReadWriteStat;
+                        // Clone — assigning the shared default object would alias every
+                        // queue to one record and merge all their stats together.
+                        mergedStats[type][queueId] = { ...defaultReadWriteStat };
                     }
                     mergedStats[type][queueId] = mergeReadWriteStats(mergedStats[type][queueId], rwStat)
-                    
+
             })
         });
     }

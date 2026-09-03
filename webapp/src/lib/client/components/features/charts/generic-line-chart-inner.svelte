@@ -1,6 +1,6 @@
 <script lang="ts">
   import * as Chart from "$lib/client/components/ui/chart/index";
-  import { AnnotationLine, LineChart } from "layerchart";
+  import { LineChart } from "layerchart";
   import { scaleTime, scaleLinear, scaleLog } from "d3-scale";
   import { onMount } from "svelte";
   import { humanize } from "$lib/utils";
@@ -15,9 +15,12 @@
     showLogarithmic?: boolean;
   }
 
+  // No checkpoint line: this chart backs execution count, error count, execution time,
+  // events written and write lag, none of which can lag behind a read checkpoint. Legacy
+  // draws its read-cutoff line only on Events In Queue and the read-side sparklines.
   let { data, dataSetLabel, tooltipLabel, dataIsTimeBased = false, showLogarithmic = false }: Props = $props();
 
-  // Auto-refresh the "now" line every 30s, matching the previous Chart.js behavior.
+  // Refresh wall clock every 30s so the x-domain keeps tracking a live window.
   let now = $state(new Date());
   onMount(() => {
     const id = setInterval(() => (now = new Date()), 30_000);
@@ -29,7 +32,7 @@
     return data.map((d) => ({ time: new Date(d.time), value: logClamp(d.value || 0, showLogarithmic, floor) }));
   });
 
-  // Extend the x domain to include "now" so the now-line is always visible.
+  // Extend the x domain to "now" so a live window renders up to the current moment.
   const xDomain = $derived.by(() => {
     if (!chartData.length) return undefined;
     let minMs = Infinity;
@@ -71,12 +74,6 @@
       grid: { class: "stroke-border/40" },
     }}
   >
-    {#snippet aboveMarks()}
-      <AnnotationLine
-        x={now}
-        props={{ line: { style: "stroke: #ef4444; stroke-width: 2;" } }}
-      />
-    {/snippet}
     {#snippet tooltip()}
       <Chart.Tooltip
         labelFormatter={(_v, payload) =>

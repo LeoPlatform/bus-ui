@@ -58,8 +58,9 @@ export function evaluateBotStatus(
 
   // 3. Check ALARM conditions
   
-  // Error Rate Alarm
-  if (errorCount >= 1 && errorRate >= config.error_limit && !bot.archived) {
+  // Legacy alarms on `errors >= executions * limit` (old_ui/lib/stats.js), which fires at
+  // zero executions; a rate comparison cannot, since the rate is forced to 0 there.
+  if (errorCount >= 1 && errorCount >= executions * config.error_limit && !bot.archived) {
     isAlarmed = true;
     alarms.errors = {
       value: errorCount,
@@ -104,6 +105,34 @@ export function evaluateBotStatus(
 }
 
 /**
+ * Status for a single bot's dashboard header.
+ *
+ * Prefers the page's own settings record over the shared catalog entry: the catalog fetch is
+ * fire-and-forget, takes 10s+ on a large bus, and may be keyed by a differently-prefixed id.
+ */
+export function resolveHeaderBotStatus(args: {
+  /** errorCount from this page's settings record (LeoCron, ConsistentRead). */
+  settingsErrorCount?: number;
+  /** Matching entry from the shared catalog, when it has loaded. */
+  catalogEntry?: Pick<BotSettings, 'errorCount' | 'status'>;
+}): { isRogue: boolean; isBlocked: boolean; errorCount: number } {
+  const errorCount = args.settingsErrorCount ?? args.catalogEntry?.errorCount ?? 0;
+  const isRogue = errorCount > BOT_STATUS_DEFAULTS.ROGUE_ERROR_THRESHOLD;
+  return {
+    isRogue,
+    // Rogue is the more severe state; never show both.
+    isBlocked: !isRogue && args.catalogEntry?.status === 'blocked',
+    errorCount,
+  };
+}
+
+/** Compare bot ids ignoring an optional `bot:` prefix (the cron table stores them bare). */
+export function isSameBotId(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  return a.replace(/^bot:/, '') === b.replace(/^bot:/, '');
+}
+
+/**
  * Apply the manual/terminal status overrides (archived / paused / danger) on top of the
  * error-derived status. Shared by the no-stats path and the full evaluation so the two
  * can't drift.
@@ -124,41 +153,14 @@ function applyManualStates(
   return status;
 }
 
-// Helper functions to extract values from raw stats
+// The Leo stats table records errors only on the execution sub-record; read/write entries
+// carry no `errors` field at all.
 function calculateErrorCount(stats: MergedStatsRecord): number {
-  let errorCount = 0;
-  
-  if (stats.read) {
-    Object.values(stats.read).forEach(readStat => {
-      errorCount += readStat.errors || 0;
-    });
-  }
-  
-  if (stats.write) {
-    Object.values(stats.write).forEach(writeStat => {
-      errorCount += writeStat.errors || 0;
-    });
-  }
-  
-  return errorCount;
+  return stats.execution?.errors || 0;
 }
 
 function calculateExecutions(stats: MergedStatsRecord): number {
-  let executions = 0;
-  
-  if (stats.read) {
-    Object.values(stats.read).forEach(readStat => {
-      executions += readStat.units || 0;
-    });
-  }
-  
-  if (stats.write) {
-    Object.values(stats.write).forEach(writeStat => {
-      executions += writeStat.units || 0;
-    });
-  }
-  
-  return executions;
+  return stats.execution?.units || 0;
 }
 
 function calculateWriteLag(stats: MergedStatsRecord): number {

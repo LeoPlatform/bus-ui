@@ -39,6 +39,8 @@ type Expected = {
   overrideCountInLastBucket?: number;
   overrideCountInBucket?: number;
   showTitle?: boolean;
+  // ES-4034: humanize y-axis/tooltip for duration charts (Execution Time, Read Lag)
+  dataIsTimeBased?: boolean;
 };
 
 // Compile-time failure here (caught by `pnpm check`) means the prop contract changed.

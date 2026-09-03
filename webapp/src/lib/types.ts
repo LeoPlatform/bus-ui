@@ -457,7 +457,9 @@ export interface ReadWriteStats {
   source_timestamp: number, // source from where and when it hit the queue
   timestamp: number, // when it happened
   units: number,
-  errors?: number,
+  // NOTE: no `errors` here — the Leo stats table records errors only under
+  // current.execution (ExecutionStats.errors). ES-4034 removed a phantom optional
+  // `errors` field that let status code sum a value the bus never writes.
 }
 
 export interface StatsQueryResponse {

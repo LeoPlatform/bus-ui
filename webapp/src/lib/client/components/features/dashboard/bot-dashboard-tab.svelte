@@ -207,6 +207,7 @@
                             rangeStart={data?.start}
                             showTitle={false}
                             formatTotal={(val) => humanize(val)}
+                            dataIsTimeBased={true}
                             overrideTotal={data.compare?.duration?.current || 0}
                             overrideCountInBucket={data.compare?.duration?.current || 0}
                             overrideCountInLastBucket={data.compare?.duration?.prev || 0}
