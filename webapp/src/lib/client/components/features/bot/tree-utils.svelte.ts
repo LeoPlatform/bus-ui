@@ -220,6 +220,29 @@ export function linkStatsKey(
   return direction === 'children' ? `${child}-${parent}` : `${parent}-${child}`;
 }
 
+/**
+ * Identity of a rendered COPY, not of the entity: an id-based key merges the copies a DAG
+ * produces and the dedup then drops one copy's edge. The path is also stable across
+ * re-renders, which the position map needs; legacy's per-render counter was not.
+ */
+export function nodeRenderKey(node: d3.HierarchyNode<TreeNode>): string {
+  let path = node.data.id;
+  for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+    path = `${ancestor.data.id}>${path}`;
+  }
+  return `${node.data.direction}|${path}`;
+}
+
+type TreeLink = { source: d3.HierarchyNode<TreeNode>; target: d3.HierarchyNode<TreeNode> };
+
+export function linkRenderKeyWith(
+  keyOf: (node: d3.HierarchyNode<TreeNode>) => string
+): (link: TreeLink) => string {
+  return (link) => `${keyOf(link.source)}->${keyOf(link.target)}`;
+}
+
+export const linkRenderKey = linkRenderKeyWith(nodeRenderKey);
+
 const stripRefPrefix = (id: string) => id.replace(/^(bot:|queue:|system:)/, '');
 
 /**

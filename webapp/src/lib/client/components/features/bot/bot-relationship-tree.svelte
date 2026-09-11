@@ -6,7 +6,7 @@
   import * as d3 from "d3";
   import { getContext, onMount, untrack } from "svelte";
   import { DEFAULT_FILTER_OPTIONS, type FilterOptions, type LinkStats } from "./types";
-  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, isCaughtUp, linkStatsKey, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
+  import { createGoodIdentifier, findOriginalData, getOriginalNodeId, getRelationshipSummary, handleBackgroundNodeCircles, initializeLinkStats, isCaughtUp, linkRenderKeyWith, linkStatsKey, nodeRenderKey, processTree, processTreeSimple, processTreeVerySimple, processTreeWithImportanceFiltering, toggleNodeExpansion } from "./tree-utils.svelte";
   import { getLinkLabel } from "./link-label";
   import { createLucideIconComponent, createLucideIconFromComponent, createNodeLabel, createTreeLayout, setupZoomBehavior } from "./d3-utils.svelte";
   import { generateSmartCurve } from "./link-utils.svelte";
@@ -561,11 +561,19 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     
     // Convert virtual links to direct links between actual nodes
     const rawActualLinks = convertVirtualLinksToActual(allLinks);
-    // Left + right trees can yield the same logical edge twice; duplicate keys break the D3 join
-    // and can strand metric labels on the wrong <g> or at default (0,0).
-    function linkDatumKey(d: { source: { data: TreeNode }; target: { data: TreeNode } }) {
-      return `${d.source.data.id}-${d.source.data.direction}-${d.target.data.id}-${d.target.data.direction}`;
-    }
+    // One key per rendered node, reused by the link join below rather than re-walked per edge.
+    const renderKeys = new Map<d3.HierarchyNode<TreeNode>, string>();
+    const keyOf = (node: d3.HierarchyNode<TreeNode>) => {
+      let key = renderKeys.get(node);
+      if (key === undefined) {
+        key = nodeRenderKey(node);
+        renderKeys.set(node, key);
+      }
+      return key;
+    };
+    // Two links that join the same pair of rendered copies are one edge; two copies of a logical
+    // edge are not, and collapsing them strands the second copy with no path and no labels.
+    const linkDatumKey = linkRenderKeyWith(keyOf);
     const linkDedup = new Map<string, (typeof rawActualLinks)[number]>();
     for (const link of rawActualLinks) {
       const k = linkDatumKey(link);
@@ -607,15 +615,6 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       return result;
     }
 
-    // Helper function to create unique position key including direction
-    function getPositionKey(
-      nodeId: string,
-      direction: string,
-      depth: number
-    ): string {
-      return `${nodeId}-${direction}-${depth}`;
-    }
-
     // Helper function to check if two nodes are directly connected
     function isDirectlyConnected(nodeId1: string, nodeId2: string): boolean {
       // Check if node1 is a direct parent/child of node2 in the original data
@@ -649,8 +648,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     // Store positions for smooth transitions - only update positions for affected nodes
     actualNodes.forEach((d) => {
       const nodeId = d.data.id;
-      const direction = d.data.direction;
-      const positionKey = getPositionKey(nodeId, direction, d.data.depth);
+      const positionKey = keyOf(d);
 
       if (!nodePositions.has(positionKey)) {
         // New node - store its calculated position with direction-specific key
@@ -703,10 +701,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       for (const n of rootVariants) {
         n.x = sx;
         n.y = sy;
-        nodePositions.set(getPositionKey(n.data.id, n.data.direction, n.data.depth), {
-          x: sx,
-          y: sy,
-        });
+        nodePositions.set(keyOf(n), { x: sx, y: sy });
       }
     }
 
@@ -861,7 +856,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
     // UPDATE PATTERN FOR NODES - No more clearing!
     const nodeSelection = nodeGroup
       .selectAll(".node")
-      .data(actualNodes, (d: any) => `${d.data.id}-${d.data.direction}-${d.data.depth}`); // Include direction in key
+      .data(actualNodes, (d: any) => keyOf(d));
 
     // Remove old nodes with transition
     nodeSelection
@@ -873,7 +868,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
         // Exit nodes towards their parent's position
         const parent = d.parent;
         const parentPos = parent
-          ? nodePositions.get(parent.data.id)
+          ? nodePositions.get(keyOf(parent))
           : { x: d.x, y: d.y };
         return `translate(${parentPos?.x || d.x},${parentPos?.y || d.y})`;
       })
@@ -887,7 +882,7 @@ function toggleFilterControls(nodeId: string, direction: 'children' | 'parents')
       .attr("transform", (d) => {
         // Start new nodes at their parent's position for smooth entrance
         const parentPos = d.parent
-          ? nodePositions.get(d.parent.data.id)
+          ? nodePositions.get(keyOf(d.parent))
           : { x: d.x, y: d.y };
         return `translate(${parentPos?.x || d.x},${parentPos?.y || d.y})`;
       })
