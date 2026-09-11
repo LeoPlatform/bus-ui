@@ -285,7 +285,7 @@
                                     </Table.Cell>
                                     <Table.Cell>
                                         <div class="h-12 w-full">
-                                            <SparklineChart data={queue.values || []} label="Reads" lastRead={queue.last_read_event_timestamp} />
+                                            <SparklineChart data={queue.values || []} label="Events" lastRead={queue.last_read_event_timestamp} />
                                         </div>
                                     </Table.Cell>
                                     <Table.Cell class="text-right">
