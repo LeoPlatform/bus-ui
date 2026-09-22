@@ -11,6 +11,7 @@ export class DashboardState {
     #stats: any | undefined = $state(undefined);
     #range: string = $state('minute_15');
     #timePickerState: TimePickerState | null = null;
+    #unsubscribeTimeRange: (() => void) | null = null;
     #id: string = $state('');
     #isPaused: boolean | undefined = $derived(this.#settings?.paused);
     #loading: boolean = $state(false);
@@ -75,8 +76,11 @@ export class DashboardState {
     }
 
     setTimePickerState(timePickerState: TimePickerState) {
+        // dashboard.svelte calls this on every render, so without dropping the previous
+        // registration the singleton would refetch once per call.
+        this.#unsubscribeTimeRange?.();
         this.#timePickerState = timePickerState;
-        this.#timePickerState.setOnTimeRangeChangeCallback((state) => {
+        this.#unsubscribeTimeRange = this.#timePickerState.onTimeRangeChange((state) => {
             this.range = state.range;
         });
     }

@@ -269,7 +269,7 @@
       return;
     }
 
-    appState.timePickerState.setOnTimeRangeChangeCallback(handleTimeRangeChange);
+    const unsubscribeTimeRange = appState.timePickerState.onTimeRangeChange(handleTimeRangeChange);
 
 
     initializeVisualization();
@@ -278,7 +278,7 @@
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleWindowResize);
-      appState.timePickerState.clearOnTimeRangeChangeCallback();
+      unsubscribeTimeRange();
     };
     
   })

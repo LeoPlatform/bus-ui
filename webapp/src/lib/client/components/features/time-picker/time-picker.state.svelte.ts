@@ -28,7 +28,7 @@ export class TimePickerState {
     })());
     #dateSelectorExpanded: boolean = $state<boolean>(false);
     #isExpanded: boolean = $state<boolean>(false);
-    #onTimeRangeChange: ((state: TimePickerState) => void) | undefined = undefined;
+    #timeRangeSubscribers = new Set<(state: TimePickerState) => void>();
     
     
     #timeRangeString = $derived.by(() => {
@@ -172,23 +172,17 @@ export class TimePickerState {
      * Manually trigger the time range change callback
      */
     private triggerTimeRangeChange() {
-        if (this.#onTimeRangeChange) {
-            this.#onTimeRangeChange(this);
-    }
-}
-
-    /**
-     * Set a callback function that will be called whenever the time range changes
-     */
-    setOnTimeRangeChangeCallback(callback: (state: TimePickerState) => void) {
-        this.#onTimeRangeChange = callback;
+        for (const subscriber of [...this.#timeRangeSubscribers]) {
+            subscriber(this);
+        }
     }
 
-    /**
-     * Remove the time range change callback
-     */
-    clearOnTimeRangeChangeCallback() {
-        this.#onTimeRangeChange = undefined;
+    /** Returns the unsubscribe for this registration only — one owner's teardown must not disarm another's. */
+    onTimeRangeChange(callback: (state: TimePickerState) => void): () => void {
+        this.#timeRangeSubscribers.add(callback);
+        return () => {
+            this.#timeRangeSubscribers.delete(callback);
+        };
     }
 
     /**

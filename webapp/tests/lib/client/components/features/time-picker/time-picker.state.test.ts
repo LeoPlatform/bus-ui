@@ -110,19 +110,20 @@ describe('TimePickerState', () => {
   });
 
   describe('callback management', () => {
-    it('should set and clear time range change callback', () => {
+    it('should subscribe and unsubscribe a time range change callback', () => {
       const mockCallback = vi.fn();
-      
-      timePickerState.setOnTimeRangeChangeCallback(mockCallback);
-      timePickerState.clearOnTimeRangeChangeCallback();
-      
+
+      const unsubscribe = timePickerState.onTimeRangeChange(mockCallback);
+      unsubscribe();
+
       // Should not throw error when callback is cleared
       expect(() => timePickerState.range = StatsRange.Hour).not.toThrow();
+      expect(mockCallback).not.toHaveBeenCalled();
     });
 
     it('should call callback when time range changes', () => {
       const mockCallback = vi.fn();
-      timePickerState.setOnTimeRangeChangeCallback(mockCallback);
+      timePickerState.onTimeRangeChange(mockCallback);
 
       timePickerState.range = StatsRange.Hour;
 
@@ -227,7 +228,7 @@ describe('TimePickerState', () => {
 
     it('should handle multiple range changes', () => {
       const mockCallback = vi.fn();
-      timePickerState.setOnTimeRangeChangeCallback(mockCallback);
+      timePickerState.onTimeRangeChange(mockCallback);
 
       timePickerState.range = StatsRange.Hour;
       timePickerState.range = StatsRange.Day;
