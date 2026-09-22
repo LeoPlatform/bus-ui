@@ -75,6 +75,14 @@ npm run dev:mock    # Vite dev server against the in-memory mock bus (no AWS)
 
 Setup: `cp providers.config.example.json providers.config.json` then `npm run create-env-test-cup` to generate `.env.local`.
 
+**Check where `.env.local` points before reproducing or validating anything.** `create-env-*` overwrites
+it in place and the generated file carries no visible marker of its bus or stage, so a checkout left
+from earlier work can aim a local dev server at prod. Reproduce and validate against the test bus
+(`npm run create-env-test-cup`); back the file up first and restore it when you are done.
+
+`npm run dev:mock` stubs `getDashboardStats` to an empty result, so charts never render under it.
+Client-side request behaviour is testable there; anything window- or bucket-related is not.
+
 `npm test` runs two Vitest projects (`vitest.workspace.ts`): `botmon` for node logic tests under
 `tests/`, and `storybook` for `*.stories.svelte` executed in real chromium via
 `@storybook/experimental-addon-test`. The browser project needs `npx playwright install` and both
