@@ -184,7 +184,7 @@
         <DashHeader name={name || id} id={id} type={dashType} currentCheckpoint={currentCheckpoint} lambdaName={lambdaName} lambdaRegion={lambdaRegion} tags={tags} isPaused={compState.isPaused} errorCount={settings?.errorCount} />
     </div>
     
-    {#if !compState.settings && !compState.stats}
+    {#if !compState.settings && !compState.stats && !compState.statsError}
         <!-- Skeleton loading state -->
         <div class="flex-1 mt-4 space-y-4">
             <div class="flex gap-2">
