@@ -203,6 +203,11 @@
         </div>
     {:else}
     <div class="flex-1 mt-4 flex flex-col min-h-0">
+        {#if compState.statsError}
+            <div role="status" class="mb-4 rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+                Showing the last data we could load — the latest refresh failed ({compState.statsError}). Retrying every 45 seconds.
+            </div>
+        {/if}
         <Tabs.Root bind:value={activeTab} class="w-full flex-1 flex flex-col min-h-0">
             <div class="mb-4 flex flex-row items-center">
                 <Tabs.List>

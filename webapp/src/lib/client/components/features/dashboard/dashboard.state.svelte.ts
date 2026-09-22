@@ -16,6 +16,7 @@ export class DashboardState {
     #isPaused: boolean | undefined = $derived(this.#settings?.paused);
     #loading: boolean = $state(false);
     #settingsError: string | null = $state(null);
+    #statsError: string | null = $state(null);
 
     constructor(fetch: GlobalFetch) {
         this.#fetch = fetch;
@@ -35,6 +36,11 @@ export class DashboardState {
 
     get stats() {
         return this.#stats;
+    }
+
+    /** Why the last stats load failed, or null. Unlike settings, #stats is deliberately kept — stale charts beat blank ones. */
+    get statsError() {
+        return this.#statsError;
     }
 
     get range() {
@@ -76,8 +82,7 @@ export class DashboardState {
     }
 
     setTimePickerState(timePickerState: TimePickerState) {
-        // dashboard.svelte calls this on every render, so without dropping the previous
-        // registration the singleton would refetch once per call.
+        // dashboard.svelte calls this on every render; without this the singleton refetches once per call.
         this.#unsubscribeTimeRange?.();
         this.#timePickerState = timePickerState;
         this.#unsubscribeTimeRange = this.#timePickerState.onTimeRangeChange((state) => {
@@ -151,7 +156,9 @@ export class DashboardState {
             });
 
             if(!res.ok) {
-                console.error(`Failed to get stats for ${this.#id}: ${res.status} ${res.statusText}`);
+                const errorMessage = `Failed to get stats for ${this.#id}: ${res.status} ${res.statusText}`;
+                console.error(errorMessage);
+                this.#statsError = errorMessage;
                 return;
             }
 
@@ -161,8 +168,10 @@ export class DashboardState {
             } else {
                 this.#stats = data;
             }
+            this.#statsError = null;
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
+            this.#statsError = error instanceof Error ? error.message : String(error);
         } finally {
             this.#loading = false;
         }
