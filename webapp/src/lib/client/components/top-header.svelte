@@ -4,6 +4,11 @@
   import Button from "$lib/client/components/ui/button/button.svelte";
   import * as DropdownMenu from "$lib/client/components/ui/dropdown-menu/";
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
+  import { getContext } from 'svelte';
+  import { parseThemePreference } from '$lib/client/theme-mode';
+  import type { ThemeModeState } from '$lib/client/theme-mode.state.svelte';
+
+  const themeMode = getContext<ThemeModeState>('themeMode');
 
  const currentRoute = $derived(page.url.pathname ? page.url.pathname : `${base}/`);
     // Strip base path prefix before extracting the page title
@@ -37,6 +42,18 @@
                 
             </DropdownMenu.Trigger>
             <DropdownMenu.Content class="w-56" align="end">
+                <DropdownMenu.Group>
+                    <DropdownMenu.Label>Theme</DropdownMenu.Label>
+                    <DropdownMenu.RadioGroup
+                        value={themeMode.preference}
+                        onValueChange={(value) => (themeMode.preference = parseThemePreference(value))}
+                    >
+                        <DropdownMenu.RadioItem value="system">System</DropdownMenu.RadioItem>
+                        <DropdownMenu.RadioItem value="light">Light</DropdownMenu.RadioItem>
+                        <DropdownMenu.RadioItem value="dark">Dark</DropdownMenu.RadioItem>
+                    </DropdownMenu.RadioGroup>
+                </DropdownMenu.Group>
+                <DropdownMenu.Separator />
                 <DropdownMenu.Item>
                     Timezone (TBD)
                 </DropdownMenu.Item>
