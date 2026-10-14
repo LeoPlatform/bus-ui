@@ -35,17 +35,17 @@
 </script>
 
 <div 
-  class={`border-b border-slate-700 last:border-b-0 ${isSelected ? 'bg-slate-600/50' : ''}`}
+  class={`border-b border-slate-200 dark:border-slate-700 last:border-b-0 ${isSelected ? 'bg-slate-200 dark:bg-slate-600/50' : ''}`}
   onmouseenter={handleMouseEnter}
   role="option"
   aria-selected={isSelected}
   tabindex={isSelected ? 0 : -1}
 >
-  <div class="flex items-center gap-2 p-2 hover:bg-slate-700/50 transition-colors min-w-0">
+  <div class="flex items-center gap-2 p-2 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors min-w-0">
     <!-- Main result button -->
     <Button
       variant="ghost"
-      class={`flex-1 flex items-center gap-3 h-auto p-2 justify-start text-left hover:bg-transparent min-w-0 overflow-hidden ${isSelected ? 'bg-slate-600/30' : ''}`}
+      class={`flex-1 flex items-center gap-3 h-auto p-2 justify-start text-left hover:bg-transparent min-w-0 overflow-hidden ${isSelected ? 'bg-slate-200/60 dark:bg-slate-600/30' : ''}`}
       onclick={() => goToRelationshipView(item)}
     >
       <!-- Node type icon -->
@@ -59,11 +59,11 @@
       
       <!-- Item details -->
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-medium text-white break-all">
+        <div class="text-sm font-medium text-slate-900 dark:text-white break-all">
           {item.id}
         </div>
         {#if item.name && item.name !== item.id}
-          <div class="text-xs text-white/60 break-all">
+          <div class="text-xs text-slate-600 dark:text-white/60 break-all">
             {item.name}
           </div>
         {/if}
@@ -74,7 +74,7 @@
     <Button 
       variant="ghost" 
       size="icon"
-      class={`flex-shrink-0 h-8 w-8 text-white/50 hover:text-white hover:bg-slate-600/50 ${isSelected ? 'bg-slate-600/30' : ''}`}
+      class={`flex-shrink-0 h-8 w-8 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-600/50 ${isSelected ? 'bg-slate-200/60 dark:bg-slate-600/30' : ''}`}
       onclick={() => goToDashboardView(item)}
       aria-label="Go to dashboard"
     >

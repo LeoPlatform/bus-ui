@@ -16,7 +16,7 @@
     let pageTitle = $derived(routeWithoutBase.split('/')[1] || 'Dashboard');
 </script>
 
-<header class="flex h-16 w-screen bg-slate-900/70 text-left">
+<header class="flex h-16 w-screen bg-slate-200/70 dark:bg-slate-900/70 text-left">
     <!-- Logo Section -->
     <div class="flex justify-between w-1/8 items-center">
         <div class="flex w-16 bg-black">
@@ -31,14 +31,14 @@
           </Button>
 
         </div>
-        <p class="text-white text-22 font-bold">{pageTitle.toUpperCase()}</p>
+        <p class="text-slate-900 dark:text-white text-22 font-bold">{pageTitle.toUpperCase()}</p>
     </div>
     <div class='grid w-full h-full justify-stretch items-center'>
         <!-- <p class='justify-self-end pr-4'>test</p> -->
         <DropdownMenu.Root>
             <DropdownMenu.Trigger>
                 
-                <Ellipsis color="white" class="justify-self-end pr-4 w-12"/>
+                <Ellipsis class="justify-self-end pr-4 w-12 text-slate-900 dark:text-white"/>
                 
             </DropdownMenu.Trigger>
             <DropdownMenu.Content class="w-56" align="end">
