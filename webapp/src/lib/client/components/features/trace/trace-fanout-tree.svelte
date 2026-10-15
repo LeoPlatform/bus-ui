@@ -427,8 +427,8 @@
         const defs = svg.append('defs');
         for (const [id, color] of [
             ['trace-arr', 'var(--muted-foreground)'],
-            ['trace-arr-green', '#00B315'],
-            ['trace-arr-red', '#FF1424'],
+            ['trace-arr-green', 'var(--trace-ok)'],
+            ['trace-arr-red', 'var(--trace-fail)'],
         ] as const) {
             defs.append('marker')
                 .attr('id', id)
@@ -447,8 +447,8 @@
 
         function linkProcessedColor(target: d3.HierarchyNode<GraphNode>): string {
             if (String(target.data.type ?? '').toLowerCase() === 'bot') {
-                if (target.data.has_processed === true) return '#00B315';
-                if (target.data.has_processed === false) return '#FF1424';
+                if (target.data.has_processed === true) return 'var(--trace-ok)';
+                if (target.data.has_processed === false) return 'var(--trace-fail)';
             }
             return strokeEdge;
         }

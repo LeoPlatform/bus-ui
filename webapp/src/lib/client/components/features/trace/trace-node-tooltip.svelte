@@ -59,9 +59,9 @@
         const ms = typeof lag === 'number' ? lag : Number(lag);
         if (isNaN(ms)) return '';
         const abs = Math.abs(ms);
-        if (abs < 30_000) return 'bg-green-500/15 text-[#00B315] ring-green-600/30';
+        if (abs < 30_000) return 'bg-green-500/15 text-(color:--trace-ok) ring-green-600/30';
         if (abs < 300_000) return 'bg-amber-500/15 text-amber-800 ring-amber-600/30';
-        return 'bg-red-500/15 text-[#FF1424] ring-red-600/30';
+        return 'bg-red-500/15 text-(color:--trace-fail) ring-red-600/30';
     }
 
     function nodeDetail(n: TraceNode): { label: string; data: unknown } | null {

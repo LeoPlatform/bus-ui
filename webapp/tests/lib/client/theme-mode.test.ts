@@ -225,6 +225,16 @@ describe('theme wiring guards', () => {
 		expect(appPcss).toMatch(/^\.dark\s*\{/m);
 	});
 
+	it.each(['--trace-ok', '--trace-fail', '--status-danger', '--lag-warning'])(
+		'app.pcss defines %s for both light and dark',
+		(token) => {
+			const light = appPcss.slice(appPcss.search(/^:root\s*\{/m), appPcss.search(/^\.dark\s*\{/m));
+			const dark = appPcss.slice(appPcss.search(/^\.dark\s*\{/m));
+			expect(light).toContain(`${token}:`);
+			expect(dark).toContain(`${token}:`);
+		}
+	);
+
 	it('app.pcss declares color-scheme for both modes', () => {
 		expect(appPcss).toMatch(/:root\s*\{[^}]*color-scheme:\s*light/);
 		expect(appPcss).toMatch(/\.dark\s*\{[^}]*color-scheme:\s*dark/);
