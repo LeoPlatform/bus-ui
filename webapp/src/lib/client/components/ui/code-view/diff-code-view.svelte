@@ -60,9 +60,9 @@
 {:else}
     <pre class="font-mono text-xs whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3 overflow-auto">{#each fallbackParts as part}<span
                 class={part.added
-                    ? "text-green-600 dark:text-green-400"
+                    ? "text-green-600"
                     : part.removed
-                      ? "text-red-600 dark:text-red-400"
+                      ? "text-red-600"
                       : "text-muted-foreground"}>{part.value}</span>{/each}</pre>
 {/if}
 

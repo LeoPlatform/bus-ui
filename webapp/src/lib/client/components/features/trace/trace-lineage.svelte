@@ -59,9 +59,9 @@
         const ms = typeof lag === 'number' ? lag : Number(lag);
         if (isNaN(ms)) return '';
         const abs = Math.abs(ms);
-        if (abs < 30_000) return 'bg-green-500/15 text-[#00B315] ring-green-600/30 dark:bg-green-500/20 dark:ring-green-400/30';
-        if (abs < 300_000) return 'bg-amber-500/15 text-amber-800 ring-amber-600/30 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-400/30';
-        return 'bg-red-500/15 text-[#FF1424] ring-red-600/30 dark:bg-red-500/20 dark:ring-red-400/30';
+        if (abs < 30_000) return 'bg-green-500/15 text-[#00B315] ring-green-600/30';
+        if (abs < 300_000) return 'bg-amber-500/15 text-amber-800 ring-amber-600/30';
+        return 'bg-red-500/15 text-[#FF1424] ring-red-600/30';
     }
 
     function nodeTitle(n: TraceNode): string {
@@ -426,7 +426,7 @@
                                                         <Tooltip.Root delayDuration={300}>
                                                         <Tooltip.Trigger
                                                             class="flex size-7 shrink-0 cursor-default items-center justify-center rounded-md border {notProcessed
-                                                                ? 'border-amber-400/60 bg-background text-amber-600 dark:text-amber-400'
+                                                                ? 'border-amber-400/60 bg-background text-amber-600'
                                                                 : 'bg-background text-muted-foreground'} shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                                             onclick={(e: MouseEvent) => e.stopPropagation()}
                                                         >
@@ -443,17 +443,17 @@
                                                         </Tooltip.Provider>
                                                         <span
                                                             class="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide {notProcessed
-                                                                ? 'bg-muted text-amber-600 dark:text-amber-400'
+                                                                ? 'bg-muted text-amber-600'
                                                                 : 'bg-muted text-muted-foreground'}"
                                                             >{String(n.type ?? '')}</span
                                                         >
                                                         <span class="min-w-0 font-medium leading-snug break-words">{nodeTitle(n)}</span>
                                                         {#if notProcessed}
-                                                            <span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-400/40 dark:text-amber-400"
+                                                            <span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-400/40"
                                                                 >Did not process</span
                                                             >
                                                         {:else if n.has_processed === true}
-                                                            <span class="text-xs text-green-600 dark:text-green-400">✓ processed</span>
+                                                            <span class="text-xs text-green-600">✓ processed</span>
                                                         {/if}
                                                         {#if n.lag !== undefined && n.lag !== '' && n.lag !== null}
                                                             <span class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 {lagPillClass(n.lag)}">{fmtLag(n.lag)}</span>
@@ -609,7 +609,7 @@
                     {/if}
                     {#if pn.has_processed !== undefined}
                         <dt class="text-muted-foreground">Processed</dt>
-                        <dd class="{pn.has_processed ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}">{pn.has_processed ? '✓ yes' : '✗ no'}</dd>
+                        <dd class="{pn.has_processed ? 'text-green-600' : 'text-amber-600'}">{pn.has_processed ? '✓ yes' : '✗ no'}</dd>
                     {/if}
                 </dl>
 
