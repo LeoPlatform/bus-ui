@@ -259,7 +259,7 @@
                             {#each writeBots as [, bot]}
                                 <Table.Row>
                                     <Table.Cell>
-                                        <a href="{base}/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
+                                        <a href="{base}/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-600 dark:text-blue-500 hover:underline text-base">
                                             <img src={botIcon} alt="" class="w-5 h-5 shrink-0" />
                                             <span class="truncate">{displayName(bot.label || bot.id)}</span>
                                         </a>
@@ -341,7 +341,7 @@
                             {#each readBots as [, bot]}
                                 <Table.Row>
                                     <Table.Cell>
-                                        <a href="{base}/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
+                                        <a href="{base}/dashboard/{bot.id}" class="flex items-center gap-2 text-blue-600 dark:text-blue-500 hover:underline text-base">
                                             <img src={botIcon} alt="" class="w-5 h-5 shrink-0" />
                                             <span class="truncate">{displayName(bot.label || bot.id)}</span>
                                         </a>
