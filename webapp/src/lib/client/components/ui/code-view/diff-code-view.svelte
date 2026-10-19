@@ -1,7 +1,7 @@
 <script lang="ts">
     import { browser } from "$app/environment";
     import { diffJson } from "diff";
-    import { getHighlighter } from "./highlighter";
+    import { getHighlighter, SHIKI_THEMES, tokenStyle } from "./highlighter";
     import type { ThemedToken } from "shiki";
 
     type DiffCodeViewProps = {
@@ -34,7 +34,8 @@
                 const kind = part.added ? "added" : part.removed ? "removed" : "unchanged";
                 const result = highlighter.codeToTokens(part.value, {
                     lang: "json",
-                    theme: "github-dark",
+                    themes: SHIKI_THEMES,
+                    defaultColor: false,
                 });
                 rendered.push({ kind, tokens: result.tokens });
             }
@@ -56,7 +57,7 @@
                             : part.kind === "removed"
                               ? "diff-removed"
                               : ""}
-                        style:color={token.color}>{token.content}</span>{/each}{/each}{/each}</pre>
+                        style={tokenStyle(token)}>{token.content}</span>{/each}{/each}{/each}</pre>
 {:else}
     <pre class="font-mono text-xs whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3 overflow-auto">{#each fallbackParts as part}<span
                 class={part.added
