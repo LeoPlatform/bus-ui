@@ -72,8 +72,8 @@
 
   const config = $derived({
     total: { label: chartLabel, color: "#3b82f6" },
-    previous: { label: "Previous Bucket", color: "#F47D4A" },
-    current: { label: "Current Bucket", color: "#88a550" },
+    previous: { label: "Previous Bucket", color: "var(--series-previous)" },
+    current: { label: "Current Bucket", color: "var(--series-current)" },
   } satisfies Chart.ChartConfig);
 
   const formatTime = (value: Date | number) =>
@@ -93,8 +93,8 @@
     yBaseline={chartYBaseline(showLogarithmic)}
     series={[
       { key: "total", label: chartLabel, color: "#3b82f6" },
-      { key: "previous", label: "Previous Bucket", color: "#F47D4A" },
-      { key: "current", label: "Current Bucket", color: "#88a550" },
+      { key: "previous", label: "Previous Bucket", color: "var(--series-previous)" },
+      { key: "current", label: "Current Bucket", color: "var(--series-current)" },
     ]}
     props={{
       area: { opacity: 0.5 },

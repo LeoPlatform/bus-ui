@@ -225,7 +225,7 @@ describe('theme wiring guards', () => {
 		expect(appPcss).toMatch(/^\.dark\s*\{/m);
 	});
 
-	it.each(['--trace-ok', '--trace-fail', '--status-danger', '--lag-warning'])(
+	it.each(['--trace-ok', '--trace-fail', '--status-danger', '--lag-warning', '--series-previous', '--series-current'])(
 		'app.pcss defines %s for both light and dark',
 		(token) => {
 			const light = appPcss.slice(appPcss.search(/^:root\s*\{/m), appPcss.search(/^\.dark\s*\{/m));
@@ -234,6 +234,14 @@ describe('theme wiring guards', () => {
 			expect(dark).toContain(`${token}:`);
 		}
 	);
+
+	it.each([1, 2, 3, 4, 5])('app.pcss keeps --chart-%i identical in both modes', (n) => {
+		const pick = (slice: string) => slice.match(new RegExp(`--chart-${n}:\\s*([^;]+);`))?.[1];
+		const light = appPcss.slice(appPcss.search(/^:root\s*\{/m), appPcss.search(/^\.dark\s*\{/m));
+		const dark = appPcss.slice(appPcss.search(/^\.dark\s*\{/m));
+		expect(pick(dark)).toBeDefined();
+		expect(pick(dark)).toBe(pick(light));
+	});
 
 	it('app.pcss declares color-scheme for both modes', () => {
 		expect(appPcss).toMatch(/:root\s*\{[^}]*color-scheme:\s*light/);

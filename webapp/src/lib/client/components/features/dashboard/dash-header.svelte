@@ -182,7 +182,7 @@
                 <Tooltip.Root>
                     <Tooltip.Trigger>
                         <a href={repoUrl} target="_blank" aria-label="View in Repo" class="flex items-center justify-center h-8 w-8 hover:bg-accent rounded-md">
-                            <img src={repoImagePath} class="w-6 h-6 object-contain dark:invert" alt="Repo" />
+                            <img src={repoImagePath} class="w-6 h-6 object-contain" alt="Repo" />
                         </a>
                     </Tooltip.Trigger>
                     <Tooltip.Content>
