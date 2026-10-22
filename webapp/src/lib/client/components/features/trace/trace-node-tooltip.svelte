@@ -59,9 +59,9 @@
         const ms = typeof lag === 'number' ? lag : Number(lag);
         if (isNaN(ms)) return '';
         const abs = Math.abs(ms);
-        if (abs < 30_000) return 'bg-green-500/15 text-[#00B315] ring-green-600/30 dark:bg-green-500/20 dark:ring-green-400/30';
-        if (abs < 300_000) return 'bg-amber-500/15 text-amber-800 ring-amber-600/30 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-400/30';
-        return 'bg-red-500/15 text-[#FF1424] ring-red-600/30 dark:bg-red-500/20 dark:ring-red-400/30';
+        if (abs < 30_000) return 'bg-green-500/15 text-(color:--trace-ok) ring-green-600/30';
+        if (abs < 300_000) return 'bg-amber-500/15 text-amber-800 ring-amber-600/30';
+        return 'bg-red-500/15 text-(color:--trace-fail) ring-red-600/30';
     }
 
     function nodeDetail(n: TraceNode): { label: string; data: unknown } | null {
@@ -88,9 +88,9 @@
         <span class="rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{nodeType(node)}</span>
     </div>
     {#if node.has_processed === false}
-        <div class="text-amber-600 dark:text-amber-400">✗ Did not process</div>
+        <div class="text-amber-600">✗ Did not process</div>
     {:else if node.has_processed === true}
-        <div class="text-green-600 dark:text-green-400">✓ Processed</div>
+        <div class="text-green-600">✓ Processed</div>
     {/if}
 
     <!-- Timestamp -->

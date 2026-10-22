@@ -132,7 +132,7 @@
                     <p class="text-sm text-destructive mt-2">{saveError}</p>
                 {/if}
                 {#if saveSuccess}
-                    <p class="text-sm text-green-500 mt-2">Schema saved.</p>
+                    <p class="text-sm text-green-600 dark:text-green-500 mt-2">Schema saved.</p>
                 {/if}
             {/if}
         </CardContent>

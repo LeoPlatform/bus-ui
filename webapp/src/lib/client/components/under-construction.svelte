@@ -47,7 +47,7 @@
 			<Card.Header class="pb-4">
 				<!-- Construction Icon -->
 				<div class="mx-auto mb-6 relative">
-					<div class="w-24 h-24 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+					<div class="w-24 h-24 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
 						<Construction size="70"/>
 					</div>
 					<!-- Animated dots -->

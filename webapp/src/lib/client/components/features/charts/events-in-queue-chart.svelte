@@ -57,12 +57,12 @@
         </div>
         <Separator />
         <div class="flex items-center justify-center gap-2 h-full">
-          <div class="text-lg text-[#F47D4A] font-bold">{eventsLastBucket.toLocaleString()}</div>
+          <div class="text-lg text-(color:--series-previous) font-bold">{eventsLastBucket.toLocaleString()}</div>
           <HelpTooltip helpText="The number of events in the last bucket." help={true} />
         </div>
         <Separator />
         <div class="flex items-center justify-center gap-2 h-full">
-          <div class="text-lg text-[#88a550] font-bold">{eventsInBucket.toLocaleString()}</div>
+          <div class="text-lg text-(color:--series-current) font-bold">{eventsInBucket.toLocaleString()}</div>
           <HelpTooltip helpText="The number of events in the current bucket." help={true} />
         </div>
       </div>

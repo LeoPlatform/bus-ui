@@ -538,7 +538,7 @@
     </div>
 
     {#if searchConfigured === false}
-        <p class="shrink-0 text-sm text-amber-700 dark:text-amber-400 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+        <p class="shrink-0 text-sm text-amber-700 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
             Event search is not configured. The server is missing required Leo Bus environment variables
             (<code class="font-mono">LEO_EVENT_TABLE</code>, <code class="font-mono">LEO_CRON_TABLE</code>, <code class="font-mono">LEO_S3</code>).
         </p>
@@ -736,7 +736,7 @@
                                             href={link.href}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="break-all font-mono text-[10px] text-blue-600 hover:underline dark:text-blue-400"
+                                            class="break-all font-mono text-[10px] text-blue-600 hover:underline"
                                         >{link.label}</a>
                                     </li>
                                 {/each}

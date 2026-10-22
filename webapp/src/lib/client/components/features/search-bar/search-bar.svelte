@@ -124,7 +124,7 @@
 <div class="relative w-full max-w-md min-w-0">
   <div class="relative">
     <!-- Search icon -->
-    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 z-10">
+    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-white/50 z-10">
       <Search class="h-5 w-5" />
     </div>
 
@@ -133,7 +133,7 @@
       bind:this={inputElement}
       placeholder="Search... (or just start typing)"
       class={cn(
-        'border-input bg-slate-700 placeholder:text-white/50 flex h-10 w-full rounded-md border text-white focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+        'border-input bg-white dark:bg-slate-700 placeholder:text-slate-500 dark:placeholder:text-white/50 flex h-10 w-full rounded-md border text-slate-900 dark:text-white focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
         'pl-10', // Left padding for search icon
         componentState.showClearButton ? 'pr-10' : 'pr-3', // Right padding for clear button
         className
@@ -148,7 +148,7 @@
       <Button
         variant="ghost"
         size="icon"
-        class="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-white/50 hover:text-white hover:bg-white/10 z-10"
+        class="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white hover:bg-slate-900/10 dark:hover:bg-white/10 z-10"
         aria-label="Clear search"
         onclick={componentState.clearSearch}
       >
@@ -162,14 +162,14 @@
     <div
       data-fuzzy-dropdown
       class={cn(
-        'absolute z-50 mt-1 min-w-full w-max max-w-2xl overflow-hidden rounded-md border border-slate-600 bg-slate-800 shadow-lg',
+        'absolute z-50 mt-1 min-w-full w-max max-w-2xl overflow-hidden rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg',
         'max-h-60 overflow-y-auto'
       )}
       role="listbox"
       aria-label="Search results"
     >
       {#if componentState.searchResults.length === 0}
-        <div class="p-3 text-sm text-white/50">
+        <div class="p-3 text-sm text-slate-500 dark:text-white/50">
           No results found
         </div>
       {:else}

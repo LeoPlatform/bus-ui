@@ -5,6 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.13 0.028 261.692);
@@ -33,16 +34,21 @@
   --chart-7: oklch(0.65 0.15 200);
   --chart-8: oklch(0.5 0.18 280);
   /* Botmon semantic: node/health status (old_ui baseline) */
-  --status-normal: oklch(0.65 0.18 145);
-  --status-danger: oklch(0.75 0.18 75);
+  --status-normal: oklch(0.6 0.17 145);
+  --status-danger: oklch(0.66 0.15 70);
   --status-error: oklch(0.6 0.22 25);
   --status-paused: oklch(0.55 0.02 264);
   --status-rogue: oklch(0.6 0.22 25);
   --status-archived: oklch(0.45 0.02 264);
   /* Botmon semantic: lag bands */
-  --lag-ok: oklch(0.65 0.18 145);
-  --lag-warning: oklch(0.75 0.18 75);
+  --lag-ok: oklch(0.6 0.17 145);
+  --lag-warning: oklch(0.66 0.15 70);
   --lag-critical: oklch(0.6 0.22 25);
+  /* Trace processed/failed text and edges; darker on light for 4.5:1 text contrast */
+  --series-previous: #c2410c;
+  --series-current: #5f7f33;
+  --trace-ok: #008a0e;
+  --trace-fail: #e00f1e;
   --sidebar: oklch(0.985 0.002 247.839);
   --sidebar-foreground: oklch(0.13 0.028 261.692);
   --sidebar-primary: oklch(0.21 0.034 264.665);
@@ -53,37 +59,8 @@
   --sidebar-ring: oklch(0.707 0.022 261.325);
 }
 
-/* Default: botmon dark theme (dark chrome nav, dark background, green/amber/red accents) */
-:root {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0.002 247.839);
-  --card: oklch(0.21 0.034 264.665);
-  --card-foreground: oklch(0.985 0.002 247.839);
-  --popover: oklch(0.21 0.034 264.665);
-  --popover-foreground: oklch(0.985 0.002 247.839);
-  --primary: oklch(0.928 0.006 264.531);
-  --primary-foreground: oklch(0.21 0.034 264.665);
-  --secondary: oklch(0.278 0.033 256.848);
-  --secondary-foreground: oklch(0.985 0.002 247.839);
-  --muted: oklch(0.278 0.033 256.848);
-  --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: oklch(0.278 0.033 256.848);
-  --accent-foreground: oklch(0.985 0.002 247.839);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --sidebar: oklch(0.21 0.034 264.665);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.278 0.033 256.848);
-  --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
-}
-
 .dark {
+  color-scheme: dark;
   --background: oklch(0.13 0.028 261.692);
   --foreground: oklch(0.985 0.002 247.839);
   --card: oklch(0.21 0.034 264.665);
@@ -102,11 +79,11 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
   --chart-6: oklch(0.55 0.2 250);
   --chart-7: oklch(0.65 0.15 200);
   --chart-8: oklch(0.5 0.18 280);
@@ -119,6 +96,10 @@
   --lag-ok: oklch(0.65 0.18 145);
   --lag-warning: oklch(0.75 0.18 75);
   --lag-critical: oklch(0.6 0.22 25);
+  --series-previous: #F47D4A;
+  --series-current: #88a550;
+  --trace-ok: #00b315;
+  --trace-fail: #ff1424;
   --sidebar: oklch(0.21 0.034 264.665);
   --sidebar-foreground: oklch(0.985 0.002 247.839);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -208,4 +189,11 @@
     scrollbar-width: thin;
     scrollbar-color: var(--muted) transparent;
   }
+}
+
+[style*="--shiki-light"] {
+  color: var(--shiki-light);
+}
+.dark [style*="--shiki-light"] {
+  color: var(--shiki-dark);
 }

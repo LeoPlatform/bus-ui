@@ -1,6 +1,31 @@
 import type { Preview } from '@storybook/svelte';
 
+import { applyResolvedTheme, type ResolvedTheme } from '../src/lib/client/theme-mode';
+
 const preview: Preview = {
+  globalTypes: {
+    theme: {
+      description: 'Color theme',
+      toolbar: {
+        title: 'Theme',
+        icon: 'circlehollow',
+        items: [
+          { value: 'dark', title: 'Dark' },
+          { value: 'light', title: 'Light' },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
+  initialGlobals: { theme: 'dark' },
+  decorators: [
+    (story, context) => {
+      if (typeof document !== 'undefined') {
+        applyResolvedTheme(document.documentElement, context.globals.theme as ResolvedTheme);
+      }
+      return story();
+    },
+  ],
   parameters: {
     controls: {
       matchers: {

@@ -111,7 +111,7 @@
                 <p class="text-sm text-destructive">{saveError}</p>
             {/if}
             {#if saveSuccess}
-                <p class="text-sm text-green-500">Settings saved.</p>
+                <p class="text-sm text-green-600 dark:text-green-500">Settings saved.</p>
             {/if}
         </CardContent>
         <CardFooter class="flex justify-end gap-2">
