@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TimePickerState } from '$lib/client/components/features/time-picker/time-picker.state.svelte';
 import { StatsRange } from '$lib/types';
 
@@ -106,6 +106,51 @@ describe('TimePickerState', () => {
       timePickerState.dateSelectorExpanded = true;
       timePickerState.submitDateChanges();
       expect(timePickerState.dateSelectorExpanded).toBe(false);
+    });
+  });
+
+  describe('switching range', () => {
+    const NOW = Date.parse('2026-10-22T15:20:30Z');
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(NOW);
+      timePickerState = new TimePickerState(mockFetch);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('returns to a live window when a shorter range follows a longer one', () => {
+      timePickerState.range = StatsRange.Hour6;
+      vi.setSystemTime(NOW + 30_000);
+      timePickerState.range = StatsRange.Minute15;
+
+      expect(timePickerState.endTime).toBeUndefined();
+      const now = NOW + 30_000;
+      expect(timePickerState.startTime).toBeLessThanOrEqual(now);
+      expect(timePickerState.startTime).toBeGreaterThan(now - 15 * 60_000);
+    });
+
+    it('keeps the window live across every range change', () => {
+      for (const range of [StatsRange.Day, StatsRange.Hour6, StatsRange.Hour, StatsRange.Minute15]) {
+        timePickerState.range = range;
+        expect(timePickerState.endTime).toBeUndefined();
+        expect(timePickerState.startTime).toBeGreaterThan(NOW - 24 * 3_600_000 - 1);
+        expect(timePickerState.startTime).toBeLessThanOrEqual(NOW);
+      }
+    });
+
+    it('keeps a past window anchored in the past when the range changes', () => {
+      const past = Date.parse('2026-10-20T09:00:00Z');
+      timePickerState.startTime = past;
+      expect(timePickerState.endTime).toBeDefined();
+
+      timePickerState.range = StatsRange.Hour;
+
+      expect(timePickerState.startTime).toBeLessThanOrEqual(past);
+      expect(timePickerState.endTime).toBeDefined();
     });
   });
 

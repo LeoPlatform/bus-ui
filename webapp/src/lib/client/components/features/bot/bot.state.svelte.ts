@@ -246,6 +246,10 @@ export class BotState {
         this.#fetchedStats.set(id, now);
       });
 
+      // A node with no activity in the window is absent from the response, so its old record would show the previous window's numbers.
+      const returnedIds = new Set(data.stats.map((s) => s.id));
+      this.#stats = this.#stats.filter((s) => !staleIds.has(s.id) || returnedIds.has(s.id));
+
       // Merge the data in
       this.mergeStatsIntoState(data.stats);
     }

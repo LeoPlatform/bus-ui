@@ -110,7 +110,10 @@ export class TimePickerState {
 
     set range(val: StatsRange) {
         this.#range = val;
-        // Update the time range when the range changes
+        // A live window has no endTime. Bucketing a shorter range from its old start would close it hours in the past.
+        if (this.#endTime === undefined) {
+            this.#startTime = Date.now();
+        }
         this.updateTimeRangeForSelectedRange();
 
         this.triggerTimeRangeChange();
