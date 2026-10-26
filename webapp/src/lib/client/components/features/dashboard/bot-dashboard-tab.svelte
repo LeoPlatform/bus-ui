@@ -278,7 +278,7 @@
                                 {@const parsed = parseQueueLabel(queue.label || queue.id)}
                                 <Table.Row>
                                     <Table.Cell class="font-medium">
-                                        <a href="{base}/dashboard/{queue.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
+                                        <a href="{base}/dashboard/{queue.id}" class="flex items-center gap-2 text-blue-600 dark:text-blue-500 hover:underline text-base">
                                             <img src={parsed.icon} alt="" class="w-5 h-5 shrink-0" />
                                             {parsed.name}
                                         </a>
@@ -349,7 +349,7 @@
                                 {@const parsed = parseQueueLabel(queue.label || queue.id)}
                                 <Table.Row>
                                     <Table.Cell class="font-medium">
-                                        <a href="{base}/dashboard/{queue.id}" class="flex items-center gap-2 text-blue-500 hover:underline text-base">
+                                        <a href="{base}/dashboard/{queue.id}" class="flex items-center gap-2 text-blue-600 dark:text-blue-500 hover:underline text-base">
                                             <img src={parsed.icon} alt="" class="w-5 h-5 shrink-0" />
                                             {parsed.name}
                                         </a>

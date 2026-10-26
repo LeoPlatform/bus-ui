@@ -4,6 +4,11 @@
   import Button from "$lib/client/components/ui/button/button.svelte";
   import * as DropdownMenu from "$lib/client/components/ui/dropdown-menu/";
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
+  import { getContext } from 'svelte';
+  import { parseThemePreference } from '$lib/client/theme-mode';
+  import type { ThemeModeState } from '$lib/client/theme-mode.state.svelte';
+
+  const themeMode = getContext<ThemeModeState>('themeMode');
 
  const currentRoute = $derived(page.url.pathname ? page.url.pathname : `${base}/`);
     // Strip base path prefix before extracting the page title
@@ -11,7 +16,7 @@
     let pageTitle = $derived(routeWithoutBase.split('/')[1] || 'Dashboard');
 </script>
 
-<header class="flex h-16 w-screen bg-slate-900/70 text-left">
+<header class="flex h-16 w-screen bg-slate-200/70 dark:bg-slate-900/70 text-left">
     <!-- Logo Section -->
     <div class="flex justify-between w-1/8 items-center">
         <div class="flex w-16 bg-black">
@@ -26,17 +31,29 @@
           </Button>
 
         </div>
-        <p class="text-white text-22 font-bold">{pageTitle.toUpperCase()}</p>
+        <p class="text-slate-900 dark:text-white text-22 font-bold">{pageTitle.toUpperCase()}</p>
     </div>
     <div class='grid w-full h-full justify-stretch items-center'>
         <!-- <p class='justify-self-end pr-4'>test</p> -->
         <DropdownMenu.Root>
             <DropdownMenu.Trigger>
                 
-                <Ellipsis color="white" class="justify-self-end pr-4 w-12"/>
+                <Ellipsis class="justify-self-end pr-4 w-12 text-slate-900 dark:text-white"/>
                 
             </DropdownMenu.Trigger>
             <DropdownMenu.Content class="w-56" align="end">
+                <DropdownMenu.Group>
+                    <DropdownMenu.Label>Theme</DropdownMenu.Label>
+                    <DropdownMenu.RadioGroup
+                        value={themeMode.preference}
+                        onValueChange={(value) => (themeMode.preference = parseThemePreference(value))}
+                    >
+                        <DropdownMenu.RadioItem value="system">System</DropdownMenu.RadioItem>
+                        <DropdownMenu.RadioItem value="light">Light</DropdownMenu.RadioItem>
+                        <DropdownMenu.RadioItem value="dark">Dark</DropdownMenu.RadioItem>
+                    </DropdownMenu.RadioGroup>
+                </DropdownMenu.Group>
+                <DropdownMenu.Separator />
                 <DropdownMenu.Item>
                     Timezone (TBD)
                 </DropdownMenu.Item>

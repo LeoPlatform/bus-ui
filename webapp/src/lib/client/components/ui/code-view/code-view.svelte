@@ -1,6 +1,6 @@
 <script lang="ts">
     import { browser } from "$app/environment";
-    import { getHighlighter } from "./highlighter";
+    import { getHighlighter, SHIKI_THEMES } from "./highlighter";
 
     type CodeViewProps = {
         code: string;
@@ -23,7 +23,8 @@
             if (cancelled) return;
             html = highlighter.codeToHtml(code, {
                 lang,
-                theme: "github-dark",
+                themes: SHIKI_THEMES,
+                defaultColor: false,
             });
         });
 

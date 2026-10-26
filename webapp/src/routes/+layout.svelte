@@ -4,6 +4,12 @@
   import TopHeader from '$lib/client/components/top-header.svelte';
 	import { base } from '$app/paths';
 	import '../app.pcss';
+	import { onMount, setContext } from 'svelte';
+	import { ThemeModeState } from '$lib/client/theme-mode.state.svelte';
+
+	const themeMode = new ThemeModeState();
+	setContext('themeMode', themeMode);
+	onMount(() => themeMode.init());
 
 	//TODO remove this when we actually are ready
 	const routes = [

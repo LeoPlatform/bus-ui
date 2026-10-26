@@ -120,12 +120,12 @@
                     </Tooltip.Root>
                 </Tooltip.Provider>
             {:else if isBlocked}
-                <Badge variant="outline" class="border-red-500/50 bg-red-500/15 text-red-400 text-xs font-semibold uppercase tracking-wider">
+                <Badge variant="outline" class="border-red-500/50 bg-red-500/15 text-red-600 dark:text-red-400 text-xs font-semibold uppercase tracking-wider">
                     Blocked
                 </Badge>
             {/if}
             {#if isPaused}
-                <Badge variant="outline" class="border-amber-500/50 bg-amber-500/15 text-amber-400 text-xs font-semibold uppercase tracking-wider">
+                <Badge variant="outline" class="border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs font-semibold uppercase tracking-wider">
                     Paused
                 </Badge>
             {/if}
@@ -137,7 +137,7 @@
                                 <TriangleAlert class="size-4 text-amber-500 shrink-0" />
                                 <div class="flex flex-col text-xs leading-tight">
                                     {#each Object.values(alarms) as alarm}
-                                        <span class="text-amber-400 font-medium">{alarm.msg}</span>
+                                        <span class="text-amber-700 dark:text-amber-400 font-medium">{alarm.msg}</span>
                                     {/each}
                                 </div>
                             </div>
@@ -182,7 +182,7 @@
                 <Tooltip.Root>
                     <Tooltip.Trigger>
                         <a href={repoUrl} target="_blank" aria-label="View in Repo" class="flex items-center justify-center h-8 w-8 hover:bg-accent rounded-md">
-                            <img src={repoImagePath} class="w-6 h-6 object-contain dark:invert" alt="Repo" />
+                            <img src={repoImagePath} class="w-6 h-6 object-contain" alt="Repo" />
                         </a>
                     </Tooltip.Trigger>
                     <Tooltip.Content>
@@ -204,7 +204,7 @@
             <div class="flex flex-row gap-2 mt-1 flex-wrap">
                 {#each Object.entries(tags) as [key, value]}
                     {#if key !== 'repo'}
-                        <Badge variant="secondary" class="bg-lime-600/20 text-lime-600 dark:bg-lime-500/20 dark:text-lime-400 hover:bg-lime-600/30 border-0">
+                        <Badge variant="secondary" class="bg-lime-600/20 text-lime-700 dark:text-lime-600 hover:bg-lime-600/30 border-0">
                             <Tag class="w-3 h-3 mr-1" />
                             {key}: {value}
                         </Badge>
