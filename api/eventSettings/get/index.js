@@ -33,7 +33,7 @@ function scan(callback) {
 		method: "scan"
 	}).then(function (data) {
 		callback(null, data.Items.map(fixQueue));
-	}).fail(callback).done();
+	}).catch(callback);
 }
 
 function get(id, callback) {

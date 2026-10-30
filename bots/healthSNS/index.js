@@ -5,7 +5,7 @@ require("moment-round");
 let stats = require("../../lib/stats.js");
 let leo = require("leo-sdk");
 let refutil = require("leo-sdk/lib/reference.js");
-let aws = require("aws-sdk");
+let { SNS } = require("@aws-sdk/client-sns");
 let dynamodb = leo.aws.dynamodb;
 let _ = require("lodash");
 let async = require("async");
@@ -251,14 +251,12 @@ function getLatest(callback) {
 function sendSNS(topic, message, subject) {
 	console.log(`Sending SNS to Topic:${topic}  Message:${message}`);
 	return new Promise((resolve, reject) => {
-		let sns = new aws.SNS({
-			params: {
-				TopicArn: topic,
-				Subject: subject
-			},
+		let sns = new SNS({
 			region: configure.aws.region
 		});
 		sns.publish({
+			TopicArn: topic,
+			Subject: subject,
 			Message: message
 		}, function (err, data) {
 			console.log(err, data);

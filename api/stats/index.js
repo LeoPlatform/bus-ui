@@ -57,10 +57,10 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
         let data = leo.aws.s3.getObject({
             Bucket: S3_BUCKET,
             Key: event.queryStringParameters.nextPart
-        }).promise().then((data) => {
-            console.log("s3_data => ", data);                
+        }).then(async (data) => {
+            console.log("s3_data => ", data);
             callback(undefined, {
-                body: data.Body.toString(),
+                body: await data.Body.transformToString(),
                 isBase64Encoded,
                 headers: responseHeaders,
                 statusCode: 200,
@@ -140,13 +140,13 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
                             // console.log(`after compression for just bots, response size = ${responseBody.length}`)
                             // respond with the bot data and send the queue data to S3
                             let queuePayload = zlib.gzipSync(JSON.stringify(queues)).toString('base64');
-                            work = leo.aws.s3.upload({
+                            work = leo.aws.s3.putObject({
                                 Bucket: S3_BUCKET,
                                 Key: s3Prefix,
                                 Body: queuePayload,
-                            }, (err) => {
-                                console.log("done uploading to s3", err);
-                            }).promise();
+                            }).then(() => {
+                                console.log("done uploading to s3");
+                            });
                         } else {
                             console.log("EVEN JUST THE BOTS IS TOO BIG");
                             work = Promise.reject("payload too big still");

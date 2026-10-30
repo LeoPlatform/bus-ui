@@ -1,7 +1,7 @@
 "use strict";
 let request = require("leo-auth");
 let leo = require("leo-sdk");
-let aws = require("aws-sdk");
+let { SNS } = require("@aws-sdk/client-sns");
 let async = require("async");
 let configure = leo.configuration;
 let dynamodb = leo.aws.dynamodb;
@@ -12,7 +12,7 @@ let handlers = {
     "POST": doPost,
     default: (e, c, callback)=>(callback("Unsupported"))
 };
-let sns = new aws.SNS({
+let sns = new SNS({
     region: configure.aws.region
 });
 

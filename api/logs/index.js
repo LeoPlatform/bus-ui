@@ -5,12 +5,12 @@ var dynamodb = leo.aws.dynamodb;
 var util = require("leo-sdk/lib/reference.js");
 
 var moment = require("moment");
-var aws = require('aws-sdk');
+var { CloudWatchLogs } = require("@aws-sdk/client-cloudwatch-logs");
 var async = require("async");
 
 let leoConfigRegion = require("leo-config").Resources.Region;
 
-var cloudwatchlogs = new aws.CloudWatchLogs({
+var cloudwatchlogs = new CloudWatchLogs({
 	region: leoConfigRegion
 });
 
@@ -24,7 +24,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 		lambda = matchParts[2];
 		var region = matchParts[1];
 		if (region !== leoConfigRegion) {
-			cloudwatchlogs = new aws.CloudWatchLogs({
+			cloudwatchlogs = new CloudWatchLogs({
 				region: region
 			});
 		}
@@ -68,7 +68,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 				filterPattern: pattern,
 				nextToken: nextToken
 			}, function(err, data) {
-				if (err && err.code === "ResourceNotFoundException") {
+				if (err && err.name === "ResourceNotFoundException") {
 					err = null;
 					data = { events: [] }
 				}

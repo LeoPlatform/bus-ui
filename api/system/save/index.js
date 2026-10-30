@@ -13,7 +13,7 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 	var ref = util.ref(event.params.path.id || event.body.id, "system");
 	var id = ref && ref.id;
 
-	request.authorize(event, {
+	await request.authorize(event, {
 		lrn: 'lrn:leo:botmon:::',
 		action: "saveSystem",
 		botmon: {}

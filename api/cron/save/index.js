@@ -184,7 +184,7 @@ function save(user, id, doc, callback) {
 
 				callback = (err, d) => {
 					var diffArray = diff(oldData, newData) || [];
-					var diffs = (diffArray).map(e => ({ [`${e.path.join(".")}`]: { old: e.lhs || (e.item && e.item.lhs) || '', new: e.rhs || (e.item && e.item.rhs) || '' } }));
+					var diffs = (diffArray).map(e => ({ [`${(e.path || []).join(".")}`]: { old: e.lhs || (e.item && e.item.lhs) || '', new: e.rhs || (e.item && e.item.rhs) || '' } }));
 					if (diffs.length !== 0) {
 						stream.write({
 							old: oldData,

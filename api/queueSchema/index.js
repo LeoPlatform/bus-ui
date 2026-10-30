@@ -18,10 +18,10 @@ exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, ca
 		let data = await leo.aws.s3.getObject({
 			Bucket: leo.configuration.resources.LeoS3,
 			Key: `files/bus_internal/queue_schemas/${queue}.json`
-		}).promise();
-		response = JSON.parse(data.Body.toString());
+		});
+		response = JSON.parse(await data.Body.transformToString());
 	} catch (err) {
-		if (err.code !== "NoSuchKey") {
+		if (err.name !== "NoSuchKey") {
 			error = new Error(`Unable to get schema for: ${queue}`);
 		}
 	}
