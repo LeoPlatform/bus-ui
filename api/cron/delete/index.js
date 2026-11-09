@@ -6,6 +6,9 @@ var util = require("leo-sdk/lib/reference.js");
 
 var CRON_TABLE = leo.configuration.resources.LeoCron;
 
+// Unused and broken: leo-sdk has no dynamodb.delete, and LeoCron ids carry no "bot:" prefix.
+// The UI archives bots through cron/save instead. Remove this endpoint in a future release.
+
 exports.handler = require("leo-sdk/wrappers/resource")(async (event, context, callback) => {
 	var id = util.botRefId(event.params && event.params.path && event.params.path.id);
 	await request.authorize(event, {
